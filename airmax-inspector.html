@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AIRMAX 제품 점검</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ══════════════════════════════════
+   CSS 변수 — 라이트 / 다크
+══════════════════════════════════ */
+:root {
+  --bg:        #f4f4f5;
+  --surface:   #ffffff;
+  --border:    #e0e0e0;
+  --border2:   #ebebeb;
+  --text:      #111111;
+  --text2:     #555555;
+  --text3:     #999999;
+  --text4:     #bbbbbb;
+  --input-bg:  #fafafa;
+  --tag-bg:    #f0f0f0;
+  --tag-border:#d8d8d8;
+  --btn-bg:    #111111;
+  --btn-text:  #ffffff;
+  --log-bg:    #fafafa;
+  --summary-bg:#ffffff;
+  --chip-def-border: #e0e0e0;
+  --chip-def-text:   #bbb;
+  --chip-def-count:  #ccc;
+  --overlay-bg: rgba(244,244,245,0.92);
+  --spinner-track: #ddd;
+  --spinner-head:  #555;
+  --bar-bg:    #e5e5e5;
+  --bar-fg:    #555;
+  --tooltip-bg:#ffffff;
+  --tooltip-border:#e0e0e0;
+  --tooltip-text:#333;
+}
+[data-theme="dark"] {
+  --bg:        #181818;
+  --surface:   #222222;
+  --border:    #333333;
+  --border2:   #2a2a2a;
+  --text:      #e8e8e8;
+  --text2:     #aaaaaa;
+  --text3:     #666666;
+  --text4:     #444444;
+  --input-bg:  #2a2a2a;
+  --tag-bg:    #2e2e2e;
+  --tag-border:#3a3a3a;
+  --btn-bg:    #e8e8e8;
+  --btn-text:  #111111;
+  --log-bg:    #1a1a1a;
+  --summary-bg:#1e1e1e;
+  --chip-def-border: #383838;
+  --chip-def-text:   #555;
+  --chip-def-count:  #444;
+  --overlay-bg: rgba(18,18,18,0.92);
+  --spinner-track: #333;
+  --spinner-head:  #aaa;
+  --bar-bg:    #2e2e2e;
+  --bar-fg:    #888;
+  --tooltip-bg:#2a2a2a;
+  --tooltip-border:#3a3a3a;
+  --tooltip-text:#ccc;
+}
+
+/* ── 상태 색상: 라이트 ── */
+:root {
+  /* OK */
+  --ok-bg: #e8f8e8; --ok-border: #52b852; --ok-text: #1e6e1e;
+  --ok-chip-bg: #e8f8e8; --ok-chip-border: #52b852; --ok-chip-text: #1e6e1e;
+  /* NO */
+  --no-bg: #f0f0f0; --no-border: #888888; --no-text: #333333;
+  --no-chip-bg: #f0f0f0; --no-chip-border: #888888; --no-chip-text: #333333;
+  /* EM */
+  --em-bg: #e0efff; --em-border: #2979d4; --em-text: #1450a0;
+  --em-chip-bg: #e0efff; --em-chip-border: #2979d4; --em-chip-text: #1450a0;
+  /* PM */
+  --pm-bg: #fde8e8; --pm-border: #d43232; --pm-text: #9a1010;
+  --pm-chip-bg: #fde8e8; --pm-chip-border: #d43232; --pm-chip-text: #9a1010;
+  /* ERR */
+  --err-bg: #fef8e0; --err-border: #c49a10; --err-text: #7a5c00;
+  --err-chip-bg: #fef8e0; --err-chip-border: #c49a10; --err-chip-text: #7a5c00;
+}
+
+/* ── 상태 색상: 다크 ── */
+[data-theme="dark"] {
+  /* OK */
+  --ok-bg: #0e2a0e; --ok-border: #3a9e3a; --ok-text: #6dd86d;
+  --ok-chip-bg: #0e2a0e; --ok-chip-border: #3a9e3a; --ok-chip-text: #6dd86d;
+  /* NO */
+  --no-bg: #2a2a2a; --no-border: #888888; --no-text: #cccccc;
+  --no-chip-bg: #2a2a2a; --no-chip-border: #888888; --no-chip-text: #cccccc;
+  /* EM */
+  --em-bg: #0c1e38; --em-border: #4a9de8; --em-text: #7dc4ff;
+  --em-chip-bg: #0c1e38; --em-chip-border: #4a9de8; --em-chip-text: #7dc4ff;
+  /* PM */
+  --pm-bg: #2e0c0c; --pm-border: #e84a4a; --pm-text: #ff8888;
+  --pm-chip-bg: #2e0c0c; --pm-chip-border: #e84a4a; --pm-chip-text: #ff8888;
+  /* ERR */
+  --err-bg: #2a1e00; --err-border: #d4a820; --err-text: #ffd060;
+  --err-chip-bg: #2a1e00; --err-chip-border: #d4a820; --err-chip-text: #ffd060;
+}
+
+/* ══════════════════════════════════
+   레이아웃
+══════════════════════════════════ */
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  min-height: 100vh;
+  padding-bottom: 80px;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* Header */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 32px 13px;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-left {}
+.header-top { display: flex; align-items: baseline; gap: 12px; }
+.logo { font-size: 28px; font-weight: bold; letter-spacing: 3px; color: var(--text);}
+.subtitle { font-size: 18px; font-weight: bold; color: var(--text2); }
+.date-info { font-size: 16px; font-weight: bold; color: var(--text3); margin-top: 4px;}
+
+/* 다크모드 토글 */
+.theme-toggle {
+  background: var(--input-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--text2);
+  cursor: pointer;
+  font-family: inherit;
+  display: flex; align-items: center; gap: 6px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.theme-toggle:hover { border-color: var(--text3); color: var(--text); }
+.theme-icon { font-size: 14px; }
+
+/* Controls */
+.controls {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 20px 32px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.section-label {
+  font-size: 14px; font-weight: bold; color: var(--text1);
+  letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px;
+}
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+label { font-size: 14px; font-weight : bold; color: var(--text1); min-width: 52px; }
+
+input[type=text] {
+  background: var(--input-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input[type=text]:focus {
+  border-color: var(--text3);
+  box-shadow: 0 0 0 3px rgba(128,128,128,0.1);
+}
+input[type=password] {
+  background: var(--input-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 13px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+input[type=password]:focus {
+  border-color: var(--text3);
+  box-shadow: 0 0 0 3px rgba(128,128,128,0.1);
+}
+.token-input { width: 400px; font-family: monospace; font-size: 11px; }
+.id-input { width: 88px; font-family: monospace; font-weight: 700; letter-spacing: 1px; }
+.extra-id-input { width: 240px; }
+.fixed-id {
+  background: var(--input-bg); border: 1.5px solid var(--border);
+  border-radius: 7px; color: var(--text3);
+  padding: 8px 12px; font-size: 13px; width: 88px;
+  font-family: monospace; font-weight: 700; text-align: center; letter-spacing: 1px;
+}
+.dash { color: var(--border); font-size: 18px; padding: 0 2px; }
+
+/* 추가 ID 태그 */
+.extra-ids-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; min-height: 30px; }
+.extra-id-tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--tag-bg); border: 1px solid var(--tag-border);
+  border-radius: 20px; padding: 3px 8px 3px 12px;
+  font-size: 12px; font-family: monospace; color: var(--text2);
+}
+.extra-id-tag button {
+  background: none; border: none; color: var(--text4); cursor: pointer;
+  font-size: 15px; line-height: 1; padding: 0; transition: color 0.1s;
+}
+.extra-id-tag button:hover { color: var(--pm-text); }
+
+/* 버튼들 */
+.btn-primary {
+  background: var(--btn-bg); color: var(--btn-text); border: none;
+  border-radius: 7px; padding: 9px 26px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: opacity 0.15s;
+}
+.btn-primary:hover:not(:disabled) { opacity: 0.8; }
+.btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.btn-add {
+  background: transparent; color: var(--text3);
+  border: 1.5px dashed var(--border);
+  border-radius: 7px; padding: 7px 14px; font-size: 12px;
+  cursor: pointer; font-family: inherit; transition: all 0.12s;
+}
+.btn-add:hover { border-color: var(--text3); color: var(--text2); }
+
+.btn-ghost {
+  background: transparent; color: var(--text3);
+  border: 1.5px solid var(--border); border-radius: 7px;
+  padding: 7px 14px; font-size: 12px; cursor: pointer; font-family: inherit;
+  transition: all 0.12s;
+}
+.btn-ghost:hover { color: var(--text2); border-color: var(--text3); }
+
+.btn-copy {
+  background: transparent; color: var(--text3);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 12px; font-size: 11px; cursor: pointer; font-family: inherit;
+  transition: all 0.12s;
+}
+.btn-copy:hover { color: var(--text); border-color: var(--text3); }
+
+.divider { border: none; border-top: 1px solid var(--border2); margin: 2px 0; }
+.error-msg { color: var(--pm-text); font-size: 12px; }
+
+/* 로딩 오버레이 */
+.loading-overlay {
+  display: none; position: fixed; inset: 0;
+  background: var(--overlay-bg);
+  z-index: 200; flex-direction: column;
+  align-items: center; justify-content: center; gap: 20px;
+}
+.loading-overlay.active { display: flex; }
+.spinner {
+  width: 44px; height: 44px;
+  border: 3px solid var(--spinner-track);
+  border-top-color: var(--spinner-head);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--text2); font-family: monospace; }
+.loading-bar-wrap {
+  width: 240px; height: 3px;
+  background: var(--bar-bg); border-radius: 2px; overflow: hidden;
+}
+.loading-bar {
+  height: 100%; background: var(--bar-fg); border-radius: 2px;
+  transition: width 0.2s ease; width: 0%;
+}
+
+/* 디버그 로그 */
+.debug-box {
+  margin: 10px 32px; padding: 10px 14px;
+  background: var(--log-bg); border: 1px solid var(--border); border-radius: 8px;
+  font-size: 11px; font-family: monospace;
+  max-height: 150px; overflow-y: auto; line-height: 1.9;
+}
+.log-err   { color: var(--pm-text); }
+.log-warn  { color: var(--text3); }
+.log-ok    { color: var(--ok-text); }
+.log-info  { color: var(--text3); }
+.log-muted { color: var(--text4); }
+
+/* Summary */
+.summary {
+  background: var(--summary-bg);
+  display: flex; gap: 8px;
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap; align-items: center;
+}
+.summary-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.chip {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 8px 16px; border-radius: 8px; border: 2px solid;
+  cursor: pointer; background: transparent; gap: 1px;
+  min-width: 60px; transition: all 0.12s; font-family: inherit;
+}
+.chip:hover { transform: translateY(-1px); }
+.chip-label { font-size: 10px; letter-spacing: 1px; font-weight: 600; }
+.chip-count { font-size: 20px; font-weight: 700; font-family: monospace; }
+
+/* View tabs */
+.view-tabs {
+  display: flex; border: 1.5px solid var(--border);
+  border-radius: 7px; overflow: hidden; background: var(--input-bg);
+}
+.view-tab {
+  padding: 6px 14px; font-size: 11px; cursor: pointer;
+  background: transparent; border: none; color: var(--text3);
+  font-family: inherit; transition: all 0.12s;
+}
+.view-tab.active { background: var(--surface); color: var(--text2); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.view-tab:hover:not(.active) { color: var(--text2); }
+
+/* Grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 8px; padding: 20px 32px;
+}
+
+/* 카드 */
+.card {
+  border-radius: 9px; border: 2px solid;
+  padding: 11px 8px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; cursor: default; position: relative;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.card:hover { transform: translateY(-2px); }
+
+.card-ok  { background: var(--ok-bg);  border-color: var(--ok-border); }
+.card-no  { background: var(--no-bg);  border-color: var(--no-border);  box-shadow: 0 2px 8px rgba(100,100,100,0.18); }
+.card-em  { background: var(--em-bg);  border-color: var(--em-border);  box-shadow: 0 2px 10px rgba(41,121,212,0.25); }
+.card-pm  { background: var(--pm-bg);  border-color: var(--pm-border);  box-shadow: 0 2px 10px rgba(212,50,50,0.25); }
+.card-err { background: var(--err-bg); border-color: var(--err-border); box-shadow: 0 2px 10px rgba(196,154,16,0.25); }
+.card-load{ background: var(--input-bg); border-color: var(--border); }
+
+.card-status { font-size: 11px; font-weight: 800; letter-spacing: 2px; font-family: monospace; }
+.card-id { font-size: 12px; font-weight: 700; color: var(--text2); font-family: monospace; }
+.card-meta { font-size: 10px; color: var(--text3); font-family: monospace; }
+.card-err-text { font-size: 9px; color: var(--err-text); text-align: center; word-break: break-all; }
+
+/* 툴팁 */
+.card:hover .tooltip { display: block; }
+.tooltip {
+  display: none; position: absolute;
+  bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: var(--tooltip-bg);
+  border: 1px solid var(--tooltip-border);
+  border-radius: 8px; padding: 9px 12px;
+  font-size: 11px; font-family: monospace;
+  white-space: nowrap; z-index: 50;
+  color: var(--tooltip-text); line-height: 1.8;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+}
+
+/* 리스트 뷰 */
+.list-toolbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 32px 0; flex-wrap: wrap;
+}
+.list-filter-sel {
+  background: var(--input-bg); border: 1.5px solid var(--border); border-radius: 6px;
+  color: var(--text2); padding: 6px 10px; font-size: 12px; outline: none;
+  font-family: inherit; cursor: pointer;
+}
+.list-view { padding: 14px 32px; }
+.list-header {
+  display: grid; grid-template-columns: 130px 70px 1fr;
+  padding: 8px 14px;
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text3); background: var(--input-bg);
+  border: 1.5px solid var(--border); border-radius: 8px 8px 0 0;
+}
+.list-body {
+  border: 1.5px solid var(--border); border-top: none;
+  border-radius: 0 0 8px 8px; overflow: hidden;
+  max-height: 520px; overflow-y: auto; background: var(--surface);
+}
+.list-row {
+  display: grid; grid-template-columns: 130px 70px 1fr;
+  padding: 8px 14px; font-size: 12px; font-family: monospace;
+  border-bottom: 1px solid var(--border2); align-items: center;
+  transition: background 0.08s;
+}
+.list-row:last-child { border-bottom: none; }
+.list-row:hover { background: var(--input-bg); }
+.list-id-cell { color: var(--text2); font-size: 13px; font-weight: 600; }
+.list-status-cell { font-weight: 800; font-size: 11px; letter-spacing: 1px; }
+.list-time-cell { color: var(--text3); font-size: 11px; }
+
+/* ── 모드 탭 ── */
+.mode-tabs {
+  display: flex; gap: 0;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: var(--input-bg);
+  width: fit-content;
+}
+.mode-tab {
+  padding: 7px 20px; font-size: 12px; font-weight: 500; cursor: pointer;
+  background: transparent; border: none; color: var(--text3);
+  font-family: inherit; transition: all 0.12s;
+}
+.mode-tab.active { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.mode-tab:hover:not(.active) { color: var(--text2); }
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
+  <div class="loading-text" id="loadingText">데이터 수집 중…</div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-top">
+      <span class="logo">AIRMAX</span>
+      <span class="subtitle">점검 대시보드</span>
+    </div>
+    <div class="date-info" id="dateInfo"></div>
+  </div>
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+    <span class="theme-icon" id="themeIcon">🌙</span>
+    <span id="themeLabel">다크 모드</span>
+  </button>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+
+  <!-- 토큰 -->
+  <div class="row">
+    <label>API 토큰</label>
+    <input type="text" class="token-input" id="tokenInput"
+      value="1|WrmwJU8n5mrF0oO0cYlPiGYR40N1txioHrpUXgSM0ab1084c"/>
+  </div>
+
+  <hr class="divider"/>
+
+  <!-- 검색 모드 탭 -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabRange"   onclick="switchMode('range')">범위 / 개별 검색</button>
+    <button class="mode-tab"        id="tabSingle"  onclick="switchMode('single')">단일 검색</button>
+  </div>
+
+  <!-- ── 범위/개별 모드 ── -->
+  <div id="panelRange">
+    <div class="section-label" style="margin-bottom:6px">범위 점검 (A001 ~ 끝 ID)</div>
+    <div class="row">
+      <label>시작 ID</label>
+      <div class="fixed-id">A001</div>
+      <span class="dash">—</span>
+      <label>끝 ID</label>
+      <input type="text" class="id-input" id="endIdInput" placeholder="A140" maxlength="4"/>
+    </div>
+
+    <hr class="divider" style="margin:12px 0"/>
+
+    <div class="section-label" style="margin-bottom:6px">개별 추가 ID
+      <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — Demo, DEMO01 등 특수 ID</span>
+    </div>
+    <div class="extra-ids-row" id="extraTagsRow"></div>
+    <div class="row" style="margin-top:8px">
+      <input type="text" class="extra-id-input" id="extraIdInput" placeholder="예: Demo, DEMO01  (쉼표 구분 가능)"/>
+      <button class="btn-add" onclick="addExtraId()">+ 추가</button>
+    </div>
+  </div>
+
+  <!-- ── 단일 검색 모드 ── -->
+  <div id="panelSingle" style="display:none">
+    <div class="section-label" style="margin-bottom:6px">단일 제품 ID 검색</div>
+    <div class="row">
+      <label>제품 ID</label>
+      <input type="text" class="id-input" id="singleIdInput" placeholder="A001" style="width:140px"/>
+    </div>
+  </div>
+
+  <hr class="divider"/>
+
+  <div class="row">
+    <button class="btn-primary" id="runBtn" onclick="startInspection()">점검 시작</button>
+    <button class="btn-ghost" id="logBtn" style="display:none" onclick="toggleLog()">로그 보기</button>
+  </div>
+  <div class="error-msg" id="errorMsg"></div>
+</div>
+
+<div class="debug-box" id="debugBox" style="display:none"></div>
+<div class="summary" id="summary" style="display:none"></div>
+
+<div class="list-toolbar" id="listToolbar" style="display:none">
+  <span style="font-size:11px;color:var(--text3)">필터</span>
+  <select class="list-filter-sel" id="listFilterSel" onchange="renderList()">
+    <option value="ALL">전체</option>
+    <option value="OK">OK</option>
+    <option value="NO">NO</option>
+    <option value="EM">EM</option>
+    <option value="PM">PM</option>
+    <option value="ERR">ERR</option>
+  </select>
+  <button class="btn-copy" onclick="copyListToClipboard()">📋 클립보드 복사</button>
+  <span id="copyMsg" style="font-size:11px;color:var(--ok-text);display:none">✓ 복사됨</span>
+</div>
+
+<div class="grid" id="grid"></div>
+<div class="list-view" id="listView" style="display:none">
+  <div class="list-header"><div>제품 ID</div><div>결과</div><div>수집 시간</div></div>
+  <div class="list-body" id="listBody"></div>
+</div>
+
+<script>
+const API      = 'https://api-airmax.testonic.co.kr/api/external/reports';
+const START_ID = 'A001';
+const LS_EXTRA = 'airmax_extra_ids';
+const LS_ENDID = 'airmax_end_id';
+const LS_THEME = 'airmax_theme';
+const LS_MODE  = 'airmax_mode';
+
+const STATUS = {
+  OK:   { label:'OK',  cls:'card-ok',   textVar:'--ok-text',  chipBgVar:'--ok-chip-bg',  chipBdVar:'--ok-chip-border',  chipTxVar:'--ok-chip-text'  },
+  NO:   { label:'NO',  cls:'card-no',   textVar:'--no-text',  chipBgVar:'--no-chip-bg',  chipBdVar:'--no-chip-border',  chipTxVar:'--no-chip-text'  },
+  EM:   { label:'EM',  cls:'card-em',   textVar:'--em-text',  chipBgVar:'--em-chip-bg',  chipBdVar:'--em-chip-border',  chipTxVar:'--em-chip-text'  },
+  PM:   { label:'PM',  cls:'card-pm',   textVar:'--pm-text',  chipBgVar:'--pm-chip-bg',  chipBdVar:'--pm-chip-border',  chipTxVar:'--pm-chip-text'  },
+  ERR:  { label:'ERR', cls:'card-err',  textVar:'--err-text', chipBgVar:'--err-chip-bg', chipBdVar:'--err-chip-border', chipTxVar:'--err-chip-text' },
+  LOAD: { label:'···', cls:'card-load', textVar:'--text4',    chipBgVar:'--input-bg',    chipBdVar:'--border',          chipTxVar:'--text4'         },
+};
+
+let results       = [];
+let currentFilter = 'ALL';
+let currentView   = 'grid';
+let currentMode   = 'range'; // 'range' | 'single'
+let logVisible    = false;
+let logs          = [];
+let extraIds      = [];
+
+/* ── localStorage ── */
+function lsGet(k,d){try{const v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch{return d;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ── 테마 ── */
+function toggleTheme(){
+  const html=document.documentElement;
+  const next=html.getAttribute('data-theme')==='dark'?'light':'dark';
+  html.setAttribute('data-theme',next);
+  lsSet(LS_THEME,next);
+  document.getElementById('themeIcon').textContent=next==='dark'?'☀️':'🌙';
+  document.getElementById('themeLabel').textContent=next==='dark'?'라이트 모드':'다크 모드';
+}
+
+/* ── 검색 모드 전환 ── */
+function switchMode(mode){
+  currentMode=mode;
+  lsSet(LS_MODE,mode);
+  document.getElementById('tabRange').classList.toggle('active',mode==='range');
+  document.getElementById('tabSingle').classList.toggle('active',mode==='single');
+  document.getElementById('panelRange').style.display=mode==='range'?'block':'none';
+  document.getElementById('panelSingle').style.display=mode==='single'?'block':'none';
+}
+
+/* ── 끝 ID 입력 제한 ── */
+function restrictEndIdInput(e){
+  const allowed=['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Enter'];
+  if(allowed.includes(e.key))return;
+  if(/^[a-zA-Z0-9]$/.test(e.key)){
+    if(e.target.value.length>=4){e.preventDefault();return;}
+    if(/^[a-z]$/.test(e.key)){
+      e.preventDefault();
+      const pos=e.target.selectionStart;
+      e.target.value=e.target.value.slice(0,pos)+e.key.toUpperCase()+e.target.value.slice(e.target.selectionEnd);
+      e.target.setSelectionRange(pos+1,pos+1);
+    }
+    return;
+  }
+  e.preventDefault();
+}
+
+/* ── 추가 ID ── */
+function addExtraId(){
+  const inp=document.getElementById('extraIdInput');
+  inp.value.trim().split(',').map(v=>v.trim()).filter(Boolean).forEach(v=>{
+    if(!extraIds.includes(v))extraIds.push(v);
+  });
+  inp.value='';
+  lsSet(LS_EXTRA,extraIds);
+  renderExtraTags();
+}
+function removeExtraId(id){
+  extraIds=extraIds.filter(v=>v!==id);
+  lsSet(LS_EXTRA,extraIds);
+  renderExtraTags();
+}
+function renderExtraTags(){
+  document.getElementById('extraTagsRow').innerHTML=extraIds.length===0
+    ?'<span style="color:var(--text4);font-size:12px">추가된 ID 없음</span>'
+    :extraIds.map(id=>`<span class="extra-id-tag">${escHtml(id)}<button onclick="removeExtraId('${escHtml(id)}')" title="삭제">×</button></span>`).join('');
+}
+
+/* ── 날짜 ── */
+function getDateRange(){
+  const now=new Date(),ago=new Date(now);
+  ago.setDate(ago.getDate()-2);
+  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return{started_at:fmt(ago),finished_at:fmt(now)};
+}
+
+/* ── ID 유틸 ── */
+function parseId(id){
+  const m=id.trim().toUpperCase().match(/^([A-Z]*)(\d+)$/);
+  if(!m)return null;
+  return{prefix:m[1],num:parseInt(m[2],10),padLen:m[2].length};
+}
+function formatId(prefix,num,padLen){return prefix+String(num).padStart(padLen,'0');}
+
+/* ── 시간 파싱 ── */
+function parseFormatTime(str){
+  if(!str)return null;
+  const d=new Date(str.replace(/\./g,'-').replace(' ','T'));
+  return isNaN(d.getTime())?null:d;
+}
+
+/* ── 분류 ── */
+function classify(item,nowMs){
+  if(!item)return'NO';
+  const d=parseFormatTime(item.format_created_time);
+  if(!d)return'NO';
+  if((nowMs-d.getTime())/3600000>=2)return'NO';
+  const{pm_2_5,pm_10,co2}=item;
+  if(pm_2_5===0&&pm_10===0&&co2===0)return'EM';
+  if(pm_2_5===0&&pm_10===0&&co2!==0)return'PM';
+  return'OK';
+}
+
+/* ── API ── */
+async function fetchReport(controllerId,dateRange,token){
+  const p=new URLSearchParams({controller_id:controllerId,started_at:dateRange.started_at,finished_at:dateRange.finished_at,per_page:'100'});
+  const res=await fetch(`${API}?${p}`,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}});
+  if(!res.ok){const body=await res.text().catch(()=>'');throw new Error(`HTTP ${res.status}: ${body.slice(0,80)}`);}
+  const json=await res.json();
+  const data=json.data;
+  if(!Array.isArray(data)||data.length===0)return null;
+  return data[0];
+}
+
+/* ── 로그 ── */
+function addLog(msg,type='muted'){
+  logs.push({t:new Date().toLocaleTimeString('ko-KR'),msg,type});
+  if(logVisible)renderLog();
+}
+function renderLog(){
+  const box=document.getElementById('debugBox');
+  box.innerHTML=logs.map(l=>`<div class="log-${l.type}">[${l.t}] ${escHtml(l.msg)}</div>`).join('');
+  box.scrollTop=box.scrollHeight;
+}
+function toggleLog(){
+  logVisible=!logVisible;
+  document.getElementById('debugBox').style.display=logVisible?'block':'none';
+  document.getElementById('logBtn').textContent=logVisible?'로그 닫기':'로그 보기';
+  if(logVisible)renderLog();
+}
+
+/* ── 로딩 ── */
+function setLoading(on,done=0,total=0){
+  document.getElementById('loadingOverlay').classList.toggle('active',on);
+  if(on){
+    document.getElementById('loadingBar').style.width=(total>0?Math.round(done/total*100):0)+'%';
+    document.getElementById('loadingText').textContent=total>0?`데이터 수집 중… ${done} / ${total}`:'데이터 수집 중…';
+  }
+}
+
+/* ── Summary ── */
+function renderSummary(){
+  const counts={};
+  results.forEach(r=>{counts[r.status]=(counts[r.status]||0)+1;});
+  const chipsHtml=['ALL','OK','NO','EM','PM','ERR'].map(s=>{
+    const isAll=s==='ALL';
+    const cfg=isAll?null:STATUS[s];
+    const cnt=isAll?results.length:(counts[s]||0);
+    const active=currentFilter===s;
+    let bg,bd,tx;
+    if(active){
+      bg=isAll?'var(--input-bg)':`var(${cfg.chipBgVar})`;
+      bd=isAll?'var(--text3)':`var(${cfg.chipBdVar})`;
+      tx=isAll?'var(--text2)':`var(${cfg.chipTxVar})`;
+    }else{bg='transparent';bd='var(--chip-def-border)';tx='var(--chip-def-text)';}
+    const label=isAll?'전체':cfg.label;
+    return`<button class="chip" onclick="setFilter('${s}')" style="border-color:${bd};background:${bg}">
+      <span class="chip-label" style="color:${tx}">${label}</span>
+      <span class="chip-count" style="color:${active?tx:'var(--chip-def-count)'};">${cnt}</span>
+    </button>`;
+  }).join('');
+  const viewHtml=`<div class="summary-right"><div class="view-tabs">
+    <button class="view-tab ${currentView==='grid'?'active':''}" onclick="switchView('grid')">그리드</button>
+    <button class="view-tab ${currentView==='list'?'active':''}" onclick="switchView('list')">리스트</button>
+  </div></div>`;
+  document.getElementById('summary').innerHTML=chipsHtml+viewHtml;
+}
+
+/* ── Grid ── */
+function renderGrid(){
+  const filtered=currentFilter==='ALL'?results:results.filter(r=>r.status===currentFilter);
+  document.getElementById('grid').innerHTML=filtered.map(r=>{
+    const cfg=STATUS[r.status]||STATUS.LOAD;
+    const tip=r.errMsg
+      ?escHtml(r.errMsg)
+      :r.item
+        ?`PM2.5: ${r.item.pm_2_5} / PM10: ${r.item.pm_10} / CO2: ${r.item.co2}<br>수집: ${escHtml(r.item.format_created_time)}`
+        :'데이터 없음';
+    return`<div class="card ${cfg.cls}">
+      <div class="card-status" style="color:var(${cfg.textVar})">${cfg.label}</div>
+      <div class="card-id">${escHtml(r.id)}</div>
+      ${r.item?`<div class="card-meta">${r.item.pm_2_5}/${r.item.pm_10}/${r.item.co2}</div>`:''}
+      ${r.status==='ERR'&&r.errMsg?`<div class="card-err-text">${escHtml(r.errMsg.slice(0,50))}</div>`:''}
+      <div class="tooltip">${tip}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ── List ── */
+function renderList(){
+  const sel=document.getElementById('listFilterSel').value;
+  const filtered=sel==='ALL'?results:results.filter(r=>r.status===sel);
+  document.getElementById('listBody').innerHTML=filtered.map(r=>{
+    const cfg=STATUS[r.status]||STATUS.LOAD;
+    const time=r.item?r.item.format_created_time:(r.errMsg?r.errMsg.slice(0,60):'—');
+    return`<div class="list-row">
+      <div class="list-id-cell">${escHtml(r.id)}</div>
+      <div class="list-status-cell" style="color:var(${cfg.textVar})">${cfg.label}</div>
+      <div class="list-time-cell">${escHtml(time||'—')}</div>
+    </div>`;
+  }).join('');
+}
+function copyListToClipboard(){
+  const sel=document.getElementById('listFilterSel').value;
+  const filtered=sel==='ALL'?results:results.filter(r=>r.status===sel);
+  navigator.clipboard.writeText(filtered.map(r=>`${r.id}\t${r.status}`).join('\n')).then(()=>{
+    const msg=document.getElementById('copyMsg');
+    msg.style.display='inline';
+    setTimeout(()=>{msg.style.display='none';},2000);
+  });
+}
+
+/* ── View switch ── */
+function switchView(v){
+  currentView=v;
+  document.getElementById('grid').style.display       =v==='grid'?'grid':'none';
+  document.getElementById('listView').style.display   =v==='list'?'block':'none';
+  document.getElementById('listToolbar').style.display=v==='list'?'flex':'none';
+  renderSummary();
+  if(v==='list')renderList();
+}
+function setFilter(f){currentFilter=f;renderSummary();renderGrid();}
+
+/* ── 공통 실행 ── */
+async function runInspection(allIds){
+  const token=document.getElementById('tokenInput').value.trim();
+  if(!token){document.getElementById('errorMsg').textContent='⚠ 토큰을 입력해주세요.';return;}
+
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('summary').style.display='none';
+  document.getElementById('grid').innerHTML='';
+  document.getElementById('listBody').innerHTML='';
+  currentFilter='ALL';currentView='grid';
+
+  const dateRange=getDateRange(),nowMs=Date.now(),total=allIds.length;
+  setLoading(true,0,total);
+  addLog(`총 ${total}개 전체 동시 요청 시작`,'info');
+  addLog(`기간: ${dateRange.started_at} ~ ${dateRange.finished_at}`,'muted');
+
+  const out=allIds.map(id=>({id,status:'LOAD',item:null,errMsg:''}));
+  let done=0;
+
+  // 전체 ID를 한번에 모두 동시 요청
+  await Promise.all(allIds.map(async(id,idx)=>{
+    try{
+      const item=await fetchReport(id,dateRange,token);
+      const status=classify(item,nowMs);
+      out[idx]={id,status,item,errMsg:''};
+      addLog(`[${id}] ${status}`+(item?` | ${item.format_created_time}`:'  | 데이터 없음'),status==='OK'?'ok':status==='ERR'?'err':'warn');
+    }catch(err){
+      out[idx]={id,status:'ERR',item:null,errMsg:err.message};
+      addLog(`[${id}] ERR → ${err.message}`,'err');
+    }
+    setLoading(true,++done,total);
+  }));
+
+  results=out;
+  setLoading(false);
+  document.getElementById('summary').style.display='flex';
+  document.getElementById('grid').style.display='grid';
+  document.getElementById('listView').style.display='none';
+  document.getElementById('listToolbar').style.display='none';
+  renderSummary();renderGrid();
+  addLog('✓ 점검 완료','ok');
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('logBtn').style.display='inline-block';
+  if(logVisible)renderLog();
+}
+
+/* ── 메인 진입 ── */
+async function startInspection(){
+  const errEl=document.getElementById('errorMsg');
+  errEl.textContent='';
+  logs=[];
+
+  if(currentMode==='single'){
+    // 단일 검색
+    const raw=document.getElementById('singleIdInput').value.trim();
+    if(!raw){errEl.textContent='⚠ 제품 ID를 입력해주세요.';return;}
+    await runInspection([raw]);
+    return;
+  }
+
+  // 범위 + 개별 검색
+  const endIdRaw=document.getElementById('endIdInput').value.trim();
+  let rangeIds=[];
+  if(endIdRaw){
+    const s=parseId(START_ID),e=parseId(endIdRaw);
+    if(!e){errEl.textContent='⚠ 끝 ID 형식이 잘못되었습니다. 예: A140';return;}
+    if(s.prefix!==e.prefix){errEl.textContent='⚠ 끝 ID 접두사가 A여야 합니다.';return;}
+    if(s.num>e.num){errEl.textContent='⚠ 끝 ID가 A001보다 작습니다.';return;}
+    const padLen=Math.max(s.padLen,e.padLen);
+    for(let n=s.num;n<=e.num;n++)rangeIds.push(formatId(s.prefix,n,padLen));
+    lsSet(LS_ENDID,endIdRaw);
+  }
+  const allIds=[...new Set([...rangeIds,...extraIds])];
+  if(allIds.length===0){errEl.textContent='⚠ 점검할 ID가 없습니다.';return;}
+  await runInspection(allIds);
+}
+
+/* ── 초기화 ── */
+(function init(){
+  const savedTheme=lsGet(LS_THEME,'light');
+  document.documentElement.setAttribute('data-theme',savedTheme);
+  document.getElementById('themeIcon').textContent=savedTheme==='dark'?'☀️':'🌙';
+  document.getElementById('themeLabel').textContent=savedTheme==='dark'?'라이트 모드':'다크 모드';
+
+  const dr=getDateRange();
+  document.getElementById('dateInfo').textContent=`조회 기간  ${dr.started_at} ~ ${dr.finished_at}`;
+
+  extraIds=lsGet(LS_EXTRA,[]);
+  const savedEnd=lsGet(LS_ENDID,'');
+  if(savedEnd)document.getElementById('endIdInput').value=savedEnd;
+  renderExtraTags();
+
+  const savedMode=lsGet(LS_MODE,'range');
+  switchMode(savedMode);
+
+  // 끝 ID 입력 제한
+  const endInp=document.getElementById('endIdInput');
+  endInp.addEventListener('keydown',e=>{if(e.key==='Enter'){startInspection();return;}restrictEndIdInput(e);});
+  endInp.addEventListener('paste',e=>{
+    e.preventDefault();
+    const cleaned=(e.clipboardData||window.clipboardData).getData('text').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4);
+    endInp.value=cleaned;
+  });
+
+  document.getElementById('extraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addExtraId();});
+  document.getElementById('singleIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});
+})();
+</script>
+</body>
+</html>
