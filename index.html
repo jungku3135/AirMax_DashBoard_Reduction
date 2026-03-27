@@ -129,8 +129,8 @@ body {
 .header-left {}
 .header-top { display: flex; align-items: baseline; gap: 12px; }
 .logo { font-size: 28px; font-weight: bold; letter-spacing: 3px; color: var(--text);}
-.subtitle { font-size: 18px; font-weight: bold; color: var(--text2); }
-.date-info { font-size: 16px; font-weight: bold; color: var(--text3); margin-top: 4px;}
+.subtitle { font-size: 16px; font-weight: bold; color: var(--text2); }
+.date-info { font-size: 14px; font-weight: bold; color: var(--text3); margin-top: 4px;}
 
 /* 다크모드 토글 */
 .theme-toggle {
@@ -420,6 +420,31 @@ input[type=password]:focus {
 }
 .mode-tab.active { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 .mode-tab:hover:not(.active) { color: var(--text2); }
+
+/* ── 영역 지정 점검 ── */
+.zone-grid {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 4px;
+}
+.zone-btn {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 8px 14px; border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--input-bg); color: var(--text2);
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.12s; gap: 2px;
+  min-width: 72px;
+}
+.zone-btn:hover { border-color: var(--text3); color: var(--text); }
+.zone-btn.selected {
+  border-color: var(--em-border);
+  background: var(--em-chip-bg);
+  color: var(--em-chip-text);
+}
+.zone-btn .zone-name { font-size: 13px; font-weight: 700; }
+.zone-btn .zone-range { font-size: 10px; opacity: 0.7; font-family: monospace; }
+.zone-select-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.zone-select-count { font-size: 11px; color: var(--text3); }
 </style>
 </head>
 <body>
@@ -451,8 +476,8 @@ input[type=password]:focus {
 
   <!-- 토큰 -->
   <div class="row">
-    <label>API 토큰</label>
-    <input type="text" class="token-input" id="tokenInput"
+    <label>API 토큰(해당 항목은 보안상 표시하지 않습니다.)</label>
+    <input type="hidden" class="token-input" id="tokenInput"
       value="1|WrmwJU8n5mrF0oO0cYlPiGYR40N1txioHrpUXgSM0ab1084c"/>
   </div>
 
@@ -462,6 +487,7 @@ input[type=password]:focus {
   <div class="mode-tabs">
     <button class="mode-tab active" id="tabRange"   onclick="switchMode('range')">범위 / 개별 검색</button>
     <button class="mode-tab"        id="tabSingle"  onclick="switchMode('single')">단일 검색</button>
+    <button class="mode-tab" id="tabZone" onclick="switchMode('zone')">영역 지정 점검</button>
   </div>
 
   <!-- ── 범위/개별 모드 ── -->
@@ -469,20 +495,20 @@ input[type=password]:focus {
     <div class="section-label" style="margin-bottom:6px">범위 점검 (A001 ~ 끝 ID)</div>
     <div class="row">
       <label>시작 ID</label>
-      <div class="fixed-id">A001</div>
+      <input type="text" class="id-input" id="startIdInput" placeholder="A000" maxlength="4" value="A001"/>
       <span class="dash">—</span>
       <label>끝 ID</label>
-      <input type="text" class="id-input" id="endIdInput" placeholder="A140" maxlength="4"/>
+      <input type="text" class="id-input" id="endIdInput" placeholder="A000" maxlength="4"/>
     </div>
 
     <hr class="divider" style="margin:12px 0"/>
 
     <div class="section-label" style="margin-bottom:6px">개별 추가 ID
-      <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — Demo, DEMO01 등 특수 ID</span>
+      <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — Demo, Lab0 등 특수 ID</span>
     </div>
     <div class="extra-ids-row" id="extraTagsRow"></div>
     <div class="row" style="margin-top:8px">
-      <input type="text" class="extra-id-input" id="extraIdInput" placeholder="예: Demo, DEMO01  (쉼표 구분 가능)"/>
+      <input type="text" class="extra-id-input" id="extraIdInput" placeholder="예: Demo, Lab0  (쉼표 구분 가능)"/>
       <button class="btn-add" onclick="addExtraId()">+ 추가</button>
     </div>
   </div>
@@ -493,6 +519,16 @@ input[type=password]:focus {
     <div class="row">
       <label>제품 ID</label>
       <input type="text" class="id-input" id="singleIdInput" placeholder="A001" style="width:140px"/>
+    </div>
+  </div>
+
+  <!-- ── 영역 지정 점검 모드 ── -->
+  <div id="panelZone" style="display:none">
+    <div class="section-label" style="margin-bottom:8px">영역 선택 <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)">— 복수 선택 가능</span></div>
+    <div class="zone-grid" id="zoneGrid"></div>
+    <div class="zone-select-row">
+      <span class="zone-select-count" id="zoneSelectCount">선택된 영역 없음</span>
+      <button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="clearZones()">선택 해제</button>
     </div>
   </div>
 
@@ -536,6 +572,78 @@ const LS_ENDID = 'airmax_end_id';
 const LS_THEME = 'airmax_theme';
 const LS_MODE  = 'airmax_mode';
 
+// ── 영역 정의: 이름, 시작번호, 끝번호 ──
+const ZONES = [
+  // prefix + start~end 연속 범위
+  { name: '시청역(1호선)',              ids: ['A001','A002','A003','A004','A005'] },
+  { name: '시청역(2호선)',              ids: ['A006','A007','A008'] },
+  { name: '종로5가역(1호선)',           ids: ['A009','A010','A011','A012'] },
+  { name: '종각역(1호선)',              ids: ['A013','A014','A015','A016','A017'] },
+  { name: '마포역(5호선)',              ids: ['A018','A019'] },
+  { name: '공덕역(5호선)',              ids: ['A020','A021','A022','A023'] },
+  { name: '공덕역(6호선)',              ids: ['A024','A025','A026','A027'] },
+  { name: '강동역(5호선)',              ids: ['A028','A029','A030','A031'] },
+  { name: '길동역(5호선)',              ids: ['A032'] },
+  { name: '석계역(6호선)',              ids: ['A033','A034','A035'] },
+  { name: '운양역(김포골드라인)',        ids: ['A036','A037'] },
+  { name: '고촌역(김포골드라인)',        ids: ['A038','A039','A139'] },
+  { name: '코엑스',                    ids: ['A040','A041'] },
+  { name: 'DDP',              ids: ['A042','A043','A044','A045','A046','A047','A048','A049'] },
+  { name: '서울대학교 반도체 연구소',   ids: ['A050'] },
+  { name: '영등포구청',                ids: ['A051','A052'] },
+  { name: '밀알 학교',                 ids: ['A053','A054','A055','A056'] },
+  { name: '송파구 보건소',             ids: ['A057'] },
+  { name: '송파구 구청',               ids: ['A058'] },
+  { name: '강동고등학교',              ids: ['A059','A060','A061'] },
+  { name: '장훈고등학교',              ids: ['A062','A063'] },
+  { name: '한양대 장례식장',           ids: ['A064'] },
+  { name: '서울대학교 병원',           ids: ['A065'] },
+  { name: '강남구 보건소',             ids: ['A066'] },
+  { name: '서울 예술의전당',           ids: ['A067','A068','A128','A129','A130','A131'] },
+  { name: '김포공항 체육 다목적 시설', ids: ['A069'] },
+  { name: '세브란스 병원',             ids: ['A070','A071'] },
+  { name: '파주 문산 도서관',          ids: ['A072','A073'] },
+  { name: '남강고등학교',              ids: ['A074','A075','A076','A077'] },
+  { name: '상명대학교 부속 여중',      ids: ['A078','A079','A080'] },
+  { name: '선덕중학교',                ids: ['A081','A082'] },
+  { name: '강남구청 개포1동주민센터',  ids: ['A083'] },
+  { name: '강남구청 개포4동주민센터',  ids: ['A084'] },
+  { name: '운수초등학교(광주)',         ids: ['A085','A086','A087','A088'] },
+  { name: '제주 삼성초등학교',         ids: ['A089'] },
+  { name: '용인시청',                  ids: ['A090'] },
+  { name: '세그루 패션 디자인 고등학교', ids: ['A091','A092','A093'] },
+  { name: '국립중앙박물관',            ids: ['A094','A095'] },
+  { name: '인천 백석고등학교',         ids: ['A096','A097'] },
+  { name: '한양대학교 사범대학 부속중학교', ids: ['A098'] },
+  { name: '제주서중학교',              ids: ['A099'] },
+  { name: '진천 서전중학교',           ids: ['A100'] },
+  { name: '서울 염광중학교',           ids: ['A101','A102'] },
+  { name: '성동구청',                  ids: ['A103'] },
+  { name: '전북 체육고등학교',         ids: ['A104','A105','A106','A107'] },
+  { name: '밀양 네이처에코리움',        ids: ['A108'] },
+  { name: '밀양 소각장',               ids: ['A109'] },
+  { name: '의령군의회',                ids: ['A110'] },
+  { name: '인천 만석동행정복지센터',   ids: ['A111'] },
+  { name: '인천 동구 보건소',          ids: ['A112'] },
+  { name: '정읍 호남중학교',           ids: ['A113'] },
+  { name: '서울 에너지공사',           ids: ['A114','A115'] },
+  { name: '서울 한양공업고등학교',     ids: ['A116','A117'] },
+  { name: '서울 동구여자중학교',       ids: ['A118','A119','A120'] },
+  { name: '영등포장애인복지관',        ids: ['A121'] },
+  { name: '제주 우당도서관',           ids: ['A122','A125'] },
+  { name: '제주 애월읍사무소',         ids: ['A123'] },
+  { name: 'RSP(국제공인시험기관)',     ids: ['A124'] },
+  { name: '고양도시관리공사',          ids: ['A126'] },
+  { name: '테크노파크 4동',            ids: ['A127'] },
+  { name: '서대문 뇌병변 장애인 비전센터', ids: ['A132'] },
+  { name: '대명소노그룹 클럽게이트 사옥', ids: ['A133','A134','A135','A136','A137'] },
+  { name: '금창동행정복지센터',        ids: ['A138'] },
+  { name: '화성동탄중앙도서관',        ids: ['A140','A141'] },
+  { name: '일도2동주민센터',           ids: ['A142'] },
+];
+
+let selectedZones = new Set(); // 선택된 영역 인덱스
+
 const STATUS = {
   OK:   { label:'OK',  cls:'card-ok',   textVar:'--ok-text',  chipBgVar:'--ok-chip-bg',  chipBdVar:'--ok-chip-border',  chipTxVar:'--ok-chip-text'  },
   NO:   { label:'NO',  cls:'card-no',   textVar:'--no-text',  chipBgVar:'--no-chip-bg',  chipBdVar:'--no-chip-border',  chipTxVar:'--no-chip-text'  },
@@ -577,6 +685,38 @@ function switchMode(mode){
   document.getElementById('tabSingle').classList.toggle('active',mode==='single');
   document.getElementById('panelRange').style.display=mode==='range'?'block':'none';
   document.getElementById('panelSingle').style.display=mode==='single'?'block':'none';
+  document.getElementById('panelZone').style.display = mode === 'zone' ? 'block' : 'none';
+  document.getElementById('tabZone').classList.toggle('active', mode === 'zone');
+  if (mode === 'zone') renderZoneGrid();
+}
+
+/* ── 영역 렌더 ── */
+function renderZoneGrid() {
+  document.getElementById('zoneGrid').innerHTML = ZONES.map((z, i) => {
+    const sel = selectedZones.has(i);
+    const rangeText = z.ids.length === 1
+      ? z.ids[0]
+      : `${z.ids[0]}~${z.ids[z.ids.length - 1]} (${z.ids.length}개)`;
+    return `<button class="zone-btn ${sel ? 'selected' : ''}" onclick="toggleZone(${i})">
+      <span class="zone-name">${z.name}</span>
+      <span class="zone-range">${rangeText}</span>
+    </button>`;
+  }).join('');
+  const cnt = selectedZones.size;
+  const total = [...selectedZones].reduce((s, i) => s + ZONES[i].ids.length, 0);
+  document.getElementById('zoneSelectCount').textContent =
+    cnt === 0 ? '선택된 영역 없음' : `${cnt}개 영역 / 총 ${total}개 제품 선택됨`;
+}
+
+function toggleZone(i) {
+  if (selectedZones.has(i)) selectedZones.delete(i);
+  else selectedZones.add(i);
+  renderZoneGrid();
+}
+
+function clearZones() {
+  selectedZones.clear();
+  renderZoneGrid();
 }
 
 /* ── 끝 ID 입력 제한 ── */
@@ -824,6 +964,14 @@ async function startInspection(){
   errEl.textContent='';
   logs=[];
 
+  if (currentMode === 'zone') {
+    if (selectedZones.size === 0) { errEl.textContent = '⚠ 영역을 하나 이상 선택해주세요.'; return; }
+    const zoneIds = [];
+    selectedZones.forEach(i => zoneIds.push(...ZONES[i].ids));
+    await runInspection([...new Set(zoneIds)]);
+    return;
+  }
+
   if(currentMode==='single'){
     // 단일 검색
     const raw=document.getElementById('singleIdInput').value.trim();
@@ -867,7 +1015,15 @@ async function startInspection(){
   const savedMode=lsGet(LS_MODE,'range');
   switchMode(savedMode);
 
-  // 끝 ID 입력 제한
+  // ID 입력 제한
+  const startInp=document.getElementById('startIdInput');
+  startInp.addEventListener('keydown',e=>{if(e.key==='Enter'){startInspection();return;}restrictEndIdInput(e);});
+  startInp.addEventListener('paste',e=>{
+    e.preventDefault();
+    const cleaned=(e.clipboardData||window.clipboardData).getData('text').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4);
+    startInp.value=cleaned;
+  });
+
   const endInp=document.getElementById('endIdInput');
   endInp.addEventListener('keydown',e=>{if(e.key==='Enter'){startInspection();return;}restrictEndIdInput(e);});
   endInp.addEventListener('paste',e=>{
