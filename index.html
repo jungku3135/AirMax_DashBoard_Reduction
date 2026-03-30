@@ -331,7 +331,6 @@ input[type=text]:focus, input[type=password]:focus {
   </div>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
     <span class="theme-icon" id="themeIcon">🌙</span>
-    <span id="themeLabel">다크 모드</span>
   </button>
 </div>
 
@@ -538,7 +537,6 @@ function toggleTheme(){
   const next=html.getAttribute('data-theme')==='dark'?'light':'dark';
   html.setAttribute('data-theme',next); lsSet(LS_THEME,next);
   document.getElementById('themeIcon').textContent=next==='dark'?'☀️':'🌙';
-  document.getElementById('themeLabel').textContent=next==='dark'?'라이트 모드':'다크 모드';
 }
 
 /* ── 검색 모드 전환 ── */
@@ -878,7 +876,6 @@ async function startInspection(){
   const savedTheme=lsGet(LS_THEME,'light');
   document.documentElement.setAttribute('data-theme',savedTheme);
   document.getElementById('themeIcon').textContent=savedTheme==='dark'?'☀️':'🌙';
-  document.getElementById('themeLabel').textContent=savedTheme==='dark'?'라이트 모드':'다크 모드';
 
   const dr=getDateRange();
   document.getElementById('dateInfo').textContent=`조회 기간  ${dr.started_at} ~ ${dr.finished_at}`;
