@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ipconfig /all)",
+      "Bash(powershell -Command \"Get-VpnConnection 2>/dev/null\")",
+      "Bash(powershell -Command \"Get-NetAdapter | Select-Object Name, InterfaceDescription, Status | Format-Table -AutoSize\")",
+      "Bash(powershell -Command 'Get-ItemProperty HKLM:\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\* | Where-Object { $_.DisplayName -match '\\\\''VPN|FortiClient|OpenVPN|WireGuard|Cisco|GlobalProtect|Pulse|Zscaler|NordVPN|ExpressVPN|SoftEther|Hamachi'\\\\'' } | Select-Object DisplayName, DisplayVersion | Format-Table -AutoSize')",
+      "Bash(powershell -Command 'Get-ItemProperty '\\\\''HKLM:\\\\SOFTWARE\\\\WOW6432Node\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\*'\\\\'' | Where-Object { $_.DisplayName -match '\\\\''VPN|FortiClient|OpenVPN|WireGuard|Cisco|GlobalProtect|Pulse|Zscaler|SoftEther|Hamachi|AnyConnect'\\\\'' } | Select-Object DisplayName, DisplayVersion | Format-Table -AutoSize')",
+      "Bash(powershell -Command 'Get-Process | Where-Object { $_.Name -match '\\\\''vpn|forticlient|openvpn|wireguard|cisco|pulse|zscaler|hamachi|softether'\\\\'' } | Select-Object Name, Id | Format-Table -AutoSize')",
+      "Bash(powershell -Command 'Get-ChildItem '\\\\''C:\\\\Program Files'\\\\'', '\\\\''C:\\\\Program Files \\(x86\\)'\\\\'' -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '\\\\''VPN|FortiClient|OpenVPN|WireGuard|Cisco|GlobalProtect|Pulse|Zscaler|Hamachi|SoftEther|AnyConnect'\\\\'' } | Select-Object FullName')",
+      "Bash(powershell -Command 'Get-Service | Where-Object { $_.DisplayName -match '\\\\''VPN|FortiClient|OpenVPN|WireGuard|Cisco|Pulse|Hamachi|SoftEther'\\\\'' -or $_.Name -match '\\\\''vpn|forti|openvpn|wireguard|cisco|pulse|hamachi|softether'\\\\'' } | Select-Object Name, DisplayName, Status | Format-Table -AutoSize')",
+      "Bash(powershell -Command \"netsh interface show interface\")",
+      "Bash(powershell -Command \"route print | Select-String '0.0.0.0'\")",
+      "Bash(powershell -Command \"Get-Command tailscale -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Read(//c/Program Files/**)",
+      "Bash(python server.py)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/index.html)",
+      "Bash(curl -v --max-time 3 \"http://localhost:8080/proxy/192.168.0.62/?action=stream\")",
+      "Read(//c/airmax-server/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\airmax-server"
+    ]
+  }
+}

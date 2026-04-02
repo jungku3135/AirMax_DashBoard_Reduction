@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"/c/Program Files/Tailscale/tailscale.exe\" ip)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" --max-time 5 \"http://localhost:8080/proxy/192.168.0.62/?action=snapshot\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' --max-time 3 'http://__TRACKED_VAR__:8080/?action=snapshot')",
+      "Bash(curl -s --max-time 3 \"http://192.168.0.62/printer/objects/query?print_stats\")",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s --max-time 3 \"http://192.168.0.77/printer/objects/query?print_stats\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' --max-time 3 http://__TRACKED_VAR__/)",
+      "Bash(curl -s --max-time 3 \"http://192.168.0.28/printer/objects/query?print_stats\")",
+      "Bash(curl -s --max-time 3 \"http://192.168.0.28/api/printer\")",
+      "Bash(curl -sv --max-time 3 \"http://192.168.0.28/\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://192.168.0.28__TRACKED_VAR__)",
+      "Bash(curl -s --max-time 3 \"http://192.168.0.28/\")",
+      "Bash(curl -s --max-time 5 \"http://192.168.0.28/static/js/app.b05d1c1a.js\")",
+      "Bash(grep -oE '\"\\(/[a-z/_-]+\\){2,}\"')",
+      "Bash(grep -oE '\"[/a-zA-Z_-]{4,}\"')",
+      "Bash(curl -s --max-time 5 \"http://192.168.0.28/static/js/chunk-2d0db81a.f53abaff.js\")",
+      "Bash(grep -oE \"\\\\\"\\(/[^\\\\\"]{3,40}\\)\\\\\"\")",
+      "Bash(python3 -c ':*)",
+      "Bash(curl -s --max-time 5 \"http://192.168.0.28/static/js/app.b05d1c1a.js\" -o /tmp/app.js)",
+      "Bash(powershell -Command ':*)",
+      "Bash(grep -oP '\\(?<=[\"\\\\x27]\\)/[a-zA-Z0-9/_-]{5,50}\\(?=[\"\\\\x27]\\)' /tmp/app.js)",
+      "Bash(grep -oE '\"[/][a-zA-Z0-9/_-]{4,50}\"' /tmp/app.js)",
+      "Bash(grep -o \".\\\\{0,50\\\\}pause.\\\\{0,50\\\\}\" /tmp/app.js)",
+      "Bash(grep -o \".\\\\{0,50\\\\}resume.\\\\{0,50\\\\}\" /tmp/app.js)",
+      "Bash(grep -o \".\\\\{0,80\\\\}[Ww]eb[Ss]ocket.\\\\{0,80\\\\}\" /tmp/app.js)",
+      "Bash(grep -o \".\\\\{0,60\\\\}ws://.\\\\{0,60\\\\}\" /tmp/app.js)",
+      "Bash(grep -o \".\\\\{0,60\\\\}socket\\\\.\\\\\\(connect\\\\|open\\\\|url\\\\\\).\\\\{0,60\\\\}\" /tmp/app.js)",
+      "Bash(python -c ':*)",
+      "Bash(grep -o \".\\\\{0,60\\\\}deviceState.\\\\{0,80\\\\}\" /tmp/app.js)",
+      "Bash(grep -o \".\\\\{0,50\\\\}printStatus.\\\\{0,80\\\\}\" /tmp/app.js)",
+      "Bash(grep -o \".\\\\{0,30\\\\}State.*[0-9]:.\\\\{0,30\\\\}\" /tmp/app.js)",
+      "Bash(powershell -Command \"Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force\" sleep 1 cd /c/airmax-server)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('state:',d.get\\('deviceState'\\), '| progress:',d.get\\('printProgress'\\), '| file:',str\\(d.get\\('printFileName',''\\)\\).split\\('/'\\)[-1]\\)\")",
+      "WebSearch",
+      "WebFetch(domain:support.claude.com)"
+    ]
+  }
+}
