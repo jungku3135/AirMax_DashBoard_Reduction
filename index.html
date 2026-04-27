@@ -90,18 +90,27 @@ body {
 }
 .pe-toolbar select { min-width:140px; }
 .pe-toolbar input[type=text] { flex:1; min-width:120px; }
-.pe-list { display:flex; flex-direction:column; gap:4px; max-height:260px; overflow-y:auto; margin-bottom:10px; }
+.pe-list { display:flex; flex-direction:column; gap:4px; max-height:300px; overflow-y:auto; margin-bottom:10px; }
+.pe-bulk-bar {
+  display:flex; align-items:center; gap:8px; padding:7px 10px; margin-bottom:6px;
+  background:var(--em-chip-bg); border:1.5px solid var(--em-border); border-radius:7px;
+}
 .pe-row {
-  display:grid; grid-template-columns:70px 1fr 1fr auto auto;
+  display:grid; grid-template-columns:70px 1fr 1fr auto;
   align-items:center; gap:6px;
   padding:5px 8px; background:var(--surface);
   border:1px solid var(--border); border-radius:6px; font-size:12px;
 }
 .pe-row .pe-id { font-weight:700; color:var(--text); }
-.pe-row .pe-zone { color:var(--text2); }
-.pe-row .pe-loc { color:var(--text3); }
-.pe-row input { background:var(--input-bg); border:1.5px solid var(--em-border); border-radius:5px;
-  color:var(--text); padding:3px 7px; font-size:12px; outline:none; font-family:inherit; width:100%; }
+.pe-row .pe-zone { color:var(--text2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pe-row .pe-loc { color:var(--text3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pe-row input, .pe-row select {
+  background:var(--input-bg); border:1.5px solid var(--border); border-radius:5px;
+  color:var(--text); padding:3px 7px; font-size:12px; outline:none; font-family:inherit; width:100%;
+  transition:border-color 0.15s;
+}
+.pe-row input:focus, .pe-row select:focus { border-color:var(--em-border); }
+.pe-row input.changed, .pe-row select.changed { border-color:var(--em-border); background:var(--em-chip-bg); }
 .pe-btn { background:none; border:1px solid var(--border); border-radius:5px; cursor:pointer;
   font-size:11px; padding:3px 8px; color:var(--text3); font-family:inherit; transition:all 0.12s; white-space:nowrap; }
 .pe-btn:hover { border-color:var(--text3); color:var(--text); }
@@ -694,7 +703,6 @@ function buildJson(obj) {
   </div>
   <!-- 관리자 액션 버튼 (인증 후 표시) -->
   <div class="admin-actions-row" id="adminActionsRow" style="display:none">
-    <button class="btn-admin-action" onclick="refreshSheetData()">🔄 시트 새로고침</button>
     <button class="btn-admin-action" onclick="toggleProductEditor()">📋 제품 편집</button>
   </div>
 
@@ -706,6 +714,12 @@ function buildJson(obj) {
         <option value="">전체 영역</option>
       </select>
       <input type="text" id="peSearch" placeholder="ID 또는 장소 검색…" oninput="renderProductEditor()"/>
+      <button class="pe-btn" id="peEditModeBtn" onclick="toggleEditMode()" style="white-space:nowrap">✏️ 전체 편집</button>
+    </div>
+    <div class="pe-bulk-bar" id="peBulkBar" style="display:none">
+      <span id="peBulkStatus" style="font-size:11px;color:var(--text3)">편집 모드 — 수정 후 일괄 저장</span>
+      <button class="pe-btn save" onclick="bulkSaveProducts()">💾 일괄 저장</button>
+      <button class="pe-btn" onclick="exitEditMode()">취소</button>
     </div>
     <div class="pe-list" id="peList"></div>
     <div class="pe-add-form">
@@ -780,6 +794,7 @@ function buildJson(obj) {
         <span>펼치기</span>
         <span class="zone-toggle-arrow" id="zoneArrow">▼</span>
       </button>
+      <button class="btn-zone-toggle" onclick="refreshSheetData()" title="시트에서 영역 목록 새로고침" style="padding:6px 10px">🔄 영역 새로고침</button>
     </div>
 
     <div class="zone-grid-wrap" id="zoneGridWrap">
@@ -859,7 +874,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.3</span>
+  <span class="footer-version">v1.1.4</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.04.27</span>
 </div>
@@ -885,6 +900,8 @@ let adminAuthenticated = false;
 let sheetZones      = [];   // [{name, ids[]}] — GAS 시트에서 로드
 let productLocations    = {};   // {id: loc} — GAS 시트에서 로드
 let productLocEditorOpen = false;
+let peEditMode = false;
+let peOriginals = {};
 
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
 let logVisible=false, logs=[], extraIds=[];
@@ -959,7 +976,7 @@ function updateRunBtnText(){
 
 function updateSheetBtn(){
   const btn=document.getElementById('saveSheetBtn');
-  btn.style.display=(adminAuthenticated && lastResults.length>0)?'inline-block':'none';
+  btn.style.display=(adminAuthenticated && currentMode==='range' && lastResults.length>0)?'inline-block':'none';
 }
 
 /* ===== GAS 저장 ===== */
@@ -1020,6 +1037,7 @@ async function loadSheetData(force=false){
         const msg=force?'시트 데이터 새로고침 완료'
           :(cached?'시트 데이터 갱신':'시트 데이터 로드');
         addLog(`${msg} — 영역 ${sheetZones.length}개, 설치 장소 ${Object.keys(json.locations||{}).length}건`,'ok');
+        if(force) alert(`영역 새로고침 완료\n\n영역 ${sheetZones.length}개, 설치 장소 ${Object.keys(json.locations||{}).length}건 로드됨`);
       }
     }catch(e){
       if(!cached) addLog('시트 데이터 로드 실패 (GAS 미설정 또는 오류): '+e.message,'warn');
@@ -1343,74 +1361,129 @@ function toggleNewZoneCustom(){
 function renderProductEditor(){
   const zoneFilter=document.getElementById('peZoneFilter').value;
   const q=document.getElementById('peSearch').value.trim().toLowerCase();
-  // 모든 제품 목록 생성
+  // 모든 제품 목록 생성 후 ID순 정렬
   const allProducts=[];
   sheetZones.forEach(z=>z.ids.forEach(id=>{
     allProducts.push({id, zone:z.name, loc:productLocations[id]||''});
   }));
+  allProducts.sort((a,b)=>a.id.localeCompare(b.id));
   // 필터
   const filtered=allProducts.filter(p=>{
     if(zoneFilter && p.zone!==zoneFilter) return false;
-    if(q && !p.id.toLowerCase().includes(q) && !p.loc.toLowerCase().includes(q)) return false;
+    if(q && !p.id.toLowerCase().includes(q) && !p.zone.toLowerCase().includes(q) && !p.loc.toLowerCase().includes(q)) return false;
     return true;
   });
   const el=document.getElementById('peList');
   if(!filtered.length){
-    el.innerHTML=`<div class="pe-empty">${sheetZones.length?'검색 결과 없음':'시트 데이터 없음 — GAS URL 확인 또는 🔄 새로고침'}</div>`;
+    el.innerHTML=`<div class="pe-empty">${sheetZones.length?'검색 결과 없음':'시트 데이터 없음 — GAS URL 확인 또는 영역 새로고침'}</div>`;
     return;
   }
-  el.innerHTML=filtered.map(p=>`
-    <div class="pe-row" id="pe-row-${escHtml(p.id)}">
-      <span class="pe-id">${escHtml(p.id)}</span>
-      <span class="pe-zone">${escHtml(p.zone)}</span>
-      <span class="pe-loc">${escHtml(p.loc)||'—'}</span>
-      <button class="pe-btn" onclick="startEditProduct('${escHtml(p.id)}','${escHtml(p.zone)}','${escHtml(p.loc)}')">수정</button>
-      <button class="pe-btn del" onclick="deleteProductFromSheet('${escHtml(p.id)}')">삭제</button>
-    </div>`).join('');
-}
+  // 원본 저장 (변경 감지용)
+  peOriginals={};
+  filtered.forEach(p=>{ peOriginals[p.id]={zone:p.zone, loc:p.loc}; });
 
-function startEditProduct(id, zone, loc){
-  const row=document.getElementById('pe-row-'+id);
-  if(!row) return;
   const zones=[...new Set(sheetZones.map(z=>z.name))];
-  row.innerHTML=`
-    <span class="pe-id">${escHtml(id)}</span>
-    <input id="pe-edit-zone-${escHtml(id)}" value="${escHtml(zone)}" list="pe-zone-list-${escHtml(id)}" style="font-size:12px"/>
-    <datalist id="pe-zone-list-${escHtml(id)}">${zones.map(z=>`<option value="${escHtml(z)}">`).join('')}</datalist>
-    <input id="pe-edit-loc-${escHtml(id)}" value="${escHtml(loc)}" placeholder="설치 장소" style="font-size:12px"/>
-    <button class="pe-btn save" onclick="saveEditProduct('${escHtml(id)}')">저장</button>
-    <button class="pe-btn" onclick="renderProductEditor()">취소</button>`;
+  const datalist=`<datalist id="pe-zone-dl">${zones.map(z=>`<option value="${escHtml(z)}">`).join('')}</datalist>`;
+
+  if(peEditMode){
+    el.innerHTML=datalist+filtered.map(p=>`
+      <div class="pe-row" id="pe-row-${escHtml(p.id)}">
+        <span class="pe-id">${escHtml(p.id)}</span>
+        <input id="pe-ez-${escHtml(p.id)}" value="${escHtml(p.zone)}" list="pe-zone-dl"
+          oninput="markChanged(this,'${escHtml(p.id)}')"/>
+        <input id="pe-el-${escHtml(p.id)}" value="${escHtml(p.loc)}" placeholder="설치 장소"
+          oninput="markChanged(this,'${escHtml(p.id)}')"/>
+        <button class="pe-btn del" onclick="deleteProductFromSheet('${escHtml(p.id)}')">삭제</button>
+      </div>`).join('');
+  } else {
+    el.innerHTML=filtered.map(p=>`
+      <div class="pe-row" id="pe-row-${escHtml(p.id)}">
+        <span class="pe-id">${escHtml(p.id)}</span>
+        <span class="pe-zone">${escHtml(p.zone)}</span>
+        <span class="pe-loc">${escHtml(p.loc)||'—'}</span>
+        <button class="pe-btn del" onclick="deleteProductFromSheet('${escHtml(p.id)}')">삭제</button>
+      </div>`).join('');
+  }
 }
 
-async function saveEditProduct(id){
+function markChanged(input, id){
+  const orig=peOriginals[id];
+  if(!orig) return;
+  const zEl=document.getElementById('pe-ez-'+id);
+  const lEl=document.getElementById('pe-el-'+id);
+  const changed=(zEl&&zEl.value.trim()!==orig.zone)||(lEl&&lEl.value.trim()!==orig.loc);
+  if(zEl) zEl.classList.toggle('changed', zEl.value.trim()!==orig.zone);
+  if(lEl) lEl.classList.toggle('changed', lEl.value.trim()!==orig.loc);
+  // 저장 버튼 상태 업데이트
+  const changedCount=Object.keys(peOriginals).filter(i=>{
+    const z=document.getElementById('pe-ez-'+i), l=document.getElementById('pe-el-'+i);
+    return (z&&z.value.trim()!==peOriginals[i].zone)||(l&&l.value.trim()!==peOriginals[i].loc);
+  }).length;
+  const statusEl=document.getElementById('peBulkStatus');
+  if(statusEl) statusEl.textContent=changedCount>0?`${changedCount}개 변경됨 — 일괄 저장으로 반영`:'편집 모드 — 수정 후 일괄 저장';
+}
+
+function toggleEditMode(){
+  peEditMode=!peEditMode;
+  document.getElementById('peEditModeBtn').textContent=peEditMode?'👁 보기 모드':'✏️ 전체 편집';
+  document.getElementById('peBulkBar').style.display=peEditMode?'flex':'none';
+  renderProductEditor();
+}
+
+function exitEditMode(){
+  peEditMode=false;
+  document.getElementById('peEditModeBtn').textContent='✏️ 전체 편집';
+  document.getElementById('peBulkBar').style.display='none';
+  renderProductEditor();
+}
+
+async function bulkSaveProducts(){
   if(!GAS_URL){ alert('GAS_URL이 설정되지 않았습니다.'); return; }
-  const zone=document.getElementById('pe-edit-zone-'+id).value.trim();
-  const loc=document.getElementById('pe-edit-loc-'+id).value.trim();
-  if(!zone){ alert('영역명을 입력해주세요.'); return; }
-  const btn=document.querySelector(`#pe-row-${id} .pe-btn.save`);
-  if(btn){ btn.disabled=true; btn.textContent='저장 중…'; }
+  // 변경된 항목만 수집
+  const changed=[];
+  Object.keys(peOriginals).forEach(id=>{
+    const zEl=document.getElementById('pe-ez-'+id);
+    const lEl=document.getElementById('pe-el-'+id);
+    if(!zEl) return;
+    const zone=zEl.value.trim(), loc=lEl?lEl.value.trim():'';
+    if(zone!==peOriginals[id].zone || loc!==peOriginals[id].loc){
+      if(!zone){ return; }
+      changed.push({id, zone, location:loc});
+    }
+  });
+  if(!changed.length){ alert('변경된 항목이 없습니다.'); return; }
+  const saveBtn=document.querySelector('#peBulkBar .pe-btn.save');
+  if(saveBtn){ saveBtn.disabled=true; saveBtn.textContent='저장 중…'; }
   try{
-    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({action:'updateProduct',id,zone,location:loc})});
-    const json=await res.json();
-    if(json.success){
-      // 로컬 캐시 업데이트
+    const results=await Promise.all(changed.map(item=>
+      fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({action:'updateProduct',...item})})
+        .then(r=>r.json())
+    ));
+    const ok=results.filter(r=>r.success).length;
+    const fail=results.filter(r=>!r.success);
+    // 로컬 캐시 업데이트
+    changed.forEach(({id,zone,location})=>{
+      const res=results[changed.findIndex(c=>c.id===id)];
+      if(!res||!res.success) return;
       sheetZones.forEach(z=>{ z.ids=z.ids.filter(i=>i!==id); });
       sheetZones=sheetZones.filter(z=>z.ids.length>0);
       let zoneObj=sheetZones.find(z=>z.name===zone);
       if(!zoneObj){ zoneObj={name:zone,ids:[]}; sheetZones.push(zoneObj); }
       if(!zoneObj.ids.includes(id)) zoneObj.ids.push(id);
-      if(loc) productLocations[id]=loc; else delete productLocations[id];
-      updateSheetCache();
-      refreshProductEditorDropdowns();
-      renderProductEditor();
-      addLog(`[${id}] 수정 완료`,'ok');
-    } else {
-      alert('수정 실패: '+(json.error||'오류'));
-      renderProductEditor();
-    }
-  }catch(e){ alert('오류: '+e.message); renderProductEditor(); }
+      if(location) productLocations[id]=location; else delete productLocations[id];
+    });
+    updateSheetCache();
+    refreshProductEditorDropdowns();
+    addLog(`일괄 저장 완료: ${ok}개 성공${fail.length?` / ${fail.length}개 실패`:''}`, 'ok');
+    alert(`일괄 저장 완료\n\n${ok}개 저장됨${fail.length?`\n실패 ${fail.length}개: ${fail.map((_,i)=>changed[i]?.id).join(', ')}`:``}`);
+    exitEditMode();
+  }catch(e){
+    alert('저장 중 오류: '+e.message);
+  }
+  if(saveBtn){ saveBtn.disabled=false; saveBtn.textContent='💾 일괄 저장'; }
 }
+
 
 async function deleteProductFromSheet(id){
   if(!confirm(`[${id}] 제품을 시트에서 삭제하시겠습니까?`)) return;
@@ -1429,6 +1502,7 @@ async function deleteProductFromSheet(id){
       refreshProductEditorDropdowns();
       renderProductEditor();
       addLog(`[${id}] 삭제 완료`,'ok');
+      alert(`[${id}] 삭제 완료`);
     } else {
       alert('삭제 실패: '+(json.error||'오류'));
       if(row) row.style.opacity='1';
@@ -1463,6 +1537,7 @@ async function addProductToSheet(){
       refreshProductEditorDropdowns();
       renderProductEditor();
       addLog(`[${id}] 추가 완료 (${zone})`,'ok');
+      alert(`[${id}] 추가 완료\n영역: ${zone}${loc?'\n설치 장소: '+loc:''}`);
     } else {
       alert('추가 실패: '+(json.error||'오류'));
     }
