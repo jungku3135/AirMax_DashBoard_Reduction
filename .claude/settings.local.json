@@ -16,7 +16,8 @@
       "Bash(python server.py)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/index.html)",
       "Bash(curl -v --max-time 3 \"http://localhost:8080/proxy/192.168.0.62/?action=stream\")",
-      "Read(//c/airmax-server/**)"
+      "Read(//c/airmax-server/**)",
+      "Bash(chmod +x /c/Users/ku/Documents/GitHub/AirMax_DashBoard_Reduction/.git/hooks/pre-commit)"
     ],
     "additionalDirectories": [
       "C:\\airmax-server"

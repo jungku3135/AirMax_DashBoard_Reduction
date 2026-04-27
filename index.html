@@ -76,7 +76,7 @@ body {
 .theme-toggle:hover { border-color:var(--text3); color:var(--text); }
 .theme-icon { font-size:14px; }
 
-.card-location { font-size:11px; color:var(--text3); font-weight:400; }
+.card-location { font-size:12px; color:var(--text2); font-weight:600; margin-top:1px; }
 
 /* 제품 설치 장소 편집 */
 .product-loc-section {
@@ -476,68 +476,112 @@ input[type=date] { cursor:pointer; }
  [배포 > 새 배포 > 웹앱] 으로 배포 후 URL을 아래 GAS_URL 변수에 입력하세요.
  액세스 권한: "모든 사용자"로 설정해야 합니다.
 
- 시트 구조 가정:
-   - 8행  : 날짜 헤더 (예: "04.27(일)") — D열부터 오른쪽으로 날짜 순
-   - B열  : 제품 ID (9행부터)
-   - C열  : 설치 장소 (9행부터, 참조용)
+ 시트 구조:
+   점검 결과 시트 (예: "26년 4월")
+     - 8행  : 날짜 헤더 (예: "04.27(일)") — D열부터 오른쪽으로 날짜 순
+     - B열  : 제품 ID (9행부터)
+
+   제품 리스트 시트 ("제품 리스트")
+     - 3행  : 헤더 (B=제품ID, C=영역명, E=설치장소)
+     - 4행~ : 데이터
 ================================================================================
 
-function doPost(e) {
-  var data = JSON.parse(e.postData.contents);
-
-  // 저장 요청 시각 기준으로 KST 날짜 산출
-  var savedDate = data.savedAt ? new Date(data.savedAt) : new Date();
-  var DAYS = ['일','월','화','수','목','금','토'];
-  var month = Utilities.formatDate(savedDate, 'Asia/Seoul', 'MM');
-  var day   = Utilities.formatDate(savedDate, 'Asia/Seoul', 'dd');
-  var kstYMD = Utilities.formatDate(savedDate, 'Asia/Seoul', 'yyyy-MM-dd').split('-');
-  var kstDate = new Date(parseInt(kstYMD[0]), parseInt(kstYMD[1]) - 1, parseInt(kstYMD[2]));
-  var todayStr = month + '.' + day + '(' + DAYS[kstDate.getDay()] + ')';  // 예: "04.27(일)"
-
-  // 시트명: "YYYY년 M월"
-  var sheetName = kstYMD[0] + '년 ' + parseInt(kstYMD[1]) + '월';
-  var ss    = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    return ContentService.createTextOutput(
-      JSON.stringify({ success: false, error: '시트 없음: ' + sheetName })
-    ).setMimeType(ContentService.MimeType.JSON);
-  }
-
-  // 8행에서 오늘 날짜와 일치하는 열 찾기
-  var lastCol    = sheet.getLastColumn();
-  var headerVals = sheet.getRange(8, 1, 1, lastCol).getValues()[0];
-  var targetCol  = -1;
-  for (var c = 0; c < headerVals.length; c++) {
-    if (String(headerVals[c]).trim() === todayStr) {
-      targetCol = c + 1;  // 1-based
-      break;
+// GET 요청 — 제품 리스트 시트에서 설치 장소 반환
+function doGet(e) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName('제품 리스트');
+    if (!sheet) {
+      return buildJson({ success: false, error: '제품 리스트 시트 없음' });
     }
+    var lastRow = sheet.getLastRow();
+    var locations = {};
+    if (lastRow >= 4) {
+      // B열(2)=제품ID, E열(5)=설치장소
+      var rows = sheet.getRange(4, 2, lastRow - 3, 4).getValues();
+      rows.forEach(function(row) {
+        var id  = String(row[0]).trim();
+        var loc = String(row[3]).trim();  // E열 = offset 3 from B
+        if (id && loc) locations[id] = loc;
+      });
+    }
+    return buildJson({ success: true, locations: locations });
+  } catch(err) {
+    return buildJson({ success: false, error: err.message });
   }
-  if (targetCol === -1) {
-    return ContentService.createTextOutput(
-      JSON.stringify({ success: false, error: '날짜 열 없음: ' + todayStr })
-    ).setMimeType(ContentService.MimeType.JSON);
-  }
+}
 
-  // B열에서 제품 ID 찾기 (9행부터)
-  var lastRow = sheet.getLastRow();
-  var idVals  = lastRow >= 9 ? sheet.getRange(9, 2, lastRow - 8, 1).getValues() : [];
+// POST 요청 — 점검 결과를 해당 월 시트에 기록
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
 
-  var updated = 0;
-  data.results.forEach(function(r) {
-    for (var i = 0; i < idVals.length; i++) {
-      if (String(idVals[i][0]).trim() === String(r.id).trim()) {
-        sheet.getRange(i + 9, targetCol).setValue(String(r.status).toUpperCase());
-        updated++;
+    // 저장 요청 시각 기준으로 KST 날짜 산출
+    var savedDate = data.savedAt ? new Date(data.savedAt) : new Date();
+    var DAYS = ['일','월','화','수','목','금','토'];
+    var month = Utilities.formatDate(savedDate, 'Asia/Seoul', 'MM');
+    var day   = Utilities.formatDate(savedDate, 'Asia/Seoul', 'dd');
+    var kstYMD = Utilities.formatDate(savedDate, 'Asia/Seoul', 'yyyy-MM-dd').split('-');
+    var kstDate = new Date(parseInt(kstYMD[0]), parseInt(kstYMD[1]) - 1, parseInt(kstYMD[2]));
+    var todayStr = month + '.' + day + '(' + DAYS[kstDate.getDay()] + ')';  // 예: "04.27(일)"
+
+    // 시트명: "YY년 M월"
+    var sheetName = (parseInt(kstYMD[0]) % 100) + '년 ' + parseInt(kstYMD[1]) + '월';
+    var ss    = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      return buildJson({ success: false, error: '시트 없음: ' + sheetName });
+    }
+
+    // 8행에서 오늘 날짜와 일치하는 열 찾기
+    var lastCol    = sheet.getLastColumn();
+    var headerVals = sheet.getRange(8, 1, 1, lastCol).getValues()[0];
+    var targetCol  = -1;
+    for (var c = 0; c < headerVals.length; c++) {
+      if (String(headerVals[c]).trim() === todayStr) {
+        targetCol = c + 1;  // 1-based
         break;
       }
     }
-  });
+    if (targetCol === -1) {
+      return buildJson({ success: false, error: '날짜 열 없음: ' + todayStr + ' (시트: ' + sheetName + ')' });
+    }
 
-  return ContentService.createTextOutput(
-    JSON.stringify({ success: true, updated: updated, sheet: sheetName, col: todayStr })
-  ).setMimeType(ContentService.MimeType.JSON);
+    // B열에서 제품 ID 찾기 (9행부터)
+    var lastRow = sheet.getLastRow();
+    var idVals  = lastRow >= 9 ? sheet.getRange(9, 2, lastRow - 8, 1).getValues() : [];
+
+    var updated = 0;
+    var notFound = [];
+    data.results.forEach(function(r) {
+      var found = false;
+      for (var i = 0; i < idVals.length; i++) {
+        if (String(idVals[i][0]).trim() === String(r.id).trim()) {
+          sheet.getRange(i + 9, targetCol).setValue(String(r.status).toUpperCase());
+          updated++;
+          found = true;
+          break;
+        }
+      }
+      if (!found) notFound.push(r.id);
+    });
+
+    return buildJson({
+      success: true,
+      updated: updated,
+      total: data.results.length,
+      notFound: notFound,
+      sheet: sheetName,
+      col: todayStr
+    });
+  } catch(err) {
+    return buildJson({ success: false, error: err.message });
+  }
+}
+
+function buildJson(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 ================================================================================
 -->
@@ -733,7 +777,7 @@ function doPost(e) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.0</span>
+  <span class="footer-version">v1.1.1</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.04.27</span>
 </div>
@@ -750,6 +794,16 @@ const LS_MODE  = 'airmax_mode';
 const LS_CZONES      = 'airmax_custom_zones';
 const LS_LOCATIONS   = 'airmax_zone_locations';
 const LS_PROD_LOCS   = 'airmax_product_locations';
+
+/* ===== 제품별 설치 장소 (소스 코드에 직접 입력 → 모든 환경 공유) =====
+   형식: 'ID': '설치 장소명'
+   예)  'A001': '시청역 대합실 입구'
+   ※ 관리자 UI로 추가한 항목은 해당 브라우저에만 저장됨.
+      모든 기기에서 보이게 하려면 아래에 직접 추가 후 커밋하세요.
+*/
+const PRODUCT_LOCATIONS = {
+  // 'A001': '설치 장소명',
+};
 
 /* ===== 영역 데이터 ===== */
 const BASE_ZONES = [
@@ -910,7 +964,8 @@ function updateRunBtnText(){
 
 function updateSheetBtn(){
   const btn=document.getElementById('saveSheetBtn');
-  btn.style.display=(adminAuthenticated && currentMode==='range' && lastResults.length>0)?'inline-block':'none';
+  const show=adminAuthenticated && (currentMode==='range'||currentMode==='zone') && lastResults.length>0;
+  btn.style.display=show?'inline-block':'none';
 }
 
 /* ===== GAS 저장 ===== */
@@ -923,16 +978,44 @@ async function saveToSheet(){
   const btn=document.getElementById('saveSheetBtn');
   btn.disabled=true; btn.textContent='저장 중…';
   try {
-    await fetch(GAS_URL,{
-      method:'POST', mode:'no-cors',
+    const res=await fetch(GAS_URL,{
+      method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({results:lastResults, savedAt:new Date().toISOString()})
     });
-    btn.textContent='✓ 저장 완료';
-    setTimeout(()=>{ btn.textContent='시트에 저장'; btn.disabled=false; },2500);
+    const json=await res.json();
+    if(json.success){
+      btn.textContent=`✓ ${json.updated}/${json.total}개 저장 완료`;
+      addLog(`시트 저장 완료 — ${json.sheet} [${json.col}] ${json.updated}/${json.total}건`,'ok');
+      if(json.notFound&&json.notFound.length) addLog('미등록 ID: '+json.notFound.join(', '),'warn');
+    } else {
+      btn.textContent='저장 실패';
+      addLog('시트 저장 실패: '+(json.error||'알 수 없는 오류'),'err');
+      alert('시트 저장 실패\n\n'+(json.error||'알 수 없는 오류'));
+    }
+    setTimeout(()=>{ btn.textContent='시트에 저장'; btn.disabled=false; },3000);
   } catch(e) {
-    alert('저장 중 오류가 발생했습니다: '+e.message);
+    addLog('시트 저장 오류: '+e.message,'err');
+    alert('저장 중 오류가 발생했습니다.\n\n'+e.message+'\n\nGAS URL 또는 배포 설정을 확인해주세요.');
     btn.textContent='시트에 저장'; btn.disabled=false;
+  }
+}
+
+/* ===== GAS 설치 장소 로드 ===== */
+async function loadGASLocations(){
+  if(!GAS_URL) return;
+  try{
+    const res=await fetch(GAS_URL);
+    const json=await res.json();
+    if(json.success && json.locations){
+      let added=0;
+      Object.entries(json.locations).forEach(([id,loc])=>{
+        if(!productLocations[id]){ productLocations[id]=loc; added++; }
+      });
+      if(added) addLog(`설치 장소 ${added}건 로드 완료 (제품 리스트 시트)`,'ok');
+    }
+  }catch(e){
+    // 장소 로드 실패는 조용히 무시
   }
 }
 
@@ -1243,7 +1326,7 @@ function renderGrid(){
   const filtered=currentFilter==='ALL'?results:results.filter(r=>r.status===currentFilter);
   document.getElementById('grid').innerHTML=filtered.map(r=>{
     const cfg=STATUS[r.status]||STATUS.LOAD;
-    const loc=productLocations[r.id]||'';
+    const loc=productLocations[r.id]||PRODUCT_LOCATIONS[r.id]||'';
     const tip=r.errMsg?escHtml(r.errMsg):r.item
       ?`PM10: ${r.item.pm_10}㎍/㎥ | PM2.5: ${r.item.pm_2_5}㎍/㎥ | CO2: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
       :'데이터 없음';
@@ -1389,7 +1472,7 @@ async function runInspection(allIds){
   addLog('✓ 점검 완료','ok');
   document.getElementById('runBtn').disabled=false;
   document.getElementById('logBtn').style.display='inline-block';
-  if(adminAuthenticated && currentMode==='range') updateSheetBtn();
+  if(adminAuthenticated) updateSheetBtn();
   if(logVisible)renderLog();
 }
 
@@ -1489,6 +1572,9 @@ async function startInspection(){
   // 단일 검색 날짜 변경 시 dateInfo 업데이트
   document.getElementById('singleStartDate').addEventListener('change',updateDateInfo);
   document.getElementById('singleEndDate').addEventListener('change',updateDateInfo);
+
+  // GAS에서 설치 장소 자동 로드
+  loadGASLocations();
 })();
 </script>
 </body>
