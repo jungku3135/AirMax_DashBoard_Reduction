@@ -794,7 +794,7 @@ function buildJson(obj) {
         <span>펼치기</span>
         <span class="zone-toggle-arrow" id="zoneArrow">▼</span>
       </button>
-      <button class="btn-zone-toggle" onclick="refreshSheetData()" title="시트에서 영역 목록 새로고침" style="padding:6px 10px">🔄 영역 새로고침</button>
+      <button class="btn-zone-toggle" id="zoneRefreshBtn" onclick="refreshSheetData()" title="시트에서 영역 목록 새로고침" style="padding:6px 10px">🔄 영역 새로고침</button>
     </div>
 
     <div class="zone-grid-wrap" id="zoneGridWrap">
@@ -874,7 +874,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.4</span>
+  <span class="footer-version">v1.1.5</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.04.27</span>
 </div>
@@ -1180,8 +1180,12 @@ function clearZones(){
 
 /* ===== 시트 데이터 강제 새로고침 (관리자) ===== */
 function refreshSheetData(){
+  const btn=document.getElementById('zoneRefreshBtn');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ 불러오는 중…'; }
   addLog('시트 데이터 새로고침 중…','muted');
-  loadSheetData(true);
+  loadSheetData(true).finally(()=>{
+    if(btn){ btn.disabled=false; btn.textContent='🔄 영역 새로고침'; }
+  });
 }
 
 
