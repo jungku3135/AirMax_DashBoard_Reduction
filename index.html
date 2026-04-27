@@ -76,6 +76,11 @@ body {
 .theme-toggle:hover { border-color:var(--text3); color:var(--text); }
 .theme-icon { font-size:14px; }
 
+.page-wrap {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
 .controls {
   background:var(--surface); border-bottom:1px solid var(--border);
   padding:20px 32px; display:flex; flex-direction:column; gap:14px;
@@ -537,6 +542,7 @@ function doPost(e) {
   </button>
 </div>
 
+<div class="page-wrap">
 <div class="controls">
   <!-- API 토큰 (숨김) -->
   <input type="hidden" id="tokenInput" value="1|WrmwJU8n5mrF0oO0cYlPiGYR40N1txioHrpUXgSM0ab1084c"/>
@@ -686,6 +692,7 @@ function doPost(e) {
   <div class="list-header"><div>제품 ID</div><div>결과</div><div>수집 시간</div></div>
   <div class="list-body" id="listBody"></div>
 </div>
+</div><!-- /page-wrap -->
 
 <!-- 모바일 고정 점검 시작 버튼 (영역 지정 모드) -->
 <div class="mobile-fixed-run" id="mobileFixedRun" style="display:none">
@@ -704,11 +711,8 @@ function doPost(e) {
 </div>
 
 <script>
-/* ===== 설정 =====
-   ADMIN_PASSWORD : 관리자 비밀번호 (변경 가능)
-   GAS_URL        : Google Apps Script 웹앱 배포 URL (배포 후 입력)
-*/
-const ADMIN_PASSWORD = 'airmax2024';
+/* ===== 설정 ===== */
+const ADMIN_PASSWORD = 'airmax87'; /* 관리자 비밀번호 */
 const GAS_URL        = 'https://script.google.com/macros/s/AKfycbwlcEh7wNrxgMFHJoWx_JY0aHLPVC7BR8R4soEKbNdBE9tytIYqtyAHgdzkxb_02K5lBQ/exec'; 
 const API      = 'https://api-airmax.testonic.co.kr/api/external/reports';
 const LS_EXTRA = 'airmax_extra_ids';
@@ -869,6 +873,15 @@ function updateRunBtnText(){
   mBtn.textContent=label;
 }
 
+function updateZoneRunBtn(){
+  const btn=document.getElementById('runBtn');
+  if(currentMode==='zone'){
+    btn.style.display=selectedZones.size>0?'inline-block':'none';
+  } else {
+    btn.style.display='inline-block';
+  }
+}
+
 function updateSheetBtn(){
   const btn=document.getElementById('saveSheetBtn');
   btn.style.display=(adminAuthenticated && currentMode==='range' && lastResults.length>0)?'inline-block':'none';
@@ -939,6 +952,7 @@ function switchMode(mode){
   updateMobileFixedBtn();
   updateRunBtnText();
   updateSheetBtn();
+  updateZoneRunBtn();
   updateDateInfo();
   // 단일 검색 결과 초기화
   if(mode!=='single'){
@@ -1027,11 +1041,13 @@ function toggleZone(i){
   if(selectedZones.has(i)) selectedZones.delete(i);
   else selectedZones.add(i);
   renderZoneGrid();
+  updateZoneRunBtn();
 }
 
 function clearZones(){
   selectedZones.clear();
   renderZoneGrid();
+  updateZoneRunBtn();
 }
 
 /* ===== 영역 편집 (관리자) ===== */
