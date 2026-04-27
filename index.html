@@ -80,6 +80,14 @@ body {
   max-width: 860px;
   margin: 0 auto;
 }
+.card-location { font-size:11px; color:var(--text3); font-weight:400; }
+
+/* 제품 설치 장소 편집 */
+.product-loc-section {
+  margin-top:10px; padding:14px; background:var(--input-bg);
+  border:1.5px solid var(--border); border-radius:8px;
+}
+.product-loc-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
 
 .controls {
   background:var(--surface); border-bottom:1px solid var(--border);
@@ -553,7 +561,19 @@ function doPost(e) {
     <input type="password" class="admin-pw-input" id="adminPwInput" placeholder="관리자 비밀번호 입력"/>
     <button class="btn-ghost" onclick="authenticateAdmin()">인증</button>
     <button class="btn-ghost" id="deauthBtn" style="display:none" onclick="deauthAdmin()">해제</button>
+    <button class="btn-ghost" id="productLocBtn" style="display:none" onclick="toggleProductLocEditor()">설치 장소 관리</button>
     <span class="admin-auth-badge" id="adminAuthBadge"></span>
+  </div>
+
+  <!-- 제품 설치 장소 편집 (관리자 전용) -->
+  <div class="product-loc-section" id="productLocSection" style="display:none">
+    <div class="section-label" style="font-size:12px;margin-bottom:8px">제품별 설치 장소</div>
+    <div class="row">
+      <input type="text" class="id-input" id="productLocId" placeholder="A001" style="width:100px"/>
+      <input type="text" id="productLocName" placeholder="설치 장소명" style="width:220px"/>
+      <button class="btn-add" onclick="addProductLocation()">+ 추가</button>
+    </div>
+    <div class="product-loc-list" id="productLocList"></div>
   </div>
 
   <hr class="divider"/>
@@ -649,6 +669,7 @@ function doPost(e) {
   </div>
   <div class="error-msg" id="errorMsg"></div>
 </div>
+</div><!-- /page-wrap -->
 
 <div class="debug-box" id="debugBox" style="display:none"></div>
 
@@ -692,7 +713,6 @@ function doPost(e) {
   <div class="list-header"><div>제품 ID</div><div>결과</div><div>수집 시간</div></div>
   <div class="list-body" id="listBody"></div>
 </div>
-</div><!-- /page-wrap -->
 
 <!-- 모바일 고정 점검 시작 버튼 (영역 지정 모드) -->
 <div class="mobile-fixed-run" id="mobileFixedRun" style="display:none">
@@ -719,8 +739,9 @@ const LS_EXTRA = 'airmax_extra_ids';
 const LS_ENDID = 'airmax_end_id';
 const LS_THEME = 'airmax_theme';
 const LS_MODE  = 'airmax_mode';
-const LS_CZONES    = 'airmax_custom_zones';
-const LS_LOCATIONS = 'airmax_zone_locations';
+const LS_CZONES      = 'airmax_custom_zones';
+const LS_LOCATIONS   = 'airmax_zone_locations';
+const LS_PROD_LOCS   = 'airmax_product_locations';
 
 /* ===== 영역 데이터 ===== */
 const BASE_ZONES = [
@@ -802,7 +823,9 @@ let zoneGridOpen    = false;
 let adminAuthenticated = false;
 let customZones     = [];   // { name, ids[] } — localStorage
 let zoneLocations   = {};   // { zoneName: location } — localStorage
-let zoneEditorOpen  = false;
+let zoneEditorOpen      = false;
+let productLocations    = {};   // { 'A001': '설치장소명', ... }
+let productLocEditorOpen = false;
 
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
 let logVisible=false, logs=[], extraIds=[];
@@ -844,6 +867,7 @@ function authenticateAdmin(){
     document.getElementById('adminPwInput').value='';
     document.getElementById('adminPwInput').disabled=true;
     document.getElementById('deauthBtn').style.display='inline-block';
+    document.getElementById('productLocBtn').style.display='inline-block';
     updateRunBtnText();
     document.getElementById('zoneEditBtn').style.display='inline-block';
   } else {
@@ -858,9 +882,11 @@ function deauthAdmin(){
   badge.className='admin-auth-badge';
   document.getElementById('adminPwInput').disabled=false;
   document.getElementById('deauthBtn').style.display='none';
+  document.getElementById('productLocBtn').style.display='none';
+  document.getElementById('productLocSection').style.display='none';
   document.getElementById('zoneEditBtn').style.display='none';
   document.getElementById('zoneEditorSection').style.display='none';
-  zoneEditorOpen=false;
+  zoneEditorOpen=false; productLocEditorOpen=false;
   updateRunBtnText();
   updateSheetBtn();
 }
@@ -1249,17 +1275,57 @@ function renderGrid(){
   const filtered=currentFilter==='ALL'?results:results.filter(r=>r.status===currentFilter);
   document.getElementById('grid').innerHTML=filtered.map(r=>{
     const cfg=STATUS[r.status]||STATUS.LOAD;
+    const loc=productLocations[r.id]||'';
     const tip=r.errMsg?escHtml(r.errMsg):r.item
       ?`PM10: ${r.item.pm_10}㎍/㎥ | PM2.5: ${r.item.pm_2_5}㎍/㎥ | CO2: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
       :'데이터 없음';
     return`<div class="card ${cfg.cls}">
       <div class="card-status" style="color:var(${cfg.textVar})">${cfg.label}</div>
       <div class="card-id">${escHtml(r.id)}</div>
+      ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
       ${r.item?`<div class="card-meta">${r.item.pm_10}㎍/㎥ | ${r.item.pm_2_5}㎍/㎥ | ${r.item.co2}ppm</div>`:''}
       ${r.status==='ERR'&&r.errMsg?`<div class="card-err-text">${escHtml(r.errMsg.slice(0,50))}</div>`:''}
       <div class="tooltip">${tip}</div>
     </div>`;
   }).join('');
+}
+
+/* ===== 제품 설치 장소 관리 ===== */
+function toggleProductLocEditor(){
+  productLocEditorOpen=!productLocEditorOpen;
+  document.getElementById('productLocSection').style.display=productLocEditorOpen?'block':'none';
+  if(productLocEditorOpen) renderProductLocList();
+}
+
+function addProductLocation(){
+  const id=document.getElementById('productLocId').value.trim().toUpperCase();
+  const loc=document.getElementById('productLocName').value.trim();
+  if(!id||!loc){ return; }
+  productLocations[id]=loc;
+  lsSet(LS_PROD_LOCS, productLocations);
+  document.getElementById('productLocId').value='';
+  document.getElementById('productLocName').value='';
+  renderProductLocList();
+}
+
+function removeProductLocation(id){
+  delete productLocations[id];
+  lsSet(LS_PROD_LOCS, productLocations);
+  renderProductLocList();
+}
+
+function renderProductLocList(){
+  const el=document.getElementById('productLocList');
+  const entries=Object.entries(productLocations);
+  if(!entries.length){
+    el.innerHTML='<span style="font-size:11px;color:var(--text4)">등록된 설치 장소 없음</span>';
+    return;
+  }
+  el.innerHTML=entries.sort((a,b)=>a[0].localeCompare(b[0])).map(([id,loc])=>
+    `<span class="custom-zone-tag"><b>${escHtml(id)}</b> ${escHtml(loc)}
+      <button onclick="removeProductLocation('${escHtml(id)}')" title="삭제">×</button>
+    </span>`
+  ).join('');
 }
 function renderList(){
   const sel=document.getElementById('listFilterSel').value;
@@ -1343,6 +1409,7 @@ async function runInspection(allIds){
   document.getElementById('grid').style.display='grid';
   document.getElementById('listView').style.display='none';
   document.getElementById('listToolbar').style.display='none';
+  document.getElementById('mobileFixedRun').style.display='none';
   renderSummary(); renderGrid();
   addLog('✓ 점검 완료','ok');
   document.getElementById('runBtn').disabled=false;
@@ -1412,6 +1479,7 @@ async function startInspection(){
 
   customZones=lsGet(LS_CZONES,[]);
   zoneLocations=lsGet(LS_LOCATIONS,{});
+  productLocations=lsGet(LS_PROD_LOCS,{});
 
   // 단일 검색 기본 날짜 (전일 ~ 금일)
   document.getElementById('singleStartDate').value=yesterdayStr();
@@ -1441,6 +1509,7 @@ async function startInspection(){
   document.getElementById('extraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addExtraId();});
   document.getElementById('singleIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});
   document.getElementById('adminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateAdmin();});
+  document.getElementById('productLocName').addEventListener('keydown',e=>{if(e.key==='Enter')addProductLocation();});
 
   // 단일 검색 날짜 변경 시 dateInfo 업데이트
   document.getElementById('singleStartDate').addEventListener('change',updateDateInfo);
