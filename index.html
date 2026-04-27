@@ -76,10 +76,6 @@ body {
 .theme-toggle:hover { border-color:var(--text3); color:var(--text); }
 .theme-icon { font-size:14px; }
 
-.page-wrap {
-  max-width: 860px;
-  margin: 0 auto;
-}
 .card-location { font-size:11px; color:var(--text3); font-weight:400; }
 
 /* 제품 설치 장소 편집 */
@@ -91,7 +87,7 @@ body {
 
 .controls {
   background:var(--surface); border-bottom:1px solid var(--border);
-  padding:20px 32px; display:flex; flex-direction:column; gap:14px;
+  padding:14px 24px; display:flex; flex-direction:column; gap:10px;
 }
 .section-label {
   font-size:14px; font-weight:bold; color:var(--text);
@@ -364,6 +360,13 @@ input[type=date] { cursor:pointer; }
 .zone-no-result { font-size:12px; color:var(--text4); padding:8px 0; }
 .zone-select-row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
 .zone-select-count { font-size:11px; color:var(--text3); }
+.btn-icon-sm {
+  background:transparent; border:1.5px solid var(--border); border-radius:7px;
+  padding:5px 10px; font-size:12px; color:var(--text3); cursor:pointer;
+  font-family:inherit; transition:all 0.12s; display:none; align-items:center; gap:4px;
+}
+.btn-icon-sm:hover { color:var(--text2); border-color:var(--text3); }
+.btn-icon-sm.visible { display:inline-flex; }
 
 /* 영역 편집 (관리자) */
 .zone-editor-section {
@@ -422,7 +425,7 @@ input[type=date] { cursor:pointer; }
 }
 .mobile-fixed-run .btn-primary { flex:1; padding:11px 0; font-size:14px; }
 @media (max-width:768px) {
-  .mobile-fixed-run { display:block; }
+  body.zone-active .mobile-fixed-run { display:block; }
   .controls { padding:16px 16px; }
   .header { padding:12px 16px 10px; }
   .grid { padding:14px 16px; }
@@ -550,7 +553,6 @@ function doPost(e) {
   </button>
 </div>
 
-<div class="page-wrap">
 <div class="controls">
   <!-- API 토큰 (숨김) -->
   <input type="hidden" id="tokenInput" value="1|WrmwJU8n5mrF0oO0cYlPiGYR40N1txioHrpUXgSM0ab1084c"/>
@@ -561,7 +563,6 @@ function doPost(e) {
     <input type="password" class="admin-pw-input" id="adminPwInput" placeholder="관리자 비밀번호 입력"/>
     <button class="btn-ghost" onclick="authenticateAdmin()">인증</button>
     <button class="btn-ghost" id="deauthBtn" style="display:none" onclick="deauthAdmin()">해제</button>
-    <button class="btn-ghost" id="productLocBtn" style="display:none" onclick="toggleProductLocEditor()">설치 장소 관리</button>
     <span class="admin-auth-badge" id="adminAuthBadge"></span>
   </div>
 
@@ -641,10 +642,11 @@ function doPost(e) {
     <div class="zone-select-row">
       <span class="zone-select-count" id="zoneSelectCount">선택된 영역 없음</span>
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="clearZones()">선택 해제</button>
-      <button class="btn-ghost" id="zoneEditBtn" style="font-size:11px;padding:5px 10px;display:none" onclick="toggleZoneEditor()">영역 관리</button>
+      <button class="btn-icon-sm" id="zoneAddBtn" onclick="toggleZoneEditor()" title="영역 추가/삭제">➕ 영역 추가</button>
+      <button class="btn-icon-sm" id="productLocBtnZone" onclick="toggleProductLocEditor()" title="설치 장소 관리">📍 설치 장소</button>
     </div>
 
-    <!-- 영역 편집 영역 (관리자 전용) -->
+    <!-- 영역 편집 (관리자 전용) -->
     <div class="zone-editor-section" id="zoneEditorSection" style="display:none">
       <div class="section-label" style="font-size:12px;margin-bottom:10px">영역 추가</div>
       <div class="row" style="margin-bottom:8px">
@@ -652,11 +654,8 @@ function doPost(e) {
         <input type="text" class="zone-ids-input" id="newZoneIds" placeholder="ID 목록 (쉼표 구분: A001,A002)"/>
         <button class="btn-add" onclick="addCustomZone()">+ 추가</button>
       </div>
+      <div class="section-label" style="font-size:11px;margin-top:8px;margin-bottom:6px;color:var(--text3)">추가된 영역 (삭제 가능)</div>
       <div id="customZoneList" class="custom-zone-list"></div>
-
-      <hr class="divider" style="margin:12px 0"/>
-      <div class="section-label" style="font-size:12px;margin-bottom:8px">설치 장소 편집</div>
-      <div class="location-editor-list" id="locationEditorList"></div>
     </div>
   </div>
 
@@ -669,7 +668,6 @@ function doPost(e) {
   </div>
   <div class="error-msg" id="errorMsg"></div>
 </div>
-</div><!-- /page-wrap -->
 
 <div class="debug-box" id="debugBox" style="display:none"></div>
 
@@ -867,9 +865,9 @@ function authenticateAdmin(){
     document.getElementById('adminPwInput').value='';
     document.getElementById('adminPwInput').disabled=true;
     document.getElementById('deauthBtn').style.display='inline-block';
-    document.getElementById('productLocBtn').style.display='inline-block';
     updateRunBtnText();
-    document.getElementById('zoneEditBtn').style.display='inline-block';
+    document.getElementById('zoneAddBtn').classList.add('visible');
+    document.getElementById('productLocBtnZone').classList.add('visible');
   } else {
     badge.textContent='✗ 비밀번호 오류'; badge.className='admin-auth-badge fail';
     setTimeout(()=>{badge.className='admin-auth-badge';},2500);
@@ -882,9 +880,9 @@ function deauthAdmin(){
   badge.className='admin-auth-badge';
   document.getElementById('adminPwInput').disabled=false;
   document.getElementById('deauthBtn').style.display='none';
-  document.getElementById('productLocBtn').style.display='none';
+  document.getElementById('zoneAddBtn').classList.remove('visible');
+  document.getElementById('productLocBtnZone').classList.remove('visible');
   document.getElementById('productLocSection').style.display='none';
-  document.getElementById('zoneEditBtn').style.display='none';
   document.getElementById('zoneEditorSection').style.display='none';
   zoneEditorOpen=false; productLocEditorOpen=false;
   updateRunBtnText();
@@ -899,14 +897,6 @@ function updateRunBtnText(){
   mBtn.textContent=label;
 }
 
-function updateZoneRunBtn(){
-  const btn=document.getElementById('runBtn');
-  if(currentMode==='zone'){
-    btn.style.display=selectedZones.size>0?'inline-block':'none';
-  } else {
-    btn.style.display='inline-block';
-  }
-}
 
 function updateSheetBtn(){
   const btn=document.getElementById('saveSheetBtn');
@@ -978,7 +968,6 @@ function switchMode(mode){
   updateMobileFixedBtn();
   updateRunBtnText();
   updateSheetBtn();
-  updateZoneRunBtn();
   updateDateInfo();
   // 단일 검색 결과 초기화
   if(mode!=='single'){
@@ -995,8 +984,7 @@ function switchMode(mode){
 
 /* ===== 모바일 고정 버튼 ===== */
 function updateMobileFixedBtn(){
-  const wrap=document.getElementById('mobileFixedRun');
-  wrap.style.display=(currentMode==='zone')?'block':'none';
+  document.body.classList.toggle('zone-active', currentMode==='zone');
   updateMobileZoneInfo();
 }
 
@@ -1040,12 +1028,9 @@ function renderZoneGrid(){
     const sel=selectedZones.has(i);
     const rangeText=z.ids.length===1?z.ids[0]:`${z.ids[0]}~${z.ids[z.ids.length-1]} (${z.ids.length}개)`;
     const hidden=q&&!z.name.toLowerCase().includes(q)?'hidden':'';
-    const loc=zoneLocations[z.name]||'';
-    const locHtml=loc?`<span class="zone-location">${escHtml(loc)}</span>`:'';
     return`<button class="zone-btn ${sel?'selected':''} ${hidden}" onclick="toggleZone(${i})">
       <span class="zone-name">${escHtml(z.name)}</span>
       <span class="zone-range">${rangeText}</span>
-      ${locHtml}
     </button>`;
   }).join('');
   updateZoneCount();
@@ -1067,23 +1052,18 @@ function toggleZone(i){
   if(selectedZones.has(i)) selectedZones.delete(i);
   else selectedZones.add(i);
   renderZoneGrid();
-  updateZoneRunBtn();
 }
 
 function clearZones(){
   selectedZones.clear();
   renderZoneGrid();
-  updateZoneRunBtn();
 }
 
 /* ===== 영역 편집 (관리자) ===== */
 function toggleZoneEditor(){
   zoneEditorOpen=!zoneEditorOpen;
   document.getElementById('zoneEditorSection').style.display=zoneEditorOpen?'block':'none';
-  if(zoneEditorOpen){
-    renderCustomZoneList();
-    renderLocationEditor();
-  }
+  if(zoneEditorOpen) renderCustomZoneList();
 }
 
 function addCustomZone(){
@@ -1117,28 +1097,6 @@ function renderCustomZoneList(){
   ).join('');
 }
 
-function renderLocationEditor(){
-  const ZONES=getAllZones();
-  const list=document.getElementById('locationEditorList');
-  list.innerHTML=ZONES.map((z,i)=>`
-    <div class="location-editor-row">
-      <span class="location-editor-zone-name">${escHtml(z.name)}</span>
-      <input class="location-editor-input" type="text" id="locInput_${i}"
-        value="${escHtml(zoneLocations[z.name]||'')}"
-        placeholder="설치 장소 입력"/>
-      <button class="btn-save-loc" onclick="saveZoneLocation(${i})">저장</button>
-    </div>
-  `).join('');
-}
-
-function saveZoneLocation(i){
-  const ZONES=getAllZones();
-  if(!ZONES[i]) return;
-  const val=document.getElementById(`locInput_${i}`).value.trim();
-  zoneLocations[ZONES[i].name]=val;
-  lsSet(LS_LOCATIONS, zoneLocations);
-  renderZoneGrid();
-}
 
 /* ===== ID 입력 제한 ===== */
 function restrictIdInput(e){
@@ -1409,7 +1367,7 @@ async function runInspection(allIds){
   document.getElementById('grid').style.display='grid';
   document.getElementById('listView').style.display='none';
   document.getElementById('listToolbar').style.display='none';
-  document.getElementById('mobileFixedRun').style.display='none';
+  document.body.classList.remove('zone-active');
   renderSummary(); renderGrid();
   addLog('✓ 점검 완료','ok');
   document.getElementById('runBtn').disabled=false;
