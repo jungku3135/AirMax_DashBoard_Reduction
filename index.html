@@ -79,11 +79,44 @@ body {
 .card-location { font-size:12px; color:var(--text2); font-weight:600; margin-top:1px; }
 
 /* 제품 설치 장소 편집 */
-.product-loc-section {
+.product-editor-section {
   margin-top:10px; padding:14px; background:var(--input-bg);
   border:1.5px solid var(--border); border-radius:8px;
 }
-.product-loc-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.pe-toolbar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+.pe-toolbar select, .pe-toolbar input[type=text] {
+  background:var(--input-bg); border:1.5px solid var(--border); border-radius:6px;
+  color:var(--text); padding:5px 10px; font-size:12px; outline:none; font-family:inherit;
+}
+.pe-toolbar select { min-width:140px; }
+.pe-toolbar input[type=text] { flex:1; min-width:120px; }
+.pe-list { display:flex; flex-direction:column; gap:4px; max-height:260px; overflow-y:auto; margin-bottom:10px; }
+.pe-row {
+  display:grid; grid-template-columns:70px 1fr 1fr auto auto;
+  align-items:center; gap:6px;
+  padding:5px 8px; background:var(--surface);
+  border:1px solid var(--border); border-radius:6px; font-size:12px;
+}
+.pe-row .pe-id { font-weight:700; color:var(--text); }
+.pe-row .pe-zone { color:var(--text2); }
+.pe-row .pe-loc { color:var(--text3); }
+.pe-row input { background:var(--input-bg); border:1.5px solid var(--em-border); border-radius:5px;
+  color:var(--text); padding:3px 7px; font-size:12px; outline:none; font-family:inherit; width:100%; }
+.pe-btn { background:none; border:1px solid var(--border); border-radius:5px; cursor:pointer;
+  font-size:11px; padding:3px 8px; color:var(--text3); font-family:inherit; transition:all 0.12s; white-space:nowrap; }
+.pe-btn:hover { border-color:var(--text3); color:var(--text); }
+.pe-btn.del:hover { border-color:var(--pm-text); color:var(--pm-text); }
+.pe-btn.save { color:var(--em-text); border-color:var(--em-border); }
+.pe-add-form {
+  display:grid; grid-template-columns:70px 1fr 1fr auto;
+  align-items:center; gap:6px; padding-top:10px;
+  border-top:1px solid var(--border);
+}
+.pe-add-form input, .pe-add-form select {
+  background:var(--input-bg); border:1.5px solid var(--border); border-radius:6px;
+  color:var(--text); padding:5px 8px; font-size:12px; outline:none; font-family:inherit; width:100%;
+}
+.pe-empty { font-size:11px; color:var(--text4); padding:8px 0; }
 
 .controls {
   background:var(--surface); border-bottom:1px solid var(--border);
@@ -377,46 +410,6 @@ input[type=date] { cursor:pointer; }
 .btn-icon-sm.visible { display:inline-flex; }
 
 /* 영역 편집 (관리자) */
-.zone-editor-section {
-  margin-top:12px; padding:14px; background:var(--input-bg);
-  border:1.5px solid var(--border); border-radius:8px;
-}
-.zone-editor-section .section-label { margin-bottom:10px; }
-.zone-editor-input { width:160px; }
-.zone-ids-input { width:300px; }
-.zone-location-input { width:200px; }
-.custom-zone-list { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-.custom-zone-tag {
-  display:inline-flex; align-items:center; gap:6px;
-  background:var(--tag-bg); border:1px solid var(--tag-border);
-  border-radius:20px; padding:4px 10px 4px 12px; font-size:11px; color:var(--text2);
-}
-.custom-zone-tag button {
-  background:none; border:none; color:var(--text4); cursor:pointer;
-  font-size:14px; line-height:1; padding:0; transition:color 0.1s;
-}
-.custom-zone-tag button:hover { color:var(--pm-text); }
-
-/* 설치 장소 편집 */
-.location-editor-list { margin-top:10px; display:flex; flex-direction:column; gap:6px; max-height:300px; overflow-y:auto; }
-.location-editor-row {
-  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-  padding:6px 10px; background:var(--surface); border:1px solid var(--border); border-radius:6px;
-}
-.location-editor-zone-name { font-size:12px; font-weight:600; color:var(--text); min-width:180px; }
-.location-editor-input {
-  background:var(--input-bg); border:1.5px solid var(--border);
-  border-radius:6px; color:var(--text); padding:5px 10px;
-  font-size:12px; outline:none; font-family:inherit; flex:1; min-width:120px;
-  transition:border-color 0.15s;
-}
-.location-editor-input:focus { border-color:var(--text3); }
-.btn-save-loc {
-  background:transparent; color:var(--em-text); border:1.5px solid var(--em-border);
-  border-radius:6px; padding:5px 10px; font-size:11px;
-  cursor:pointer; font-family:inherit; transition:all 0.12s; white-space:nowrap;
-}
-.btn-save-loc:hover { background:var(--em-chip-bg); }
 
 /* 모바일 고정 버튼 (영역 점검 모드) */
 .mobile-fixed-run {
@@ -486,7 +479,8 @@ input[type=date] { cursor:pointer; }
      - 4행~ : 데이터
 ================================================================================
 
-// GET 요청 — 제품 리스트 시트에서 설치 장소 반환
+// GET 요청 — 제품 리스트 시트에서 영역/설치장소 반환
+// 반환 형식: { success, zones:[{name,ids[]}], locations:{id:loc} }
 function doGet(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -496,25 +490,41 @@ function doGet(e) {
     }
     var lastRow = sheet.getLastRow();
     var locations = {};
+    var zoneMap   = {};   // zoneName -> [id, ...]
+    var zoneOrder = [];   // 등장 순서 유지
     if (lastRow >= 4) {
-      // B열(2)=제품ID, E열(5)=설치장소
-      var rows = sheet.getRange(4, 2, lastRow - 3, 4).getValues();
+      // B(2)=제품ID, C(3)=영역명, D(4)=설치장소 → getRange(4, 2, n, 3)
+      var rows = sheet.getRange(4, 2, lastRow - 3, 3).getValues();
       rows.forEach(function(row) {
-        var id  = String(row[0]).trim();
-        var loc = String(row[3]).trim();  // E열 = offset 3 from B
-        if (id && loc) locations[id] = loc;
+        var id   = String(row[0]).trim();
+        var zone = String(row[1]).trim();
+        var loc  = String(row[2]).trim();
+        if (!id) return;
+        if (zone) {
+          if (!zoneMap[zone]) { zoneMap[zone] = []; zoneOrder.push(zone); }
+          zoneMap[zone].push(id);
+        }
+        if (loc) locations[id] = loc;
       });
     }
-    return buildJson({ success: true, locations: locations });
+    var zones = zoneOrder.map(function(name) {
+      return { name: name, ids: zoneMap[name] };
+    });
+    return buildJson({ success: true, zones: zones, locations: locations });
   } catch(err) {
     return buildJson({ success: false, error: err.message });
   }
 }
 
-// POST 요청 — 점검 결과를 해당 월 시트에 기록
+// POST 요청 — action에 따라 처리
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
+    var action = data.action || 'saveResults';
+
+    if (action === 'addProduct')    return handleAddProduct(data);
+    if (action === 'updateProduct') return handleUpdateProduct(data);
+    if (action === 'deleteProduct') return handleDeleteProduct(data);
 
     // 저장 요청 시각 기준으로 KST 날짜 산출
     var savedDate = data.savedAt ? new Date(data.savedAt) : new Date();
@@ -579,6 +589,49 @@ function doPost(e) {
   }
 }
 
+// 제품 리스트 시트에서 ID로 행 번호 찾기 (없으면 -1)
+function findProductRow(sheet, id) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 4) return -1;
+  var ids = sheet.getRange(4, 2, lastRow - 3, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]).trim() === String(id).trim()) return i + 4;
+  }
+  return -1;
+}
+
+function handleAddProduct(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('제품 리스트');
+  if (!sheet) return buildJson({ success: false, error: '제품 리스트 시트 없음' });
+  // 중복 체크
+  if (findProductRow(sheet, data.id) !== -1)
+    return buildJson({ success: false, error: '이미 존재하는 ID: ' + data.id });
+  var nextRow = sheet.getLastRow() + 1;
+  sheet.getRange(nextRow, 2, 1, 3).setValues([[data.id, data.zone || '', data.location || '']]);
+  return buildJson({ success: true, id: data.id });
+}
+
+function handleUpdateProduct(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('제품 리스트');
+  if (!sheet) return buildJson({ success: false, error: '제품 리스트 시트 없음' });
+  var row = findProductRow(sheet, data.id);
+  if (row === -1) return buildJson({ success: false, error: 'ID 없음: ' + data.id });
+  sheet.getRange(row, 3, 1, 2).setValues([[data.zone || '', data.location || '']]);
+  return buildJson({ success: true, id: data.id });
+}
+
+function handleDeleteProduct(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('제품 리스트');
+  if (!sheet) return buildJson({ success: false, error: '제품 리스트 시트 없음' });
+  var row = findProductRow(sheet, data.id);
+  if (row === -1) return buildJson({ success: false, error: 'ID 없음: ' + data.id });
+  sheet.deleteRow(row);
+  return buildJson({ success: true, id: data.id });
+}
+
 function buildJson(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
@@ -618,15 +671,31 @@ function buildJson(obj) {
     <span class="admin-auth-badge" id="adminAuthBadge"></span>
   </div>
 
-  <!-- 제품 설치 장소 편집 (관리자 전용) -->
-  <div class="product-loc-section" id="productLocSection" style="display:none">
-    <div class="section-label" style="font-size:12px;margin-bottom:8px">제품별 설치 장소</div>
-    <div class="row">
-      <input type="text" class="id-input" id="productLocId" placeholder="A001" style="width:100px"/>
-      <input type="text" id="productLocName" placeholder="설치 장소명" style="width:220px"/>
-      <button class="btn-add" onclick="addProductLocation()">+ 추가</button>
+  <!-- 제품 편집 (관리자 전용) — 시트 연동 -->
+  <div class="product-editor-section" id="productEditorSection" style="display:none">
+    <div class="section-label" style="font-size:12px;margin-bottom:8px">제품 편집 (구글 시트 연동)</div>
+    <div class="pe-toolbar">
+      <select id="peZoneFilter" onchange="renderProductEditor()">
+        <option value="">전체 영역</option>
+      </select>
+      <input type="text" id="peSearch" placeholder="ID 또는 장소 검색…" oninput="renderProductEditor()"/>
     </div>
-    <div class="product-loc-list" id="productLocList"></div>
+    <div class="pe-list" id="peList"></div>
+    <div class="pe-add-form">
+      <input type="text" id="peNewId" placeholder="A000" maxlength="4"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')"/>
+      <select id="peNewZone">
+        <option value="">영역 선택 / 직접 입력</option>
+      </select>
+      <input type="text" id="peNewZoneCustom" placeholder="영역명 직접 입력 (선택 시 무시)"
+        style="display:none"/>
+      <input type="text" id="peNewLoc" placeholder="설치 장소 (선택)"/>
+      <button class="btn-add" onclick="addProductToSheet()">+ 추가</button>
+    </div>
+    <div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+      <input type="checkbox" id="peNewZoneCustomToggle" onchange="toggleNewZoneCustom()"/>
+      <label for="peNewZoneCustomToggle" style="font-size:11px;color:var(--text3);cursor:pointer">새 영역 직접 입력</label>
+    </div>
   </div>
 
   <hr class="divider"/>
@@ -694,20 +763,8 @@ function buildJson(obj) {
     <div class="zone-select-row">
       <span class="zone-select-count" id="zoneSelectCount">선택된 영역 없음</span>
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="clearZones()">선택 해제</button>
-      <button class="btn-icon-sm" id="zoneAddBtn" onclick="toggleZoneEditor()" title="영역 추가/삭제">➕ 영역 추가</button>
-      <button class="btn-icon-sm" id="productLocBtnZone" onclick="toggleProductLocEditor()" title="설치 장소 관리">📍 설치 장소</button>
-    </div>
-
-    <!-- 영역 편집 (관리자 전용) -->
-    <div class="zone-editor-section" id="zoneEditorSection" style="display:none">
-      <div class="section-label" style="font-size:12px;margin-bottom:10px">영역 추가</div>
-      <div class="row" style="margin-bottom:8px">
-        <input type="text" class="zone-editor-input" id="newZoneName" placeholder="영역명"/>
-        <input type="text" class="zone-ids-input" id="newZoneIds" placeholder="ID 목록 (쉼표 구분: A001,A002)"/>
-        <button class="btn-add" onclick="addCustomZone()">+ 추가</button>
-      </div>
-      <div class="section-label" style="font-size:11px;margin-top:8px;margin-bottom:6px;color:var(--text3)">추가된 영역 (삭제 가능)</div>
-      <div id="customZoneList" class="custom-zone-list"></div>
+      <button class="btn-icon-sm" id="refreshZoneBtn" onclick="refreshSheetData()" title="시트에서 영역 새로고침">🔄 새로고침</button>
+      <button class="btn-icon-sm" id="productLocBtnZone" onclick="toggleProductEditor()" title="제품 편집 (시트 연동)">📋 제품 편집</button>
     </div>
   </div>
 
@@ -777,7 +834,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.1</span>
+  <span class="footer-version">v1.1.2</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.04.27</span>
 </div>
@@ -791,102 +848,17 @@ const LS_EXTRA = 'airmax_extra_ids';
 const LS_ENDID = 'airmax_end_id';
 const LS_THEME = 'airmax_theme';
 const LS_MODE  = 'airmax_mode';
-const LS_CZONES      = 'airmax_custom_zones';
-const LS_LOCATIONS   = 'airmax_zone_locations';
-const LS_PROD_LOCS   = 'airmax_product_locations';
+const LS_PROD_LOCS    = 'airmax_product_locations';
+const LS_SHEET_CACHE  = 'airmax_sheet_cache';
+const CACHE_TTL       = 3600000; // 1시간 (ms)
 
-/* ===== 제품별 설치 장소 (소스 코드에 직접 입력 → 모든 환경 공유) =====
-   형식: 'ID': '설치 장소명'
-   예)  'A001': '시청역 대합실 입구'
-   ※ 관리자 UI로 추가한 항목은 해당 브라우저에만 저장됨.
-      모든 기기에서 보이게 하려면 아래에 직접 추가 후 커밋하세요.
-*/
-const PRODUCT_LOCATIONS = {
-  // 'A001': '설치 장소명',
-};
-
-/* ===== 영역 데이터 ===== */
-const BASE_ZONES = [
-  { name:'시청역(1호선)',              ids:['A001','A002','A003','A004','A005'] },
-  { name:'시청역(2호선)',              ids:['A006','A007','A008'] },
-  { name:'종로5가역(1호선)',           ids:['A009','A010','A011','A012'] },
-  { name:'종각역(1호선)',              ids:['A013','A014','A015','A016','A017'] },
-  { name:'마포역(5호선)',              ids:['A018','A019'] },
-  { name:'공덕역(5호선)',              ids:['A020','A021','A022','A023'] },
-  { name:'공덕역(6호선)',              ids:['A024','A025','A026','A027'] },
-  { name:'강동역(5호선)',              ids:['A028','A029','A030','A031'] },
-  { name:'길동역(5호선)',              ids:['A032'] },
-  { name:'석계역(6호선)',              ids:['A033','A034','A035'] },
-  { name:'운양역(김포골드라인)',        ids:['A036','A037'] },
-  { name:'고촌역(김포골드라인)',        ids:['A038','A039','A139'] },
-  { name:'코엑스',                    ids:['A040','A041'] },
-  { name:'DDP',                       ids:['A042','A043','A044','A045','A046','A047','A048','A049'] },
-  { name:'서울대학교 반도체 연구소',   ids:['A050'] },
-  { name:'영등포구청',                ids:['A051','A052'] },
-  { name:'밀알 학교',                 ids:['A053','A054','A055','A056'] },
-  { name:'송파구 보건소',             ids:['A057'] },
-  { name:'송파구 구청',               ids:['A058'] },
-  { name:'강동고등학교',              ids:['A059','A060','A061'] },
-  { name:'장훈고등학교',              ids:['A062','A063'] },
-  { name:'한양대 장례식장',           ids:['A064'] },
-  { name:'서울대학교 병원',           ids:['A065'] },
-  { name:'강남구 보건소',             ids:['A066'] },
-  { name:'서울 예술의전당',           ids:['A067','A068','A128','A129','A130','A131'] },
-  { name:'김포공항 체육 다목적 시설', ids:['A069'] },
-  { name:'세브란스 병원',             ids:['A070','A071'] },
-  { name:'파주 문산 도서관',          ids:['A072','A073'] },
-  { name:'남강고등학교',              ids:['A074','A075','A076','A077'] },
-  { name:'상명대학교 부속 여중',      ids:['A078','A079','A080'] },
-  { name:'선덕중학교',                ids:['A081','A082'] },
-  { name:'강남구청 개포1동주민센터',  ids:['A083'] },
-  { name:'강남구청 개포4동주민센터',  ids:['A084'] },
-  { name:'운수초등학교(광주)',         ids:['A085','A086','A087','A088'] },
-  { name:'제주 삼성초등학교',         ids:['A089'] },
-  { name:'용인시청',                  ids:['A090'] },
-  { name:'세그루 패션 디자인 고등학교',ids:['A091','A092','A093'] },
-  { name:'국립중앙박물관',            ids:['A094','A095'] },
-  { name:'인천 백석고등학교',         ids:['A096','A097'] },
-  { name:'한양대학교 사범대학 부속중학교',ids:['A098'] },
-  { name:'제주서중학교',              ids:['A099'] },
-  { name:'진천 서전중학교',           ids:['A100'] },
-  { name:'서울 염광중학교',           ids:['A101','A102'] },
-  { name:'성동구청',                  ids:['A103'] },
-  { name:'전북 체육고등학교',         ids:['A104','A105','A106','A107'] },
-  { name:'밀양 네이처에코리움',        ids:['A108'] },
-  { name:'밀양 소각장',               ids:['A109'] },
-  { name:'의령군의회',                ids:['A110'] },
-  { name:'인천 만석동행정복지센터',   ids:['A111'] },
-  { name:'인천 동구 보건소',          ids:['A112'] },
-  { name:'정읍 호남중학교',           ids:['A113'] },
-  { name:'서울 에너지공사',           ids:['A114','A115'] },
-  { name:'서울 한양공업고등학교',     ids:['A116','A117'] },
-  { name:'서울 동구여자중학교',       ids:['A118','A119','A120'] },
-  { name:'영등포장애인복지관',        ids:['A121'] },
-  { name:'제주 우당도서관',           ids:['A122','A125'] },
-  { name:'제주 애월읍사무소',         ids:['A123'] },
-  { name:'RSP(국제공인시험기관)',     ids:['A124'] },
-  { name:'고양도시관리공사',          ids:['A126'] },
-  { name:'테크노파크 4동',            ids:['A127'] },
-  { name:'서대문 뇌병변 장애인 비전센터',ids:['A132'] },
-  { name:'대명소노그룹 클럽게이트 사옥',ids:['A133','A134','A135','A136','A137'] },
-  { name:'금창동행정복지센터',        ids:['A138'] },
-  { name:'화성동탄중앙도서관',        ids:['A140','A141'] },
-  { name:'일도2동주민센터',           ids:['A142'] },
-  { name:'시흥시청',                  ids:['A143','A144','A145','A146'] },
-  { name:'와동교육도서관',             ids:['A147'] },
-  { name:'제주 돌문화원',             ids:['A148','A149'] },
-  { name:'시흥교육지원청',             ids:['A150','A151'] },
-  { name:'용산 아이파크몰',             ids:['A152','A153'] },
-];
 
 /* ===== 상태 ===== */
 let selectedZones   = new Set();
 let zoneGridOpen    = false;
 let adminAuthenticated = false;
-let customZones     = [];   // { name, ids[] } — localStorage
-let zoneLocations   = {};   // { zoneName: location } — localStorage
-let zoneEditorOpen      = false;
-let productLocations    = {};   // { 'A001': '설치장소명', ... }
+let sheetZones      = [];   // [{name, ids[]}] — GAS 시트에서 로드
+let productLocations    = {};   // {id: loc} — GAS 시트에서 로드
 let productLocEditorOpen = false;
 
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
@@ -908,7 +880,7 @@ function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 function getAllZones(){
-  return [...BASE_ZONES, ...customZones];
+  return sheetZones;
 }
 
 /* ===== 테마 ===== */
@@ -930,7 +902,7 @@ function authenticateAdmin(){
     document.getElementById('adminPwInput').disabled=true;
     document.getElementById('deauthBtn').style.display='inline-block';
     updateRunBtnText();
-    document.getElementById('zoneAddBtn').classList.add('visible');
+    document.getElementById('refreshZoneBtn').classList.add('visible');
     document.getElementById('productLocBtnZone').classList.add('visible');
   } else {
     badge.textContent='✗ 비밀번호 오류'; badge.className='admin-auth-badge fail';
@@ -944,11 +916,10 @@ function deauthAdmin(){
   badge.className='admin-auth-badge';
   document.getElementById('adminPwInput').disabled=false;
   document.getElementById('deauthBtn').style.display='none';
-  document.getElementById('zoneAddBtn').classList.remove('visible');
+  document.getElementById('refreshZoneBtn').classList.remove('visible');
   document.getElementById('productLocBtnZone').classList.remove('visible');
-  document.getElementById('productLocSection').style.display='none';
-  document.getElementById('zoneEditorSection').style.display='none';
-  zoneEditorOpen=false; productLocEditorOpen=false;
+  document.getElementById('productEditorSection').style.display='none';
+  productLocEditorOpen=false;
   updateRunBtnText();
   updateSheetBtn();
 }
@@ -980,7 +951,7 @@ async function saveToSheet(){
   try {
     const res=await fetch(GAS_URL,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({results:lastResults, savedAt:new Date().toISOString()})
     });
     const json=await res.json();
@@ -1001,21 +972,35 @@ async function saveToSheet(){
   }
 }
 
-/* ===== GAS 설치 장소 로드 ===== */
-async function loadGASLocations(){
-  if(!GAS_URL) return;
-  try{
-    const res=await fetch(GAS_URL);
-    const json=await res.json();
-    if(json.success && json.locations){
-      let added=0;
-      Object.entries(json.locations).forEach(([id,loc])=>{
-        if(!productLocations[id]){ productLocations[id]=loc; added++; }
-      });
-      if(added) addLog(`설치 장소 ${added}건 로드 완료 (제품 리스트 시트)`,'ok');
+/* ===== 시트 데이터 로드 (영역 + 설치장소, 캐시 1시간) ===== */
+async function loadSheetData(force=false){
+  const cached=lsGet(LS_SHEET_CACHE,null);
+  const now=Date.now();
+  const expired=!cached||(now-cached.ts)>CACHE_TTL;
+
+  // 캐시 있으면 즉시 적용 (만료 여부 무관)
+  if(cached&&cached.zones){
+    sheetZones=cached.zones;
+    productLocations=Object.assign({},cached.locations||{});
+    renderZoneGrid();
+  }
+
+  if((expired||force)&&GAS_URL){
+    try{
+      const res=await fetch(GAS_URL);
+      const json=await res.json();
+      if(json.success){
+        sheetZones=json.zones||[];
+        productLocations=Object.assign({},json.locations||{});
+        lsSet(LS_SHEET_CACHE,{ts:now,zones:sheetZones,locations:json.locations||{}});
+        renderZoneGrid();
+        const msg=force?'시트 데이터 새로고침 완료'
+          :(cached?'시트 데이터 갱신':'시트 데이터 로드');
+        addLog(`${msg} — 영역 ${sheetZones.length}개, 설치 장소 ${Object.keys(json.locations||{}).length}건`,'ok');
+      }
+    }catch(e){
+      if(!cached) addLog('시트 데이터 로드 실패 (GAS 미설정 또는 오류): '+e.message,'warn');
     }
-  }catch(e){
-    // 장소 로드 실패는 조용히 무시
   }
 }
 
@@ -1152,42 +1137,10 @@ function clearZones(){
   renderZoneGrid();
 }
 
-/* ===== 영역 편집 (관리자) ===== */
-function toggleZoneEditor(){
-  zoneEditorOpen=!zoneEditorOpen;
-  document.getElementById('zoneEditorSection').style.display=zoneEditorOpen?'block':'none';
-  if(zoneEditorOpen) renderCustomZoneList();
-}
-
-function addCustomZone(){
-  const name=document.getElementById('newZoneName').value.trim();
-  const idsRaw=document.getElementById('newZoneIds').value.trim();
-  if(!name||!idsRaw){ alert('영역명과 ID 목록을 입력해주세요.'); return; }
-  const ids=idsRaw.split(',').map(v=>v.trim().toUpperCase()).filter(Boolean);
-  if(!ids.length){ alert('유효한 ID를 입력해주세요.'); return; }
-  customZones.push({name, ids});
-  lsSet(LS_CZONES, customZones);
-  document.getElementById('newZoneName').value='';
-  document.getElementById('newZoneIds').value='';
-  renderCustomZoneList();
-  renderZoneGrid();
-}
-
-function removeCustomZone(idx){
-  customZones.splice(idx,1);
-  lsSet(LS_CZONES, customZones);
-  renderCustomZoneList();
-  renderZoneGrid();
-}
-
-function renderCustomZoneList(){
-  const el=document.getElementById('customZoneList');
-  if(!customZones.length){ el.innerHTML='<span style="font-size:11px;color:var(--text4)">추가된 영역 없음</span>'; return; }
-  el.innerHTML=customZones.map((z,i)=>
-    `<span class="custom-zone-tag">${escHtml(z.name)} (${z.ids.length}개)
-      <button onclick="removeCustomZone(${i})" title="삭제">×</button>
-    </span>`
-  ).join('');
+/* ===== 시트 데이터 강제 새로고침 (관리자) ===== */
+function refreshSheetData(){
+  addLog('시트 데이터 새로고침 중…','muted');
+  loadSheetData(true);
 }
 
 
@@ -1326,7 +1279,7 @@ function renderGrid(){
   const filtered=currentFilter==='ALL'?results:results.filter(r=>r.status===currentFilter);
   document.getElementById('grid').innerHTML=filtered.map(r=>{
     const cfg=STATUS[r.status]||STATUS.LOAD;
-    const loc=productLocations[r.id]||PRODUCT_LOCATIONS[r.id]||'';
+    const loc=productLocations[r.id]||'';
     const tip=r.errMsg?escHtml(r.errMsg):r.item
       ?`PM10: ${r.item.pm_10}㎍/㎥ | PM2.5: ${r.item.pm_2_5}㎍/㎥ | CO2: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
       :'데이터 없음';
@@ -1341,42 +1294,161 @@ function renderGrid(){
   }).join('');
 }
 
-/* ===== 제품 설치 장소 관리 ===== */
-function toggleProductLocEditor(){
+/* ===== 제품 편집 (시트 연동) ===== */
+function toggleProductEditor(){
   productLocEditorOpen=!productLocEditorOpen;
-  document.getElementById('productLocSection').style.display=productLocEditorOpen?'block':'none';
-  if(productLocEditorOpen) renderProductLocList();
+  const sec=document.getElementById('productEditorSection');
+  sec.style.display=productLocEditorOpen?'block':'none';
+  if(productLocEditorOpen) refreshProductEditorDropdowns(), renderProductEditor();
 }
 
-function addProductLocation(){
-  const id=document.getElementById('productLocId').value.trim().toUpperCase();
-  const loc=document.getElementById('productLocName').value.trim();
-  if(!id||!loc){ return; }
-  productLocations[id]=loc;
-  lsSet(LS_PROD_LOCS, productLocations);
-  document.getElementById('productLocId').value='';
-  document.getElementById('productLocName').value='';
-  renderProductLocList();
+function refreshProductEditorDropdowns(){
+  const zones=[...new Set(sheetZones.map(z=>z.name))];
+  const filterSel=document.getElementById('peZoneFilter');
+  const newZoneSel=document.getElementById('peNewZone');
+  const curFilter=filterSel.value;
+  filterSel.innerHTML='<option value="">전체 영역</option>'+zones.map(z=>`<option value="${escHtml(z)}"${z===curFilter?'selected':''}>${escHtml(z)}</option>`).join('');
+  newZoneSel.innerHTML='<option value="">영역 선택</option>'+zones.map(z=>`<option value="${escHtml(z)}">${escHtml(z)}</option>`).join('');
 }
 
-function removeProductLocation(id){
-  delete productLocations[id];
-  lsSet(LS_PROD_LOCS, productLocations);
-  renderProductLocList();
+function toggleNewZoneCustom(){
+  const custom=document.getElementById('peNewZoneCustomToggle').checked;
+  document.getElementById('peNewZone').style.display=custom?'none':'block';
+  document.getElementById('peNewZoneCustom').style.display=custom?'block':'none';
 }
 
-function renderProductLocList(){
-  const el=document.getElementById('productLocList');
-  const entries=Object.entries(productLocations);
-  if(!entries.length){
-    el.innerHTML='<span style="font-size:11px;color:var(--text4)">등록된 설치 장소 없음</span>';
+function renderProductEditor(){
+  const zoneFilter=document.getElementById('peZoneFilter').value;
+  const q=document.getElementById('peSearch').value.trim().toLowerCase();
+  // 모든 제품 목록 생성
+  const allProducts=[];
+  sheetZones.forEach(z=>z.ids.forEach(id=>{
+    allProducts.push({id, zone:z.name, loc:productLocations[id]||''});
+  }));
+  // 필터
+  const filtered=allProducts.filter(p=>{
+    if(zoneFilter && p.zone!==zoneFilter) return false;
+    if(q && !p.id.toLowerCase().includes(q) && !p.loc.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const el=document.getElementById('peList');
+  if(!filtered.length){
+    el.innerHTML=`<div class="pe-empty">${sheetZones.length?'검색 결과 없음':'시트 데이터 없음 — GAS URL 확인 또는 🔄 새로고침'}</div>`;
     return;
   }
-  el.innerHTML=entries.sort((a,b)=>a[0].localeCompare(b[0])).map(([id,loc])=>
-    `<span class="custom-zone-tag"><b>${escHtml(id)}</b> ${escHtml(loc)}
-      <button onclick="removeProductLocation('${escHtml(id)}')" title="삭제">×</button>
-    </span>`
-  ).join('');
+  el.innerHTML=filtered.map(p=>`
+    <div class="pe-row" id="pe-row-${escHtml(p.id)}">
+      <span class="pe-id">${escHtml(p.id)}</span>
+      <span class="pe-zone">${escHtml(p.zone)}</span>
+      <span class="pe-loc">${escHtml(p.loc)||'—'}</span>
+      <button class="pe-btn" onclick="startEditProduct('${escHtml(p.id)}','${escHtml(p.zone)}','${escHtml(p.loc)}')">수정</button>
+      <button class="pe-btn del" onclick="deleteProductFromSheet('${escHtml(p.id)}')">삭제</button>
+    </div>`).join('');
+}
+
+function startEditProduct(id, zone, loc){
+  const row=document.getElementById('pe-row-'+id);
+  if(!row) return;
+  const zones=[...new Set(sheetZones.map(z=>z.name))];
+  row.innerHTML=`
+    <span class="pe-id">${escHtml(id)}</span>
+    <input id="pe-edit-zone-${escHtml(id)}" value="${escHtml(zone)}" list="pe-zone-list-${escHtml(id)}" style="font-size:12px"/>
+    <datalist id="pe-zone-list-${escHtml(id)}">${zones.map(z=>`<option value="${escHtml(z)}">`).join('')}</datalist>
+    <input id="pe-edit-loc-${escHtml(id)}" value="${escHtml(loc)}" placeholder="설치 장소" style="font-size:12px"/>
+    <button class="pe-btn save" onclick="saveEditProduct('${escHtml(id)}')">저장</button>
+    <button class="pe-btn" onclick="renderProductEditor()">취소</button>`;
+}
+
+async function saveEditProduct(id){
+  if(!GAS_URL){ alert('GAS_URL이 설정되지 않았습니다.'); return; }
+  const zone=document.getElementById('pe-edit-zone-'+id).value.trim();
+  const loc=document.getElementById('pe-edit-loc-'+id).value.trim();
+  if(!zone){ alert('영역명을 입력해주세요.'); return; }
+  const btn=document.querySelector(`#pe-row-${id} .pe-btn.save`);
+  if(btn){ btn.disabled=true; btn.textContent='저장 중…'; }
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'updateProduct',id,zone,location:loc})});
+    const json=await res.json();
+    if(json.success){
+      // 로컬 캐시 업데이트
+      sheetZones.forEach(z=>{ z.ids=z.ids.filter(i=>i!==id); });
+      sheetZones=sheetZones.filter(z=>z.ids.length>0);
+      let zoneObj=sheetZones.find(z=>z.name===zone);
+      if(!zoneObj){ zoneObj={name:zone,ids:[]}; sheetZones.push(zoneObj); }
+      if(!zoneObj.ids.includes(id)) zoneObj.ids.push(id);
+      if(loc) productLocations[id]=loc; else delete productLocations[id];
+      updateSheetCache();
+      refreshProductEditorDropdowns();
+      renderProductEditor();
+      addLog(`[${id}] 수정 완료`,'ok');
+    } else {
+      alert('수정 실패: '+(json.error||'오류'));
+      renderProductEditor();
+    }
+  }catch(e){ alert('오류: '+e.message); renderProductEditor(); }
+}
+
+async function deleteProductFromSheet(id){
+  if(!confirm(`[${id}] 제품을 시트에서 삭제하시겠습니까?`)) return;
+  if(!GAS_URL){ alert('GAS_URL이 설정되지 않았습니다.'); return; }
+  const row=document.getElementById('pe-row-'+id);
+  if(row) row.style.opacity='0.4';
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'deleteProduct',id})});
+    const json=await res.json();
+    if(json.success){
+      sheetZones.forEach(z=>{ z.ids=z.ids.filter(i=>i!==id); });
+      sheetZones=sheetZones.filter(z=>z.ids.length>0);
+      delete productLocations[id];
+      updateSheetCache();
+      refreshProductEditorDropdowns();
+      renderProductEditor();
+      addLog(`[${id}] 삭제 완료`,'ok');
+    } else {
+      alert('삭제 실패: '+(json.error||'오류'));
+      if(row) row.style.opacity='1';
+    }
+  }catch(e){ alert('오류: '+e.message); if(row) row.style.opacity='1'; }
+}
+
+async function addProductToSheet(){
+  const id=document.getElementById('peNewId').value.trim().toUpperCase();
+  const custom=document.getElementById('peNewZoneCustomToggle').checked;
+  const zone=custom
+    ? document.getElementById('peNewZoneCustom').value.trim()
+    : document.getElementById('peNewZone').value.trim();
+  const loc=document.getElementById('peNewLoc').value.trim();
+  if(!id||id.length<2){ alert('제품 ID를 입력해주세요.'); return; }
+  if(!zone){ alert('영역을 선택하거나 입력해주세요.'); return; }
+  if(!GAS_URL){ alert('GAS_URL이 설정되지 않았습니다.'); return; }
+  const btn=document.querySelector('.pe-add-form .btn-add');
+  btn.disabled=true; btn.textContent='추가 중…';
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'addProduct',id,zone,location:loc})});
+    const json=await res.json();
+    if(json.success){
+      let zoneObj=sheetZones.find(z=>z.name===zone);
+      if(!zoneObj){ zoneObj={name:zone,ids:[]}; sheetZones.push(zoneObj); }
+      if(!zoneObj.ids.includes(id)) zoneObj.ids.push(id);
+      if(loc) productLocations[id]=loc;
+      updateSheetCache();
+      document.getElementById('peNewId').value='';
+      document.getElementById('peNewLoc').value='';
+      refreshProductEditorDropdowns();
+      renderProductEditor();
+      addLog(`[${id}] 추가 완료 (${zone})`,'ok');
+    } else {
+      alert('추가 실패: '+(json.error||'오류'));
+    }
+  }catch(e){ alert('오류: '+e.message); }
+  btn.disabled=false; btn.textContent='+ 추가';
+}
+
+function updateSheetCache(){
+  lsSet(LS_SHEET_CACHE,{ts:Date.now(),zones:sheetZones,locations:productLocations});
 }
 function renderList(){
   const sel=document.getElementById('listFilterSel').value;
@@ -1535,8 +1607,6 @@ async function startInspection(){
   document.documentElement.setAttribute('data-theme',savedTheme);
   document.getElementById('themeIcon').textContent=savedTheme==='dark'?'☀️':'🌙';
 
-  customZones=lsGet(LS_CZONES,[]);
-  zoneLocations=lsGet(LS_LOCATIONS,{});
   productLocations=lsGet(LS_PROD_LOCS,{});
 
   // 단일 검색 기본 날짜 (전일 ~ 금일)
@@ -1567,14 +1637,14 @@ async function startInspection(){
   document.getElementById('extraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addExtraId();});
   document.getElementById('singleIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});
   document.getElementById('adminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateAdmin();});
-  document.getElementById('productLocName').addEventListener('keydown',e=>{if(e.key==='Enter')addProductLocation();});
+  document.getElementById('peNewId').addEventListener('keydown',e=>{if(e.key==='Enter')addProductToSheet();});
 
   // 단일 검색 날짜 변경 시 dateInfo 업데이트
   document.getElementById('singleStartDate').addEventListener('change',updateDateInfo);
   document.getElementById('singleEndDate').addEventListener('change',updateDateInfo);
 
-  // GAS에서 설치 장소 자동 로드
-  loadGASLocations();
+  // GAS 시트에서 영역/설치장소 로드 (캐시 사용)
+  loadSheetData();
 })();
 </script>
 </body>
