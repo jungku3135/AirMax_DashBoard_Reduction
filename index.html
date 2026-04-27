@@ -302,17 +302,25 @@ input[type=date] { cursor:pointer; }
 .single-detail-scroll { overflow-x:auto; border-radius:8px; border:1.5px solid var(--border); }
 .single-detail-table {
   width:100%; border-collapse:collapse; font-size:12px;
-  background:var(--surface);
+  background:var(--surface); table-layout:fixed;
 }
+.single-detail-table colgroup col:nth-child(1) { width:44%; }
+.single-detail-table colgroup col:nth-child(2),
+.single-detail-table colgroup col:nth-child(3),
+.single-detail-table colgroup col:nth-child(4) { width:18.67%; }
 .single-detail-table th {
   background:var(--input-bg); color:var(--text3); font-size:10px;
-  letter-spacing:1px; text-transform:uppercase; padding:9px 14px;
-  border-bottom:1.5px solid var(--border); text-align:left; white-space:nowrap;
+  letter-spacing:0.5px; padding:8px 10px;
+  border-bottom:1.5px solid var(--border); text-align:center; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis;
 }
+.single-detail-table th:first-child { text-align:left; }
 .single-detail-table td {
-  padding:8px 14px; border-bottom:1px solid var(--border2);
-  color:var(--text2); white-space:nowrap;
+  padding:7px 10px; border-bottom:1px solid var(--border2);
+  color:var(--text2); white-space:nowrap; text-align:center;
+  overflow:hidden; text-overflow:ellipsis;
 }
+.single-detail-table td:first-child { text-align:left; font-size:11px; }
 .single-detail-table tr:last-child td { border-bottom:none; }
 .single-detail-table tr:hover td { background:var(--input-bg); }
 .single-detail-empty { font-size:13px; color:var(--text4); padding:16px 0; }
@@ -676,13 +684,15 @@ function doPost(e) {
   <div class="single-detail-title" id="singleDetailTitle"></div>
   <div class="single-detail-scroll">
     <table class="single-detail-table">
+      <colgroup>
+        <col/><col/><col/><col/>
+      </colgroup>
       <thead>
         <tr>
-          <th>제품 ID / 타이틀</th>
           <th>수집 시간</th>
-          <th>PM10 (㎍/㎥)</th>
-          <th>PM2.5 (㎍/㎥)</th>
-          <th>CO2 (ppm)</th>
+          <th>PM10</th>
+          <th>PM2.5</th>
+          <th>CO2</th>
         </tr>
       </thead>
       <tbody id="singleDetailBody"></tbody>
@@ -1317,18 +1327,24 @@ function switchView(v){
 function setFilter(f){currentFilter=f;renderSummary();renderGrid();}
 
 /* ===== 단일 검색 결과 렌더 ===== */
+function fmtTime(str){
+  if(!str) return '—';
+  // "2026.04.26 05:07:00" → "04.26 05:07"
+  const m=str.match(/\d{4}[.\-](\d{2})[.\-](\d{2})\s+(\d{2}:\d{2})/);
+  return m?`${m[1]}.${m[2]} ${m[3]}`:str.slice(5,16);
+}
+
 function renderSingleDetail(id, items){
   const section=document.getElementById('singleResultSection');
   const title=document.getElementById('singleDetailTitle');
   const body=document.getElementById('singleDetailBody');
   title.textContent=`${id} — ${items.length}건`;
   if(!items.length){
-    body.innerHTML=`<tr><td colspan="5" class="single-detail-empty" style="text-align:center">조회된 데이터가 없습니다</td></tr>`;
+    body.innerHTML=`<tr><td colspan="4" class="single-detail-empty" style="text-align:center">조회된 데이터가 없습니다</td></tr>`;
     section.style.display='block'; return;
   }
   body.innerHTML=items.map(item=>`<tr>
-    <td style="font-weight:600">${escHtml(id)}</td>
-    <td>${escHtml(item.format_created_time||'—')}</td>
+    <td>${escHtml(fmtTime(item.format_created_time))}</td>
     <td>${item.pm_10!==undefined?item.pm_10:'—'}</td>
     <td>${item.pm_2_5!==undefined?item.pm_2_5:'—'}</td>
     <td>${item.co2!==undefined?item.co2:'—'}</td>
@@ -1368,6 +1384,7 @@ async function runInspection(allIds){
   document.getElementById('listView').style.display='none';
   document.getElementById('listToolbar').style.display='none';
   document.body.classList.remove('zone-active');
+  if(zoneGridOpen) toggleZoneGrid();
   renderSummary(); renderGrid();
   addLog('✓ 점검 완료','ok');
   document.getElementById('runBtn').disabled=false;
