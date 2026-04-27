@@ -904,6 +904,7 @@ function authenticateAdmin(){
     updateRunBtnText();
     document.getElementById('refreshZoneBtn').classList.add('visible');
     document.getElementById('productLocBtnZone').classList.add('visible');
+    updateSheetBtn();
   } else {
     badge.textContent='✗ 비밀번호 오류'; badge.className='admin-auth-badge fail';
     setTimeout(()=>{badge.className='admin-auth-badge';},2500);
@@ -935,8 +936,7 @@ function updateRunBtnText(){
 
 function updateSheetBtn(){
   const btn=document.getElementById('saveSheetBtn');
-  const show=adminAuthenticated && (currentMode==='range'||currentMode==='zone') && lastResults.length>0;
-  btn.style.display=show?'inline-block':'none';
+  btn.style.display=(adminAuthenticated && lastResults.length>0)?'inline-block':'none';
 }
 
 /* ===== GAS 저장 ===== */
