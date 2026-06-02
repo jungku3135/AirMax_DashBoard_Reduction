@@ -908,7 +908,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.7</span>
+  <span class="footer-version">v1.1.8</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.02</span>
 </div>
@@ -1632,7 +1632,9 @@ function fmtTime(str){
 }
 
 function renderSingleDetail(id, items){
-  singleAllItems=items;
+  // 오름차순 정렬 (과거 → 최신, 차트 왼쪽이 과거)
+  singleAllItems=[...items].sort((a,b)=>
+    new Date(a.format_created_time)-new Date(b.format_created_time));
   singlePage=0;
   document.getElementById('singleDetailTitle').textContent=`${id} — 총 ${items.length}건`;
   document.getElementById('singleResultSection').style.display='block';
@@ -1671,13 +1673,13 @@ function renderSinglePage(){
   // 페이지네이션
   const pg=document.getElementById('singlePagination');
   if(totalPages<=1){pg.innerHTML='';return;}
-  let html=`<button class="pg-btn" onclick="goSinglePage(${singlePage-1})" ${singlePage===0?'disabled':''}>‹</button>`;
+  let html=`<button class="pg-btn" onclick="goSinglePage(${singlePage-1})" ${singlePage===0?'disabled':''}>← 이전</button>`;
   const range=3, start2=Math.max(0,singlePage-range), end2=Math.min(totalPages-1,singlePage+range);
   if(start2>0) html+=`<button class="pg-btn" onclick="goSinglePage(0)">1</button>${start2>1?'<span class="pg-info">…</span>':''}`;
   for(let i=start2;i<=end2;i++)
     html+=`<button class="pg-btn${i===singlePage?' active':''}" onclick="goSinglePage(${i})">${i+1}</button>`;
   if(end2<totalPages-1) html+=`${end2<totalPages-2?'<span class="pg-info">…</span>':''}<button class="pg-btn" onclick="goSinglePage(${totalPages-1})">${totalPages}</button>`;
-  html+=`<button class="pg-btn" onclick="goSinglePage(${singlePage+1})" ${singlePage===totalPages-1?'disabled':''}>›</button>`;
+  html+=`<button class="pg-btn" onclick="goSinglePage(${singlePage+1})" ${singlePage===totalPages-1?'disabled':''}>다음 →</button>`;
   pg.innerHTML=html;
 }
 
@@ -1716,8 +1718,8 @@ function renderSingleChart(items){
 
   const sensorCfg={
     pm10: {key:'pm_10',   label:'PM10 (㎍/㎥)', color:'#4e8ef7', bg:'rgba(78,142,247,0.12)'},
-    pm25: {key:'pm_2_5',  label:'PM2.5 (㎍/㎥)',color:'#f7a14e', bg:'rgba(247,161,78,0.12)'},
-    co2:  {key:'co2',     label:'CO2 (ppm)',    color:'#4ecf8e', bg:'rgba(78,207,142,0.12)'},
+    pm25: {key:'pm_2_5',  label:'PM2.5 (㎍/㎥)',color:'#4ecf8e', bg:'rgba(78,207,142,0.12)'},
+    co2:  {key:'co2',     label:'CO2 (ppm)',    color:'#f7a14e', bg:'rgba(247,161,78,0.12)'},
   };
   const cfg=sensorCfg[singleChartSensor];
   const values=items.map(d=>d[cfg.key]!==undefined?Number(d[cfg.key]):null);
