@@ -340,7 +340,30 @@ input[type=date] { cursor:pointer; }
 
 /* 단일 검색 날짜 테이블 */
 .single-detail-wrap { margin-top:14px; }
-.single-detail-title { font-size:13px; font-weight:700; color:var(--text2); margin-bottom:8px; }
+.single-detail-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.single-detail-title { font-size:13px; font-weight:700; color:var(--text2); }
+/* 차트 */
+.single-chart-section { margin-bottom:16px; }
+.single-chart-tabs { display:flex; gap:6px; margin-bottom:10px; }
+.chart-tab {
+  background:transparent; border:1.5px solid var(--border); border-radius:20px;
+  padding:4px 14px; font-size:12px; font-weight:600; color:var(--text3);
+  cursor:pointer; font-family:inherit; transition:all 0.15s;
+}
+.chart-tab.active { color:var(--text); border-color:var(--text2); background:var(--input-bg); }
+.chart-tab:hover:not(.active) { color:var(--text2); border-color:var(--text3); }
+.single-chart-wrap { position:relative; height:200px; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; padding:12px 12px 8px; }
+/* 페이지네이션 */
+.single-pagination { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:10px; flex-wrap:wrap; }
+.pg-btn {
+  background:transparent; border:1.5px solid var(--border); border-radius:6px;
+  padding:4px 10px; font-size:12px; color:var(--text3); cursor:pointer;
+  font-family:inherit; transition:all 0.12s; min-width:32px;
+}
+.pg-btn:hover:not(:disabled) { border-color:var(--text3); color:var(--text); }
+.pg-btn.active { background:var(--input-bg); border-color:var(--text2); color:var(--text); font-weight:700; }
+.pg-btn:disabled { opacity:0.3; cursor:not-allowed; }
+.pg-info { font-size:11px; color:var(--text4); padding:0 4px; }
 .single-detail-scroll { overflow-x:auto; border-radius:8px; border:1.5px solid var(--border); }
 .single-detail-table {
   width:100%; border-collapse:collapse; font-size:12px;
@@ -491,6 +514,7 @@ input[type=date] { cursor:pointer; }
 .btn-sheet:hover:not(:disabled) { background:var(--ok-bg); }
 .btn-sheet:disabled { opacity:0.3; cursor:not-allowed; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
 
@@ -820,25 +844,35 @@ function buildJson(obj) {
 
 <div class="debug-box" id="debugBox" style="display:none"></div>
 
-<!-- 단일 검색 결과 테이블 -->
+<!-- 단일 검색 결과 -->
 <div id="singleResultSection" style="display:none; padding:20px 32px;">
-  <div class="single-detail-title" id="singleDetailTitle"></div>
+  <div class="single-detail-header">
+    <div class="single-detail-title" id="singleDetailTitle"></div>
+    <div class="pg-info" id="singlePageInfo"></div>
+  </div>
+  <!-- 차트 -->
+  <div class="single-chart-section">
+    <div class="single-chart-tabs">
+      <button class="chart-tab active" id="chartTabPm10"  onclick="switchChartSensor('pm10')">PM10</button>
+      <button class="chart-tab"        id="chartTabPm25"  onclick="switchChartSensor('pm25')">PM2.5</button>
+      <button class="chart-tab"        id="chartTabCo2"   onclick="switchChartSensor('co2')">CO2</button>
+    </div>
+    <div class="single-chart-wrap">
+      <canvas id="singleChart"></canvas>
+    </div>
+  </div>
+  <!-- 테이블 -->
   <div class="single-detail-scroll">
     <table class="single-detail-table">
-      <colgroup>
-        <col/><col/><col/><col/>
-      </colgroup>
+      <colgroup><col/><col/><col/><col/></colgroup>
       <thead>
-        <tr>
-          <th>수집 시간</th>
-          <th>PM10</th>
-          <th>PM2.5</th>
-          <th>CO2</th>
-        </tr>
+        <tr><th>수집 시간</th><th>PM10</th><th>PM2.5</th><th>CO2</th></tr>
       </thead>
       <tbody id="singleDetailBody"></tbody>
     </table>
   </div>
+  <!-- 페이지네이션 -->
+  <div class="single-pagination" id="singlePagination"></div>
 </div>
 
 <div class="summary" id="summary" style="display:none"></div>
@@ -874,7 +908,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.5</span>
+  <span class="footer-version">v1.1.6</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.04.27</span>
 </div>
@@ -905,7 +939,9 @@ let peOriginals = {};
 
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
 let logVisible=false, logs=[], extraIds=[];
-let lastResults = []; // GAS 저장용
+let lastResults = [];
+let singleAllItems=[], singlePage=0, singleChartSensor='pm10', singleChart=null;
+const SINGLE_PAGE_SIZE=30;
 
 const STATUS = {
   OK:   {label:'OK',  cls:'card-ok',   textVar:'--ok-text',  chipBgVar:'--ok-chip-bg',  chipBdVar:'--ok-chip-border',  chipTxVar:'--ok-chip-text'  },
@@ -931,6 +967,10 @@ function toggleTheme(){
   const next=html.getAttribute('data-theme')==='dark'?'light':'dark';
   html.setAttribute('data-theme',next); lsSet(LS_THEME,next);
   document.getElementById('themeIcon').textContent=next==='dark'?'☀️':'🌙';
+  if(singleAllItems.length){
+    const start=singlePage*SINGLE_PAGE_SIZE;
+    renderSingleChart(singleAllItems.slice(start,start+SINGLE_PAGE_SIZE));
+  }
 }
 
 /* ===== 관리자 인증 ===== */
@@ -1592,21 +1632,140 @@ function fmtTime(str){
 }
 
 function renderSingleDetail(id, items){
-  const section=document.getElementById('singleResultSection');
-  const title=document.getElementById('singleDetailTitle');
-  const body=document.getElementById('singleDetailBody');
-  title.textContent=`${id} — ${items.length}건`;
+  singleAllItems=items;
+  singlePage=0;
+  document.getElementById('singleDetailTitle').textContent=`${id} — 총 ${items.length}건`;
+  document.getElementById('singleResultSection').style.display='block';
   if(!items.length){
-    body.innerHTML=`<tr><td colspan="4" class="single-detail-empty" style="text-align:center">조회된 데이터가 없습니다</td></tr>`;
-    section.style.display='block'; return;
+    document.getElementById('singleDetailBody').innerHTML=
+      `<tr><td colspan="4" class="single-detail-empty" style="text-align:center">조회된 데이터가 없습니다</td></tr>`;
+    document.getElementById('singlePagination').innerHTML='';
+    document.getElementById('singlePageInfo').textContent='';
+    renderSingleChart([]);
+    return;
   }
-  body.innerHTML=items.map(item=>`<tr>
+  renderSinglePage();
+}
+
+function renderSinglePage(){
+  const total=singleAllItems.length;
+  const totalPages=Math.ceil(total/SINGLE_PAGE_SIZE);
+  const start=singlePage*SINGLE_PAGE_SIZE;
+  const pageItems=singleAllItems.slice(start, start+SINGLE_PAGE_SIZE);
+
+  // 페이지 정보
+  document.getElementById('singlePageInfo').textContent=
+    `${start+1}–${Math.min(start+SINGLE_PAGE_SIZE,total)} / ${total}건`;
+
+  // 테이블
+  document.getElementById('singleDetailBody').innerHTML=pageItems.map(item=>`<tr>
     <td>${escHtml(fmtTime(item.format_created_time))}</td>
     <td>${item.pm_10!==undefined?item.pm_10:'—'}</td>
     <td>${item.pm_2_5!==undefined?item.pm_2_5:'—'}</td>
     <td>${item.co2!==undefined?item.co2:'—'}</td>
   </tr>`).join('');
-  section.style.display='block';
+
+  // 차트
+  renderSingleChart(pageItems);
+
+  // 페이지네이션
+  const pg=document.getElementById('singlePagination');
+  if(totalPages<=1){pg.innerHTML='';return;}
+  let html=`<button class="pg-btn" onclick="goSinglePage(${singlePage-1})" ${singlePage===0?'disabled':''}>‹</button>`;
+  const range=3, start2=Math.max(0,singlePage-range), end2=Math.min(totalPages-1,singlePage+range);
+  if(start2>0) html+=`<button class="pg-btn" onclick="goSinglePage(0)">1</button>${start2>1?'<span class="pg-info">…</span>':''}`;
+  for(let i=start2;i<=end2;i++)
+    html+=`<button class="pg-btn${i===singlePage?' active':''}" onclick="goSinglePage(${i})">${i+1}</button>`;
+  if(end2<totalPages-1) html+=`${end2<totalPages-2?'<span class="pg-info">…</span>':''}<button class="pg-btn" onclick="goSinglePage(${totalPages-1})">${totalPages}</button>`;
+  html+=`<button class="pg-btn" onclick="goSinglePage(${singlePage+1})" ${singlePage===totalPages-1?'disabled':''}>›</button>`;
+  pg.innerHTML=html;
+}
+
+function goSinglePage(p){
+  const totalPages=Math.ceil(singleAllItems.length/SINGLE_PAGE_SIZE);
+  if(p<0||p>=totalPages) return;
+  singlePage=p;
+  renderSinglePage();
+  document.getElementById('singleResultSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function switchChartSensor(sensor){
+  singleChartSensor=sensor;
+  ['pm10','pm25','co2'].forEach(s=>{
+    const tab=document.getElementById('chartTab'+s.charAt(0).toUpperCase()+s.slice(1).replace('m','m').replace('2','2'));
+    if(tab) tab.classList.toggle('active',s===sensor);
+  });
+  // 탭 ID 매핑
+  document.getElementById('chartTabPm10').classList.toggle('active',sensor==='pm10');
+  document.getElementById('chartTabPm25').classList.toggle('active',sensor==='pm25');
+  document.getElementById('chartTabCo2').classList.toggle('active',sensor==='co2');
+  const start=singlePage*SINGLE_PAGE_SIZE;
+  renderSingleChart(singleAllItems.slice(start,start+SINGLE_PAGE_SIZE));
+}
+
+function renderSingleChart(items){
+  const canvas=document.getElementById('singleChart');
+  if(!canvas) return;
+  if(singleChart){ singleChart.destroy(); singleChart=null; }
+  if(!items.length) return;
+
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
+  const tickColor=isDark?'#888':'#aaa';
+  const labels=items.map(d=>fmtTime(d.format_created_time));
+
+  const sensorCfg={
+    pm10: {key:'pm_10',   label:'PM10 (㎍/㎥)', color:'#4e8ef7', bg:'rgba(78,142,247,0.12)'},
+    pm25: {key:'pm_2_5',  label:'PM2.5 (㎍/㎥)',color:'#f7a14e', bg:'rgba(247,161,78,0.12)'},
+    co2:  {key:'co2',     label:'CO2 (ppm)',    color:'#4ecf8e', bg:'rgba(78,207,142,0.12)'},
+  };
+  const cfg=sensorCfg[singleChartSensor];
+  const values=items.map(d=>d[cfg.key]!==undefined?Number(d[cfg.key]):null);
+
+  singleChart=new Chart(canvas,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:cfg.label,
+        data:values,
+        borderColor:cfg.color,
+        backgroundColor:cfg.bg,
+        fill:true,
+        tension:0.35,
+        pointRadius:values.length>15?2:4,
+        pointHoverRadius:6,
+        borderWidth:2,
+        spanGaps:false,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:isDark?'#1e1e1e':'#fff',
+          titleColor:isDark?'#ddd':'#333',
+          bodyColor:isDark?'#bbb':'#555',
+          borderColor:isDark?'#444':'#ddd',
+          borderWidth:1,
+          padding:10,
+        }
+      },
+      scales:{
+        x:{
+          ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10},
+          grid:{color:gridColor},
+        },
+        y:{
+          ticks:{color:tickColor,font:{size:10}},
+          grid:{color:gridColor},
+          beginAtZero:false,
+        }
+      }
+    }
+  });
 }
 
 /* ===== 공통 실행 ===== */
