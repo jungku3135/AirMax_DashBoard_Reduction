@@ -908,7 +908,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.8</span>
+  <span class="footer-version">v1.1.9</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.02</span>
 </div>
@@ -1299,12 +1299,31 @@ async function fetchReport(controllerId,dateRange,token){
   return data[0];
 }
 
-async function fetchAllReports(controllerId,dateRange,token){
-  const p=new URLSearchParams({controller_id:controllerId,started_at:dateRange.started_at,finished_at:dateRange.finished_at,per_page:'200'});
-  const res=await fetch(`${API}?${p}`,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}});
-  if(!res.ok){const body=await res.text().catch(()=>'');throw new Error(`HTTP ${res.status}: ${body.slice(0,80)}`);}
-  const json=await res.json();
-  return Array.isArray(json.data)?json.data:[];
+async function fetchAllReports(controllerId,dateRange,token,onProgress){
+  const PER=100;
+  const hdrs={Authorization:`Bearer ${token}`,Accept:'application/json'};
+  const base={controller_id:controllerId,started_at:dateRange.started_at,finished_at:dateRange.finished_at,per_page:String(PER)};
+
+  // 1페이지 — 전체 페이지 수 파악
+  const r1=await fetch(`${API}?${new URLSearchParams({...base,page:'1'})}`,{headers:hdrs});
+  if(!r1.ok){const b=await r1.text().catch(()=>'');throw new Error(`HTTP ${r1.status}: ${b.slice(0,80)}`);}
+  const j1=await r1.json();
+  const all=Array.isArray(j1.data)?[...j1.data]:[];
+  const lastPage=j1.meta?.last_page??j1.last_page??1;
+  if(onProgress) onProgress(1,lastPage);
+
+  if(lastPage>1){
+    const pages=Array.from({length:lastPage-1},(_,i)=>i+2);
+    const rest=await Promise.all(pages.map(async pg=>{
+      const r=await fetch(`${API}?${new URLSearchParams({...base,page:String(pg)})}`,{headers:hdrs});
+      if(!r.ok) return [];
+      const j=await r.json();
+      if(onProgress) onProgress(pg,lastPage);
+      return Array.isArray(j.data)?j.data:[];
+    }));
+    rest.forEach(d=>all.push(...d));
+  }
+  return all;
 }
 
 /* ===== 로그 ===== */
@@ -1824,8 +1843,13 @@ async function startInspection(){
     const dateRange=getDateRange('single');
     document.getElementById('runBtn').disabled=true;
     setLoading(true);
+    document.getElementById('loadingText').textContent='데이터 수집 중…';
     try{
-      const items=await fetchAllReports(raw,dateRange,token);
+      const items=await fetchAllReports(raw,dateRange,token,(pg,last)=>{
+        document.getElementById('loadingText').textContent=
+          last>1?`데이터 수집 중… (${pg}/${last} 페이지)`:'데이터 수집 중…';
+      });
+      addLog(`단일 검색 완료 — ${items.length}건 수집`,'ok');
       renderSingleDetail(raw,items);
     }catch(e){
       errEl.textContent='⚠ 오류: '+e.message;
