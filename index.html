@@ -853,9 +853,8 @@ function buildJson(obj) {
   <!-- 차트 -->
   <div class="single-chart-section">
     <div class="single-chart-tabs">
-      <button class="chart-tab active" id="chartTabPm10"  onclick="switchChartSensor('pm10')">PM10</button>
-      <button class="chart-tab"        id="chartTabPm25"  onclick="switchChartSensor('pm25')">PM2.5</button>
-      <button class="chart-tab"        id="chartTabCo2"   onclick="switchChartSensor('co2')">CO2</button>
+      <button class="chart-tab active" id="chartTabDust" onclick="switchChartSensor('dust')">미세먼지</button>
+      <button class="chart-tab"        id="chartTabCo2"  onclick="switchChartSensor('co2')">이산화탄소 농도</button>
     </div>
     <div class="single-chart-wrap">
       <canvas id="singleChart"></canvas>
@@ -908,7 +907,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.9</span>
+  <span class="footer-version">v1.1.10</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.02</span>
 </div>
@@ -940,7 +939,7 @@ let peOriginals = {};
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
 let logVisible=false, logs=[], extraIds=[];
 let lastResults = [];
-let singleAllItems=[], singlePage=0, singleChartSensor='pm10', singleChart=null;
+let singleAllItems=[], singlePage=0, singleChartSensor='dust', singleChart=null;
 const SINGLE_PAGE_SIZE=30;
 
 const STATUS = {
@@ -1678,8 +1677,8 @@ function renderSinglePage(){
   document.getElementById('singlePageInfo').textContent=
     `${start+1}–${Math.min(start+SINGLE_PAGE_SIZE,total)} / ${total}건`;
 
-  // 테이블
-  document.getElementById('singleDetailBody').innerHTML=pageItems.map(item=>`<tr>
+  // 테이블 — 내림차순 (최신이 위)
+  document.getElementById('singleDetailBody').innerHTML=[...pageItems].reverse().map(item=>`<tr>
     <td>${escHtml(fmtTime(item.format_created_time))}</td>
     <td>${item.pm_10!==undefined?item.pm_10:'—'}</td>
     <td>${item.pm_2_5!==undefined?item.pm_2_5:'—'}</td>
@@ -1712,13 +1711,7 @@ function goSinglePage(p){
 
 function switchChartSensor(sensor){
   singleChartSensor=sensor;
-  ['pm10','pm25','co2'].forEach(s=>{
-    const tab=document.getElementById('chartTab'+s.charAt(0).toUpperCase()+s.slice(1).replace('m','m').replace('2','2'));
-    if(tab) tab.classList.toggle('active',s===sensor);
-  });
-  // 탭 ID 매핑
-  document.getElementById('chartTabPm10').classList.toggle('active',sensor==='pm10');
-  document.getElementById('chartTabPm25').classList.toggle('active',sensor==='pm25');
+  document.getElementById('chartTabDust').classList.toggle('active',sensor==='dust');
   document.getElementById('chartTabCo2').classList.toggle('active',sensor==='co2');
   const start=singlePage*SINGLE_PAGE_SIZE;
   renderSingleChart(singleAllItems.slice(start,start+SINGLE_PAGE_SIZE));
@@ -1734,59 +1727,56 @@ function renderSingleChart(items){
   const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
   const tickColor=isDark?'#888':'#aaa';
   const labels=items.map(d=>fmtTime(d.format_created_time));
+  const pt=items.length>15?2:4;
 
-  const sensorCfg={
-    pm10: {key:'pm_10',   label:'PM10 (㎍/㎥)', color:'#4e8ef7', bg:'rgba(78,142,247,0.12)'},
-    pm25: {key:'pm_2_5',  label:'PM2.5 (㎍/㎥)',color:'#4ecf8e', bg:'rgba(78,207,142,0.12)'},
-    co2:  {key:'co2',     label:'CO2 (ppm)',    color:'#f7a14e', bg:'rgba(247,161,78,0.12)'},
-  };
-  const cfg=sensorCfg[singleChartSensor];
-  const values=items.map(d=>d[cfg.key]!==undefined?Number(d[cfg.key]):null);
-
-  singleChart=new Chart(canvas,{
-    type:'line',
-    data:{
-      labels,
-      datasets:[{
-        label:cfg.label,
-        data:values,
-        borderColor:cfg.color,
-        backgroundColor:cfg.bg,
-        fill:true,
-        tension:0.35,
-        pointRadius:values.length>15?2:4,
-        pointHoverRadius:6,
-        borderWidth:2,
-        spanGaps:false,
-      }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{display:false},
-        tooltip:{
-          backgroundColor:isDark?'#1e1e1e':'#fff',
-          titleColor:isDark?'#ddd':'#333',
-          bodyColor:isDark?'#bbb':'#555',
-          borderColor:isDark?'#444':'#ddd',
-          borderWidth:1,
-          padding:10,
-        }
+  const commonOpts={
+    responsive:true, maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{
+        display:singleChartSensor==='dust',
+        labels:{color:isDark?'#ccc':'#555',font:{size:11},boxWidth:12,padding:14}
       },
-      scales:{
-        x:{
-          ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10},
-          grid:{color:gridColor},
-        },
-        y:{
-          ticks:{color:tickColor,font:{size:10}},
-          grid:{color:gridColor},
-          beginAtZero:false,
-        }
+      tooltip:{
+        backgroundColor:isDark?'#1e1e1e':'#fff',
+        titleColor:isDark?'#ddd':'#333',
+        bodyColor:isDark?'#bbb':'#555',
+        borderColor:isDark?'#444':'#ddd',
+        borderWidth:1, padding:10,
       }
+    },
+    scales:{
+      x:{ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10},grid:{color:gridColor}},
+      y:{ticks:{color:tickColor,font:{size:10}},grid:{color:gridColor},beginAtZero:false}
     }
-  });
+  };
+
+  let datasets;
+  if(singleChartSensor==='dust'){
+    datasets=[
+      {
+        label:'PM10 (㎍/㎥)',
+        data:items.map(d=>d.pm_10!==undefined?Number(d.pm_10):null),
+        borderColor:'#4e8ef7', backgroundColor:'rgba(78,142,247,0.08)',
+        fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false,
+      },
+      {
+        label:'PM2.5 (㎍/㎥)',
+        data:items.map(d=>d.pm_2_5!==undefined?Number(d.pm_2_5):null),
+        borderColor:'#4ecf8e', backgroundColor:'rgba(78,207,142,0.08)',
+        fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false,
+      }
+    ];
+  } else {
+    datasets=[{
+      label:'CO2 (ppm)',
+      data:items.map(d=>d.co2!==undefined?Number(d.co2):null),
+      borderColor:'#f7a14e', backgroundColor:'rgba(247,161,78,0.12)',
+      fill:true, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false,
+    }];
+  }
+
+  singleChart=new Chart(canvas,{type:'line', data:{labels, datasets}, options:commonOpts});
 }
 
 /* ===== 공통 실행 ===== */
