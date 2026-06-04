@@ -848,7 +848,11 @@ function buildJson(obj) {
 <div id="singleResultSection" style="display:none; padding:20px 32px;">
   <div class="single-detail-header">
     <div class="single-detail-title" id="singleDetailTitle"></div>
-    <div class="pg-info" id="singlePageInfo"></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="pg-info" id="singlePageInfo"></div>
+      <button class="btn-copy" id="singleCopyBtn" onclick="copySingleToClipboard()" style="display:none">📋 전체 복사</button>
+      <span id="singleCopyMsg" style="font-size:11px;color:var(--ok-text);display:none">✓ 복사됨</span>
+    </div>
   </div>
   <!-- 차트 -->
   <div class="single-chart-section">
@@ -907,9 +911,9 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.11</span>
+  <span class="footer-version">v1.1.12</span>
   <span class="footer-divider"></span>
-  <span class="footer-date">Updated 2026.06.02</span>
+  <span class="footer-date">Updated 2026.06.04</span>
 </div>
 
 <script>
@@ -1656,14 +1660,17 @@ function renderSingleDetail(id, items){
   singlePage=0;
   document.getElementById('singleDetailTitle').textContent=`${id} — 총 ${items.length}건`;
   document.getElementById('singleResultSection').style.display='block';
+  const copyBtn=document.getElementById('singleCopyBtn');
   if(!items.length){
     document.getElementById('singleDetailBody').innerHTML=
       `<tr><td colspan="4" class="single-detail-empty" style="text-align:center">조회된 데이터가 없습니다</td></tr>`;
     document.getElementById('singlePagination').innerHTML='';
     document.getElementById('singlePageInfo').textContent='';
+    copyBtn.style.display='none';
     renderSingleChart([]);
     return;
   }
+  copyBtn.style.display='inline-block';
   renderSinglePage();
 }
 
@@ -1707,6 +1714,25 @@ function goSinglePage(p){
   singlePage=p;
   renderSinglePage();
   document.getElementById('singleResultSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function copySingleToClipboard(){
+  if(!singleAllItems.length) return;
+  // singleAllItems은 이미 내림차순(최신→과거) — 그대로 복사
+  const header='수집 시간\tPM10\tPM2.5\tCO2';
+  const rows=singleAllItems.map(d=>
+    [fmtTime(d.format_created_time),
+     d.pm_10!==undefined?d.pm_10:'',
+     d.pm_2_5!==undefined?d.pm_2_5:'',
+     d.co2!==undefined?d.co2:''].join('\t')
+  );
+  const text=[header,...rows].join('\n');
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=document.getElementById('singleCopyBtn');
+    const msg=document.getElementById('singleCopyMsg');
+    btn.textContent='✓ 복사됨'; msg.style.display='inline';
+    setTimeout(()=>{ btn.textContent='📋 전체 복사'; msg.style.display='none'; }, 2000);
+  }).catch(()=>{ alert('클립보드 복사에 실패했습니다.'); });
 }
 
 function switchChartSensor(sensor){
