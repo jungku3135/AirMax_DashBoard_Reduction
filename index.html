@@ -907,7 +907,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.10</span>
+  <span class="footer-version">v1.1.11</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.02</span>
 </div>
@@ -968,7 +968,7 @@ function toggleTheme(){
   document.getElementById('themeIcon').textContent=next==='dark'?'☀️':'🌙';
   if(singleAllItems.length){
     const start=singlePage*SINGLE_PAGE_SIZE;
-    renderSingleChart(singleAllItems.slice(start,start+SINGLE_PAGE_SIZE));
+    renderSingleChart([...singleAllItems.slice(start,start+SINGLE_PAGE_SIZE)].reverse());
   }
 }
 
@@ -1650,9 +1650,9 @@ function fmtTime(str){
 }
 
 function renderSingleDetail(id, items){
-  // 오름차순 정렬 (과거 → 최신, 차트 왼쪽이 과거)
+  // 내림차순 정렬 (최신 → 과거, 1페이지에 최신 데이터)
   singleAllItems=[...items].sort((a,b)=>
-    new Date(a.format_created_time)-new Date(b.format_created_time));
+    new Date(b.format_created_time)-new Date(a.format_created_time));
   singlePage=0;
   document.getElementById('singleDetailTitle').textContent=`${id} — 총 ${items.length}건`;
   document.getElementById('singleResultSection').style.display='block';
@@ -1677,16 +1677,16 @@ function renderSinglePage(){
   document.getElementById('singlePageInfo').textContent=
     `${start+1}–${Math.min(start+SINGLE_PAGE_SIZE,total)} / ${total}건`;
 
-  // 테이블 — 내림차순 (최신이 위)
-  document.getElementById('singleDetailBody').innerHTML=[...pageItems].reverse().map(item=>`<tr>
+  // 테이블 — 내림차순 (singleAllItems 자체가 최신순이므로 reverse 불필요)
+  document.getElementById('singleDetailBody').innerHTML=pageItems.map(item=>`<tr>
     <td>${escHtml(fmtTime(item.format_created_time))}</td>
     <td>${item.pm_10!==undefined?item.pm_10:'—'}</td>
     <td>${item.pm_2_5!==undefined?item.pm_2_5:'—'}</td>
     <td>${item.co2!==undefined?item.co2:'—'}</td>
   </tr>`).join('');
 
-  // 차트
-  renderSingleChart(pageItems);
+  // 차트 — 시간순(과거→최신)으로 반전하여 전달
+  renderSingleChart([...pageItems].reverse());
 
   // 페이지네이션
   const pg=document.getElementById('singlePagination');
@@ -1714,7 +1714,7 @@ function switchChartSensor(sensor){
   document.getElementById('chartTabDust').classList.toggle('active',sensor==='dust');
   document.getElementById('chartTabCo2').classList.toggle('active',sensor==='co2');
   const start=singlePage*SINGLE_PAGE_SIZE;
-  renderSingleChart(singleAllItems.slice(start,start+SINGLE_PAGE_SIZE));
+  renderSingleChart([...singleAllItems.slice(start,start+SINGLE_PAGE_SIZE)].reverse());
 }
 
 function renderSingleChart(items){
