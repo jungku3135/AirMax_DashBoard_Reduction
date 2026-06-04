@@ -10,10 +10,10 @@
 
 :root {
   --bg:#f4f4f5; --surface:#ffffff; --border:#e0e0e0; --border2:#ebebeb;
-  --text:#111111; --text2:#555555; --text3:#999999; --text4:#bbbbbb;
+  --text:#111111; --text2:#333333; --text3:#666666; --text4:#888888;
   --input-bg:#fafafa; --tag-bg:#f0f0f0; --tag-border:#d8d8d8;
   --btn-bg:#111111; --btn-text:#ffffff; --log-bg:#fafafa; --summary-bg:#ffffff;
-  --chip-def-border:#e0e0e0; --chip-def-text:#bbb; --chip-def-count:#ccc;
+  --chip-def-border:#e0e0e0; --chip-def-text:#888; --chip-def-count:#999;
   --overlay-bg:rgba(244,244,245,0.92); --spinner-track:#ddd; --spinner-head:#555;
   --bar-bg:#e5e5e5; --bar-fg:#555; --tooltip-bg:#ffffff;
   --tooltip-border:#e0e0e0; --tooltip-text:#333;
@@ -30,12 +30,12 @@
 }
 [data-theme="dark"] {
   --bg:#181818; --surface:#222222; --border:#333333; --border2:#2a2a2a;
-  --text:#e8e8e8; --text2:#aaaaaa; --text3:#666666; --text4:#444444;
+  --text:#e8e8e8; --text2:#cccccc; --text3:#999999; --text4:#6e6e6e;
   --input-bg:#2a2a2a; --tag-bg:#2e2e2e; --tag-border:#3a3a3a;
   --btn-bg:#e8e8e8; --btn-text:#111111; --log-bg:#1a1a1a; --summary-bg:#1e1e1e;
-  --chip-def-border:#383838; --chip-def-text:#555; --chip-def-count:#444;
-  --overlay-bg:rgba(18,18,18,0.92); --spinner-track:#333; --spinner-head:#aaa;
-  --bar-bg:#2e2e2e; --bar-fg:#888; --tooltip-bg:#2a2a2a;
+  --chip-def-border:#383838; --chip-def-text:#888; --chip-def-count:#777;
+  --overlay-bg:rgba(18,18,18,0.92); --spinner-track:#333; --spinner-head:#cccc;
+  --bar-bg:#2e2e2e; --bar-fg:#aaa; --tooltip-bg:#2a2a2a;
   --tooltip-border:#3a3a3a; --tooltip-text:#ccc;
   --ok-bg:#0e2a0e; --ok-border:#3a9e3a; --ok-text:#6dd86d;
   --ok-chip-bg:#0e2a0e; --ok-chip-border:#3a9e3a; --ok-chip-text:#6dd86d;
@@ -343,16 +343,11 @@ input[type=date] { cursor:pointer; }
 .single-detail-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
 .single-detail-title { font-size:13px; font-weight:700; color:var(--text2); }
 /* 차트 */
-.single-chart-section { margin-bottom:16px; }
-.single-chart-tabs { display:flex; gap:6px; margin-bottom:10px; }
-.chart-tab {
-  background:transparent; border:1.5px solid var(--border); border-radius:20px;
-  padding:4px 14px; font-size:12px; font-weight:600; color:var(--text3);
-  cursor:pointer; font-family:inherit; transition:all 0.15s;
-}
-.chart-tab.active { color:var(--text); border-color:var(--text2); background:var(--input-bg); }
-.chart-tab:hover:not(.active) { color:var(--text2); border-color:var(--text3); }
+.single-charts-row { display:flex; gap:12px; margin-bottom:16px; }
+.single-chart-panel { flex:1; min-width:0; }
+.single-chart-panel-label { font-size:11px; font-weight:700; color:var(--text2); margin-bottom:6px; letter-spacing:0.3px; }
 .single-chart-wrap { position:relative; height:200px; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; padding:12px 12px 8px; }
+@media (max-width:768px) { .single-charts-row { flex-direction:column; } }
 /* 페이지네이션 */
 .single-pagination { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:10px; flex-wrap:wrap; }
 .pg-btn {
@@ -854,13 +849,14 @@ function buildJson(obj) {
     </div>
   </div>
   <!-- 차트 -->
-  <div class="single-chart-section">
-    <div class="single-chart-tabs">
-      <button class="chart-tab active" id="chartTabDust" onclick="switchChartSensor('dust')">미세먼지</button>
-      <button class="chart-tab"        id="chartTabCo2"  onclick="switchChartSensor('co2')">이산화탄소 농도</button>
+  <div class="single-charts-row">
+    <div class="single-chart-panel">
+      <div class="single-chart-panel-label">미세먼지 (PM10 / PM2.5)</div>
+      <div class="single-chart-wrap"><canvas id="singleChartDust"></canvas></div>
     </div>
-    <div class="single-chart-wrap">
-      <canvas id="singleChart"></canvas>
+    <div class="single-chart-panel">
+      <div class="single-chart-panel-label">이산화탄소 농도 (CO2)</div>
+      <div class="single-chart-wrap"><canvas id="singleChartCo2"></canvas></div>
     </div>
   </div>
   <!-- 테이블 -->
@@ -910,7 +906,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.13</span>
+  <span class="footer-version">v1.1.14</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.04</span>
 </div>
@@ -942,7 +938,7 @@ let peOriginals = {};
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
 let logVisible=false, logs=[], extraIds=[];
 let lastResults = [];
-let singleAllItems=[], singlePage=0, singleChartSensor='dust', singleChart=null;
+let singleAllItems=[], singlePage=0, singleChartDust=null, singleChartCo2=null;
 const SINGLE_PAGE_SIZE=30;
 
 const STATUS = {
@@ -1733,38 +1729,29 @@ function copySingleToClipboard(){
   }).catch(()=>{ alert('클립보드 복사에 실패했습니다.'); });
 }
 
-function switchChartSensor(sensor){
-  singleChartSensor=sensor;
-  document.getElementById('chartTabDust').classList.toggle('active',sensor==='dust');
-  document.getElementById('chartTabCo2').classList.toggle('active',sensor==='co2');
-  const start=singlePage*SINGLE_PAGE_SIZE;
-  renderSingleChart([...singleAllItems.slice(start,start+SINGLE_PAGE_SIZE)].reverse());
-}
-
 function renderSingleChart(items){
-  const canvas=document.getElementById('singleChart');
-  if(!canvas) return;
-  if(singleChart){ singleChart.destroy(); singleChart=null; }
+  if(singleChartDust){ singleChartDust.destroy(); singleChartDust=null; }
+  if(singleChartCo2){ singleChartCo2.destroy(); singleChartCo2=null; }
   if(!items.length) return;
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
-  const tickColor=isDark?'#888':'#aaa';
+  const tickColor=isDark?'#999':'#888';
   const labels=items.map(d=>fmtTime(d.format_created_time));
   const pt=items.length>15?2:4;
 
-  const commonOpts={
+  const makeOpts=(showLegend)=>({
     responsive:true, maintainAspectRatio:false,
     interaction:{mode:'index',intersect:false},
     plugins:{
       legend:{
-        display:singleChartSensor==='dust',
-        labels:{color:isDark?'#ccc':'#555',font:{size:11},boxWidth:12,padding:14}
+        display:showLegend,
+        labels:{color:isDark?'#ccc':'#444',font:{size:11},boxWidth:12,padding:14}
       },
       tooltip:{
         backgroundColor:isDark?'#1e1e1e':'#fff',
-        titleColor:isDark?'#ddd':'#333',
-        bodyColor:isDark?'#bbb':'#555',
+        titleColor:isDark?'#ddd':'#222',
+        bodyColor:isDark?'#ccc':'#444',
         borderColor:isDark?'#444':'#ddd',
         borderWidth:1, padding:10,
       }
@@ -1773,34 +1760,28 @@ function renderSingleChart(items){
       x:{ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10},grid:{color:gridColor}},
       y:{ticks:{color:tickColor,font:{size:10}},grid:{color:gridColor},beginAtZero:false}
     }
-  };
+  });
 
-  let datasets;
-  if(singleChartSensor==='dust'){
-    datasets=[
-      {
-        label:'PM10 (㎍/㎥)',
-        data:items.map(d=>d.pm_10!==undefined?Number(d.pm_10):null),
-        borderColor:'#4e8ef7', backgroundColor:'rgba(78,142,247,0.08)',
-        fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false,
-      },
-      {
-        label:'PM2.5 (㎍/㎥)',
-        data:items.map(d=>d.pm_2_5!==undefined?Number(d.pm_2_5):null),
-        borderColor:'#4ecf8e', backgroundColor:'rgba(78,207,142,0.08)',
-        fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false,
-      }
-    ];
-  } else {
-    datasets=[{
-      label:'CO2 (ppm)',
-      data:items.map(d=>d.co2!==undefined?Number(d.co2):null),
-      borderColor:'#f7a14e', backgroundColor:'rgba(247,161,78,0.12)',
-      fill:true, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false,
-    }];
+  const canvasDust=document.getElementById('singleChartDust');
+  if(canvasDust){
+    singleChartDust=new Chart(canvasDust,{type:'line', data:{labels, datasets:[
+      {label:'PM10 (㎍/㎥)', data:items.map(d=>d.pm_10!==undefined?Number(d.pm_10):null),
+       borderColor:'#4e8ef7', backgroundColor:'rgba(78,142,247,0.08)',
+       fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false},
+      {label:'PM2.5 (㎍/㎥)', data:items.map(d=>d.pm_2_5!==undefined?Number(d.pm_2_5):null),
+       borderColor:'#4ecf8e', backgroundColor:'rgba(78,207,142,0.08)',
+       fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false},
+    ]}, options:makeOpts(true)});
   }
 
-  singleChart=new Chart(canvas,{type:'line', data:{labels, datasets}, options:commonOpts});
+  const canvasCo2=document.getElementById('singleChartCo2');
+  if(canvasCo2){
+    singleChartCo2=new Chart(canvasCo2,{type:'line', data:{labels, datasets:[
+      {label:'CO2 (ppm)', data:items.map(d=>d.co2!==undefined?Number(d.co2):null),
+       borderColor:'#f7a14e', backgroundColor:'rgba(247,161,78,0.12)',
+       fill:true, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false},
+    ]}, options:makeOpts(false)});
+  }
 }
 
 /* ===== 공통 실행 ===== */
