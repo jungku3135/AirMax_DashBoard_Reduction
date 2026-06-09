@@ -351,7 +351,7 @@ function buildJson(obj) {
         <button class="btn-sm" onclick="clearAllDustZones()">전체 해제</button>
       </div>
       <div id="dustZoneSelectInfo" class="dzp-select-info" style="margin-bottom:6px">선택된 영역 없음</div>
-      <div id="dustZonePickerGrid" class="dzp-wrap"></div>
+      <div id="dustZonePickerGrid" class="dzp-wrap zone-grid"></div>
       <hr class="divider" style="margin:10px 0"/>
       <div class="section-label" style="margin-bottom:6px">개별 추가 ID
         <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — Demo, Lab0 등 특수 ID</span>
@@ -414,6 +414,10 @@ function buildJson(obj) {
 <!-- 먼지 포집 데이터 결과 -->
 <div id="dustResultSection" style="display:none; padding:16px 24px;">
   <div id="dustProgressRow" style="display:none;font-size:12px;color:var(--text3);margin-bottom:10px;"></div>
+  <div class="dust-result-toolbar">
+    <input type="text" id="dustResultSearch" class="id-input" placeholder="제품 ID 또는 설치 장소 검색…" oninput="filterDustResults(this.value)" style="flex:1;min-width:0"/>
+    <span id="dustResultCount" class="dzp-select-info"></span>
+  </div>
   <div class="dust-cards-grid" id="dustCardsGrid"></div>
 </div>
 
@@ -472,7 +476,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.42b</span>
+  <span class="footer-version">v1.43b</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.10</span>
 </div>

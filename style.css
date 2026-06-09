@@ -99,8 +99,8 @@ body {
   background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1px 7px;
 }
 /* 단일 제품 구역 컴팩트 레이아웃 */
-.pe-compact-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; margin-bottom:8px; }
-.pe-compact-zone { display:flex; flex-direction:column; gap:4px; }
+.pe-compact-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:10px; }
+.pe-compact-zone { display:flex; flex-direction:column; gap:4px; flex:1 1 130px; max-width:200px; }
 .pe-zone-header.mini { font-size:9px; padding-bottom:3px; margin-bottom:2px; }
 /* 카드 그리드 */
 .pe-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:6px; }
@@ -448,6 +448,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .zone-btn:hover { border-color:var(--text3); color:var(--text); }
 .zone-btn.selected { border-color:var(--em-border); background:var(--em-chip-bg); color:var(--em-chip-text); }
 .zone-btn.hidden { display:none; }
+.zone-btn.highlight { border-color:var(--em-border); background:rgba(78,142,247,0.07); }
 .zone-btn .zone-name { font-size:13px; font-weight:700; }
 .zone-btn .zone-range { font-size:10px; opacity:0.7; }
 .zone-btn .zone-location { font-size:10px; color:var(--text3); opacity:0.85; }
@@ -534,9 +535,18 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .btn-sheet:disabled { opacity:0.3; cursor:not-allowed; }
 
 /* ===== 먼지 포집 영역 선택기 ===== */
-.dzp-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.dzp-toolbar { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.btn-sm {
+  background:var(--input-bg); border:1.5px solid var(--border); border-radius:6px;
+  color:var(--text2); font-size:11px; padding:4px 10px; cursor:pointer;
+  font-family:inherit; white-space:nowrap; transition:border-color 0.12s, color 0.12s;
+}
+.btn-sm:hover { border-color:var(--text3); color:var(--text); }
 .dzp-select-info { font-size:11px; color:var(--text3); white-space:nowrap; }
-.dzp-wrap { max-height:280px; overflow-y:auto; padding-right:2px; }
+.dzp-wrap { max-height:260px; overflow-y:auto; padding-right:2px; padding-bottom:4px; }
+.dust-result-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+.dust-card.result-hidden { display:none; }
+.dust-zone-group.result-hidden { display:none; }
 .dzp-compact-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
 .dzp-compact-btn {
   display:flex; flex-direction:column; align-items:flex-start;

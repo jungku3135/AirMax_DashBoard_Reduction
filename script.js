@@ -1007,52 +1007,25 @@ function renderDustZoneGrid(){
   if(!gridEl) return;
   const ZONES=getAllZones();
   if(!ZONES.length){
-    gridEl.innerHTML='<div class="dzp-empty">영역 데이터를 불러오는 중…</div>';
+    gridEl.innerHTML='<div class="zone-no-result" style="display:block">영역 데이터 없음 — 시트 새로고침 필요</div>';
     return;
   }
   const q=(document.getElementById('dustZoneSearchInput')?.value||'').trim().toLowerCase();
-  const compact=[],full=[];
-  ZONES.forEach((z,i)=>{
-    const nameMatch=z.name.toLowerCase().includes(q);
-    const idMatch=z.ids.some(id=>id.toLowerCase().includes(q));
-    const match=!q||nameMatch||idMatch;
-    (z.ids.length<=2?compact:full).push({z,i,match,idMatch});
-  });
-  let html='';
-  const visCompact=compact.filter(x=>x.match);
-  if(visCompact.length||(!q&&compact.length)){
-    html+=`<div class="dzp-compact-row">`;
-    compact.forEach(({z,i,match})=>{
-      const sel=selectedDustZones.has(i);
-      const hl=q&&match?'hl':'';
-      const hidden=q&&!match?'hidden':'';
-      html+=`<button class="dzp-compact-btn ${sel?'selected':''} ${hl} ${hidden}" onclick="toggleDustZone(${i})" data-zone-idx="${i}">
-        <span class="dz-name">${escHtml(z.name)}</span>
-        <span class="dz-ids">${z.ids.map(escHtml).join(' · ')}</span>
-      </button>`;
-    });
-    html+=`</div>`;
-  }
-  full.forEach(({z,i,match})=>{
+  gridEl.innerHTML=ZONES.map((z,i)=>{
     const sel=selectedDustZones.has(i);
-    const hl=q&&match?'hl':'';
-    const hidden=q&&!match?'hidden':'';
-    html+=`<div class="dzp-full-zone ${hl} ${hidden}" data-zone-idx="${i}">
-      <div class="dzp-fz-header ${sel?'selected':''}" onclick="toggleDustZone(${i})">
-        <span>${escHtml(z.name)}</span>
-        <span class="dzp-fz-count">${z.ids.length}개</span>
-      </div>
-      <div class="dzp-fz-ids">${z.ids.map(id=>{
-        const idHl=q&&id.toLowerCase().includes(q)?'hl':'';
-        return`<span class="dzp-id-chip ${sel?'selected':''} ${idHl}">${escHtml(id)}</span>`;
-      }).join('')}</div>
-    </div>`;
-  });
-  if(!html) html='<div class="dzp-empty">검색 결과 없음</div>';
-  gridEl.innerHTML=html;
+    const rangeText=z.ids.length===1?z.ids[0]:`${z.ids[0]}~${z.ids[z.ids.length-1]} (${z.ids.length}개)`;
+    const nameMatch=!q||z.name.toLowerCase().includes(q);
+    const idMatch=!q||z.ids.some(id=>id.toLowerCase().includes(q));
+    const hidden=!nameMatch&&!idMatch?'hidden':'';
+    const hl=q&&(nameMatch||idMatch)?'highlight':'';
+    return`<button class="zone-btn ${sel?'selected':''} ${hidden} ${hl}" onclick="toggleDustZone(${i})" data-zone-idx="${i}">
+      <span class="zone-name">${escHtml(z.name)}</span>
+      <span class="zone-range">${rangeText}</span>
+    </button>`;
+  }).join('');
   updateDustZoneInfo();
   if(q){
-    const first=gridEl.querySelector('.hl:not(.hidden)');
+    const first=gridEl.querySelector('.zone-btn.highlight:not(.hidden)');
     if(first) first.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
 }
@@ -1108,6 +1081,10 @@ async function startDustSearch(){
   const progressEl=document.getElementById('dustProgressRow');
   const gridEl=document.getElementById('dustCardsGrid');
   dustResultMap.clear();
+  const srchEl=document.getElementById('dustResultSearch');
+  if(srchEl) srchEl.value='';
+  const cntEl=document.getElementById('dustResultCount');
+  if(cntEl) cntEl.textContent='';
   resultSection.style.display='block';
   gridEl.innerHTML='';
 
@@ -1219,6 +1196,30 @@ function openDustModal(id){
   dustModalOpen=true;
   document.getElementById('dustModal').style.display='flex';
   document.body.style.overflow='hidden';
+}
+
+function filterDustResults(q){
+  const lower=q.trim().toLowerCase();
+  const grid=document.getElementById('dustCardsGrid');
+  if(!grid) return;
+  let visible=0;
+  grid.querySelectorAll('.dust-zone-group').forEach(group=>{
+    let groupVisible=0;
+    group.querySelectorAll('.dust-card').forEach(card=>{
+      const id=(card.querySelector('.dust-card-id')?.textContent||'').toLowerCase();
+      const loc=(card.querySelector('.dust-card-loc')?.textContent||'').toLowerCase();
+      const match=!lower||id.includes(lower)||loc.includes(lower);
+      card.classList.toggle('result-hidden',!match);
+      if(match) groupVisible++;
+    });
+    const zoneHeader=group.querySelector('.dust-zone-header');
+    const zoneName=(zoneHeader?.textContent||'').toLowerCase();
+    const zoneMatch=!lower||zoneName.includes(lower)||groupVisible>0;
+    group.classList.toggle('result-hidden',!zoneMatch);
+    if(zoneMatch) visible+=groupVisible||group.querySelectorAll('.dust-card').length;
+  });
+  const countEl=document.getElementById('dustResultCount');
+  if(countEl) countEl.textContent=lower?`${visible}개 표시`:'';
 }
 
 function closeDustModal(){
