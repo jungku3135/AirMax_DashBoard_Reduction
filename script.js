@@ -92,6 +92,13 @@ function deauthAdmin(){
 function updateRunBtnText(){
   const btn=document.getElementById('runBtn');
   const mBtn=document.getElementById('mobileRunBtn');
+  if(currentMode==='dust'){
+    btn.style.display='none';
+    mBtn.style.display='none';
+    return;
+  }
+  btn.style.display='';
+  mBtn.style.display='';
   const label=(adminAuthenticated && currentMode==='range')?'점검 및 시트 저장':'점검 시작';
   btn.textContent=label;
   mBtn.textContent=label;
@@ -201,7 +208,7 @@ function updateDateInfo(){
 /* ===== 모드 전환 ===== */
 function switchMode(mode){
   currentMode=mode; lsSet(LS_MODE,mode);
-  ['range','single','zone'].forEach(m=>{
+  ['range','single','zone','dust'].forEach(m=>{
     document.getElementById('tab'+m.charAt(0).toUpperCase()+m.slice(1)).classList.toggle('active',m===mode);
     document.getElementById('panel'+m.charAt(0).toUpperCase()+m.slice(1)).style.display=m===mode?'block':'none';
   });
@@ -209,11 +216,12 @@ function switchMode(mode){
   updateMobileFixedBtn();
   updateRunBtnText();
   updateSheetBtn();
-  updateDateInfo();
+  if(mode==='dust') document.getElementById('dateInfo').textContent='';
+  else updateDateInfo();
   if(mode!=='single'){
     document.getElementById('singleResultSection').style.display='none';
   }
-  if(mode==='single'){
+  if(mode==='single'||mode==='dust'){
     document.getElementById('summary').style.display='none';
     document.getElementById('grid').style.display='none';
     document.getElementById('listView').style.display='none';
@@ -881,7 +889,7 @@ async function runInspection(allIds){
   document.getElementById('grid').style.display='grid';
   document.getElementById('listView').style.display='none';
   document.getElementById('listToolbar').style.display='none';
-  document.body.classList.remove('zone-active');
+  updateMobileFixedBtn();
   if(zoneGridOpen) toggleZoneGrid();
   renderSummary(); renderGrid();
   addLog('✓ 점검 완료','ok');

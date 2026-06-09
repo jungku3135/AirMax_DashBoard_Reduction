@@ -261,6 +261,7 @@ function buildJson(obj) {
     <button class="mode-tab active" id="tabRange"  onclick="switchMode('range')">범위 / 개별 검색</button>
     <button class="mode-tab"        id="tabSingle" onclick="switchMode('single')">단일 검색</button>
     <button class="mode-tab"        id="tabZone"   onclick="switchMode('zone')">영역 지정 점검</button>
+    <button class="mode-tab"        id="tabDust"   onclick="switchMode('dust')">먼지포집 검색</button>
   </div>
 
   <!-- 범위/개별 -->
@@ -322,6 +323,11 @@ function buildJson(obj) {
       <span class="zone-select-count" id="zoneSelectCount">선택된 영역 없음</span>
       <button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="clearZones()">선택 해제</button>
     </div>
+  </div>
+
+  <!-- 먼지포집 검색 -->
+  <div id="panelDust" style="display:none">
+    <div style="text-align:center;padding:28px 0 20px;color:var(--text3);font-size:14px;letter-spacing:0.02em">추후 업데이트 예정</div>
   </div>
 
   <hr class="divider"/>
@@ -403,7 +409,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.16</span>
+  <span class="footer-version">v1.2.1</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.09</span>
 </div>
