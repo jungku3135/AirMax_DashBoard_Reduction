@@ -138,16 +138,16 @@ body {
 .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 label { font-size:14px; font-weight:bold; color:var(--text); min-width:52px; }
 
-input[type=text], input[type=password], input[type=date] {
+input[type=text], input[type=password], input[type=date], input[type=datetime-local] {
   background:var(--input-bg); border:1.5px solid var(--border);
   border-radius:7px; color:var(--text); padding:8px 12px;
   font-size:13px; outline:none; font-family:inherit;
   transition:border-color 0.15s,box-shadow 0.15s;
 }
-input[type=text]:focus, input[type=password]:focus, input[type=date]:focus {
+input[type=text]:focus, input[type=password]:focus, input[type=date]:focus, input[type=datetime-local]:focus {
   border-color:var(--text3); box-shadow:0 0 0 3px rgba(128,128,128,0.1);
 }
-input[type=date] { cursor:pointer; }
+input[type=date], input[type=datetime-local] { cursor:pointer; }
 .token-input { width:400px; font-size:11px; }
 .id-input { width:88px; font-weight:700; letter-spacing:1px; }
 .extra-id-input { width:240px; }
@@ -794,9 +794,9 @@ function buildJson(obj) {
       <label>제품 ID</label>
       <input type="text" class="id-input" id="singleIdInput" placeholder="A001" style="width:140px"/>
       <label style="margin-left:8px;min-width:auto">기간</label>
-      <input type="date" id="singleStartDate" style="width:150px"/>
+      <input type="datetime-local" id="singleStartDate" style="width:185px"/>
       <span class="dash" style="font-size:14px">~</span>
-      <input type="date" id="singleEndDate" style="width:150px"/>
+      <input type="datetime-local" id="singleEndDate" style="width:185px"/>
     </div>
   </div>
 
@@ -906,7 +906,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.14</span>
+  <span class="footer-version">v1.1.15</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.04</span>
 </div>
@@ -1096,9 +1096,10 @@ function yesterdayStr(){
 function getDateRange(mode){
   const today=todayStr(), yest=yesterdayStr();
   if(mode==='single'){
-    const s=document.getElementById('singleStartDate').value||yest;
-    const e=document.getElementById('singleEndDate').value||today;
-    return{started_at:s, finished_at:e};
+    const s=document.getElementById('singleStartDate').value||(yest+'T00:00');
+    const e=document.getElementById('singleEndDate').value||(today+'T23:59');
+    const fmtDt=v=>v.includes('T')?v.replace('T',' ')+':00':v;
+    return{started_at:fmtDt(s), finished_at:fmtDt(e)};
   }
   if(mode==='zone'){
     return{started_at:yest, finished_at:today};
@@ -1891,9 +1892,9 @@ async function startInspection(){
 
   productLocations=lsGet(LS_PROD_LOCS,{});
 
-  // 단일 검색 기본 날짜 (전일 ~ 금일)
-  document.getElementById('singleStartDate').value=yesterdayStr();
-  document.getElementById('singleEndDate').value=todayStr();
+  // 단일 검색 기본 날짜+시간 (전일 00:00 ~ 금일 23:59)
+  document.getElementById('singleStartDate').value=yesterdayStr()+'T00:00';
+  document.getElementById('singleEndDate').value=todayStr()+'T23:59';
 
   extraIds=lsGet(LS_EXTRA,[]);
   const savedEnd=lsGet(LS_ENDID,'');
