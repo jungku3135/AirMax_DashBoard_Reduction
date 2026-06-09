@@ -785,7 +785,11 @@ function renderDustDetail(id, items){
     items.map(item=>
       `<tr>${keys.map(k=>{
         const v=item[k];
-        return`<td>${v!==undefined&&v!==null?escHtml(String(v)):'—'}</td>`;
+        if(v===undefined||v===null) return'<td>—</td>';
+        if(typeof v==='object'){
+          return`<td><pre style="margin:0;font-size:10px;white-space:pre-wrap;word-break:break-all;max-width:320px">${escHtml(JSON.stringify(v,null,2))}</pre></td>`;
+        }
+        return`<td>${escHtml(String(v))}</td>`;
       }).join('')}</tr>`
     ).join('');
 
