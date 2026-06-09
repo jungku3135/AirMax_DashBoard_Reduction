@@ -534,19 +534,24 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 
 /* ===== 먼지포집 카드 그리드 ===== */
 .dust-cards-title { font-size:12px; color:var(--text3); margin-bottom:10px; }
-.dust-cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+.dust-cards-grid { display:flex; flex-direction:column; }
+.dust-zone-group { margin-bottom:20px; }
+.dust-zone-header { font-size:11px; font-weight:700; color:var(--text3); letter-spacing:0.06em; text-transform:uppercase; padding:4px 0 8px; border-bottom:1px solid var(--border); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+.dust-zone-count { font-weight:400; color:var(--text4); }
+.dust-zone-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
 .dust-card {
   background:var(--surface); border:1px solid var(--border); border-radius:10px;
   padding:14px 16px; cursor:pointer; transition:border-color 0.15s, box-shadow 0.15s;
-  min-height:88px; display:flex; flex-direction:column; gap:4px; user-select:none;
+  min-height:88px; display:flex; flex-direction:column; gap:3px; user-select:none;
 }
 .dust-card:hover { border-color:var(--em-border); box-shadow:0 2px 10px rgba(0,0,0,0.1); }
 .dust-card.loading { opacity:0.45; cursor:default; pointer-events:none; }
 .dust-card.empty { border-style:dashed; cursor:default; }
 .dust-card.empty:hover { border-color:var(--border); box-shadow:none; }
 .dust-card-id { font-size:14px; font-weight:700; color:var(--text); }
-.dust-card-total { font-size:20px; font-weight:700; color:var(--ok-text); line-height:1.2; }
-.dust-card-meta { font-size:11px; color:var(--text3); margin-top:2px; }
+.dust-card-loc { font-size:11px; color:var(--text3); }
+.dust-card-total { font-size:20px; font-weight:700; color:var(--ok-text); line-height:1.2; margin-top:4px; }
+.dust-card-meta { font-size:11px; color:var(--text3); }
 
 /* ===== 먼지포집 모달 ===== */
 .dust-modal-overlay {

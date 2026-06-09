@@ -1037,35 +1037,57 @@ async function startDustSearch(){
   resultSection.style.display='block';
   gridEl.innerHTML='';
 
-  ids.forEach(id=>{
+  // 영역별 그룹핑
+  const idSet=new Set(ids);
+  const zoneGroups=new Map();
+  sheetZones.forEach(z=>{
+    const zIds=z.ids.filter(zid=>idSet.has(zid));
+    if(zIds.length) zoneGroups.set(z.name,zIds);
+  });
+  const zonedIds=new Set([...zoneGroups.values()].flat());
+  const unzoned=ids.filter(id=>!zonedIds.has(id));
+  if(unzoned.length) zoneGroups.set('미분류',unzoned);
+
+  const cardHtmlLoading=id=>`
+    <div class="dust-card loading" id="dust-card-${escHtml(id)}">
+      <div class="dust-card-id">${escHtml(id)}</div>
+      <div class="dust-card-meta">로딩 중…</div>
+    </div>`;
+
+  zoneGroups.forEach((zIds,zoneName)=>{
     gridEl.insertAdjacentHTML('beforeend',`
-      <div class="dust-card loading" id="dust-card-${escHtml(id)}">
-        <div class="dust-card-id">${escHtml(id)}</div>
-        <div class="dust-card-meta">로딩 중…</div>
+      <div class="dust-zone-group">
+        <div class="dust-zone-header">${escHtml(zoneName)}<span class="dust-zone-count">${zIds.length}개</span></div>
+        <div class="dust-zone-cards">${zIds.map(cardHtmlLoading).join('')}</div>
       </div>`);
   });
 
   setGlobalLock(true);
+  let done=0;
+  progressEl.textContent=`조회 중 0 / ${ids.length}`;
+  progressEl.style.display='block';
 
-  for(let i=0;i<ids.length;i++){
-    const id=ids[i];
-    progressEl.textContent=`조회 중 ${i+1} / ${ids.length} — ${id}`;
-    progressEl.style.display='block';
+  await Promise.all(ids.map(async id=>{
     const card=document.getElementById('dust-card-'+id);
+    const loc=productLocations[id]?`<div class="dust-card-loc">${escHtml(productLocations[id])}</div>`:'';
     try{
-      const items=await fetchAllReports(id,dateRange,token,()=>{});
+      const rawItems=await fetchAllReports(id,dateRange,token,()=>{});
+      const items=rawItems.filter(it=>{
+        const t=(it.report_data?.readTime||it.format_created_time||'').slice(0,10);
+        return t>=dateRange.started_at;
+      });
       const{total,days}=calcDust(items);
       const activeDays=days.filter(d=>d.inc>0);
-      if(!card) continue;
+      if(!card) return;
       if(!activeDays.length){
         card.className='dust-card empty';
-        card.innerHTML=`<div class="dust-card-id">${escHtml(id)}</div>
-          <div class="dust-card-meta" style="color:var(--text4)">포집 데이터 없음</div>`;
+        card.innerHTML=`<div class="dust-card-id">${escHtml(id)}</div>${loc}
+          <div class="dust-card-meta" style="color:var(--text4);margin-top:4px">포집 데이터 없음</div>`;
       } else {
         dustResultMap.set(id,items);
         const lastDate=activeDays[activeDays.length-1].date;
         card.className='dust-card';
-        card.innerHTML=`<div class="dust-card-id">${escHtml(id)}</div>
+        card.innerHTML=`<div class="dust-card-id">${escHtml(id)}</div>${loc}
           <div class="dust-card-total">${total.toLocaleString()}g</div>
           <div class="dust-card-meta">${activeDays.length}일 포집 · 최근 ${lastDate}</div>`;
         card.addEventListener('click',()=>openDustModal(id));
@@ -1073,11 +1095,13 @@ async function startDustSearch(){
     }catch(e){
       if(card){
         card.className='dust-card empty';
-        card.innerHTML=`<div class="dust-card-id">${escHtml(id)}</div>
-          <div class="dust-card-meta" style="color:var(--pm-text)">조회 오류</div>`;
+        card.innerHTML=`<div class="dust-card-id">${escHtml(id)}</div>${loc}
+          <div class="dust-card-meta" style="color:var(--pm-text);margin-top:4px">조회 오류</div>`;
       }
     }
-  }
+    progressEl.textContent=`조회 중 ${++done} / ${ids.length}`;
+  }));
+
   progressEl.style.display='none';
   setGlobalLock(false);
 }
@@ -1095,7 +1119,7 @@ function openDustModal(id){
       <span class="dust-stat-value">${total.toLocaleString()}g</span></div>
     <div class="dust-stat"><span class="dust-stat-label">포집 발생일</span>
       <span class="dust-stat-value">${activeDays.length}일</span></div>
-    <div class="dust-stat"><span class="dust-stat-label">유효 기록</span>
+    <div class="dust-stat"><span class="dust-stat-label">리포트 데이터 수</span>
       <span class="dust-stat-value">${scanCount}건</span></div>`;
 
   const headEl=document.getElementById('dustModalHead');
@@ -1103,9 +1127,9 @@ function openDustModal(id){
   const chartWrap=document.getElementById('dustModalChartWrap');
 
   if(activeDays.length){
-    headEl.innerHTML='<th>날짜</th><th>기록 수</th><th>시작 (g)</th><th>마지막 (g)</th><th>일별 포집 (g)</th>';
+    headEl.innerHTML='<th>날짜</th><th>시작 (g)</th><th>마지막 (g)</th><th>일별 포집 (g)</th>';
     bodyEl.innerHTML=activeDays.map(d=>`<tr>
-      <td>${escHtml(d.date)}</td><td>${d.count}</td>
+      <td>${escHtml(d.date)}</td>
       <td>${d.first.toLocaleString()}</td><td>${d.last.toLocaleString()}</td>
       <td style="font-weight:700;color:var(--ok-text)">+${d.inc.toLocaleString()}</td>
     </tr>`).join('');
