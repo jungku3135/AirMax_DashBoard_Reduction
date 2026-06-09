@@ -824,7 +824,7 @@ function renderSingleChart(items){
     },
     scales:{
       x:{ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10},grid:{color:gridColor}},
-      y:{ticks:{color:tickColor,font:{size:10}},grid:{color:gridColor},beginAtZero:false}
+      y:{ticks:{color:tickColor,font:{size:10},callback:v=>Number.isInteger(v)?v:null},grid:{color:gridColor},beginAtZero:true,min:0}
     }
   });
 
