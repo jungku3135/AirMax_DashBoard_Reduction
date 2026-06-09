@@ -28,6 +28,7 @@ let peOriginals = {};
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
 let logVisible=false, logs=[], extraIds=[], dustExtraIds=[];
 let isGlobalLocked=false;
+let selectedDustZones=new Set();
 let lastResults = [];
 let singleAllItems=[], singlePage=0, singleChartDust=null, singleChartCo2=null;
 let dustDays=[], dustModalChart=null, dustModalOpen=false;
@@ -100,6 +101,7 @@ function _applyDustAuthUI(isSuper){
   const area=document.getElementById('dustSearchArea');
   if(notMsg) notMsg.style.display=isSuper?'none':'block';
   if(area) area.style.display=isSuper?'block':'none';
+  if(isSuper) renderDustZoneGrid();
 }
 
 function deauthAdmin(){
@@ -182,6 +184,7 @@ async function loadSheetData(force=false){
     sheetZones=cached.zones;
     productLocations=Object.assign({},cached.locations||{});
     renderZoneGrid();
+    renderDustZoneGrid();
   }
 
   if((expired||force)&&GAS_URL){
@@ -193,6 +196,7 @@ async function loadSheetData(force=false){
         productLocations=Object.assign({},json.locations||{});
         lsSet(LS_SHEET_CACHE,{ts:now,zones:sheetZones,locations:json.locations||{}});
         renderZoneGrid();
+        renderDustZoneGrid();
         const msg=force?'시트 데이터 새로고침 완료'
           :(cached?'시트 데이터 갱신':'시트 데이터 로드');
         addLog(`${msg} — 영역 ${sheetZones.length}개, 설치 장소 ${Object.keys(json.locations||{}).length}건`,'ok');
@@ -630,32 +634,30 @@ function renderProductEditor(){
   const cardFn=peEditMode?editCard:viewCard;
 
   let html=datalist;
-  let singleBuf=[];
-  const flushSingle=()=>{
-    if(!singleBuf.length) return;
-    html+=`<div class="pe-compact-row">${singleBuf.map(zone=>{
-      const p=filtered.find(q=>q.zone===zone);
-      return `<div class="pe-compact-zone">
+  let compactBuf=[];
+  const flushCompact=()=>{
+    if(!compactBuf.length) return;
+    html+=`<div class="pe-compact-row">${compactBuf.map(({zone,ps})=>`
+      <div class="pe-compact-zone">
         <div class="pe-zone-header mini">${escHtml(zone)}</div>
-        ${cardFn(p)}
-      </div>`;
-    }).join('')}</div>`;
-    singleBuf=[];
+        ${ps.map(cardFn).join('')}
+      </div>`).join('')}</div>`;
+    compactBuf=[];
   };
 
   groupedZones.forEach(zone=>{
     const ps=filtered.filter(p=>p.zone===zone);
-    if(ps.length===1){
-      singleBuf.push(zone);
+    if(ps.length<=2){
+      compactBuf.push({zone,ps});
     } else {
-      flushSingle();
+      flushCompact();
       html+=`<div class="pe-zone-group">
         <div class="pe-zone-header">${escHtml(zone)}<span class="pe-zone-count">${ps.length}</span></div>
         <div class="pe-grid">${ps.map(cardFn).join('')}</div>
       </div>`;
     }
   });
-  flushSingle();
+  flushCompact();
   el.innerHTML=html;
 }
 
@@ -922,7 +924,7 @@ function fmtTime(str){
   return m?`${m[1]}.${m[2]} ${m[3]}`:str.slice(5,16);
 }
 
-/* ===== 먼지포집 데이터 렌더 ===== */
+/* ===== 먼지 포집 데이터 렌더 ===== */
 function calcDust(items){
   // dustTotal 필드 있는 항목만, readTime 기준 오름차순 정렬
   const sorted=[...items]
@@ -998,16 +1000,89 @@ function renderDustChart(days,isDark,canvasId){
   });
 }
 
-/* ===== 먼지포집 범위 검색 ===== */
-function buildDustRange(startRaw,endRaw,label){
-  const errEl=document.getElementById('errorMsg');
-  const s=parseId(startRaw),e=parseId(endRaw);
-  if(!s||!e){errEl.textContent=`⚠ ${label} ID 형식이 잘못되었습니다.`;return null;}
-  if(s.prefix!==e.prefix){errEl.textContent=`⚠ ${label} 시작/끝 ID 접두사가 같아야 합니다.`;return null;}
-  if(s.num>e.num){errEl.textContent=`⚠ ${label} 끝 ID가 시작 ID보다 작습니다.`;return null;}
-  const padLen=Math.max(s.padLen,e.padLen);
-  const ids=[]; for(let n=s.num;n<=e.num;n++) ids.push(formatId(s.prefix,n,padLen));
-  return ids;
+/* ===== 먼지 포집 범위 검색 ===== */
+/* ===== 먼지 포집 영역 선택기 ===== */
+function renderDustZoneGrid(){
+  const gridEl=document.getElementById('dustZonePickerGrid');
+  if(!gridEl) return;
+  const ZONES=getAllZones();
+  if(!ZONES.length){
+    gridEl.innerHTML='<div class="dzp-empty">영역 데이터를 불러오는 중…</div>';
+    return;
+  }
+  const q=(document.getElementById('dustZoneSearchInput')?.value||'').trim().toLowerCase();
+  const compact=[],full=[];
+  ZONES.forEach((z,i)=>{
+    const nameMatch=z.name.toLowerCase().includes(q);
+    const idMatch=z.ids.some(id=>id.toLowerCase().includes(q));
+    const match=!q||nameMatch||idMatch;
+    (z.ids.length<=2?compact:full).push({z,i,match,idMatch});
+  });
+  let html='';
+  const visCompact=compact.filter(x=>x.match);
+  if(visCompact.length||(!q&&compact.length)){
+    html+=`<div class="dzp-compact-row">`;
+    compact.forEach(({z,i,match})=>{
+      const sel=selectedDustZones.has(i);
+      const hl=q&&match?'hl':'';
+      const hidden=q&&!match?'hidden':'';
+      html+=`<button class="dzp-compact-btn ${sel?'selected':''} ${hl} ${hidden}" onclick="toggleDustZone(${i})" data-zone-idx="${i}">
+        <span class="dz-name">${escHtml(z.name)}</span>
+        <span class="dz-ids">${z.ids.map(escHtml).join(' · ')}</span>
+      </button>`;
+    });
+    html+=`</div>`;
+  }
+  full.forEach(({z,i,match})=>{
+    const sel=selectedDustZones.has(i);
+    const hl=q&&match?'hl':'';
+    const hidden=q&&!match?'hidden':'';
+    html+=`<div class="dzp-full-zone ${hl} ${hidden}" data-zone-idx="${i}">
+      <div class="dzp-fz-header ${sel?'selected':''}" onclick="toggleDustZone(${i})">
+        <span>${escHtml(z.name)}</span>
+        <span class="dzp-fz-count">${z.ids.length}개</span>
+      </div>
+      <div class="dzp-fz-ids">${z.ids.map(id=>{
+        const idHl=q&&id.toLowerCase().includes(q)?'hl':'';
+        return`<span class="dzp-id-chip ${sel?'selected':''} ${idHl}">${escHtml(id)}</span>`;
+      }).join('')}</div>
+    </div>`;
+  });
+  if(!html) html='<div class="dzp-empty">검색 결과 없음</div>';
+  gridEl.innerHTML=html;
+  updateDustZoneInfo();
+  if(q){
+    const first=gridEl.querySelector('.hl:not(.hidden)');
+    if(first) first.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+}
+
+function toggleDustZone(i){
+  if(selectedDustZones.has(i)) selectedDustZones.delete(i);
+  else selectedDustZones.add(i);
+  renderDustZoneGrid();
+}
+
+function filterDustZones(){
+  renderDustZoneGrid();
+}
+
+function selectAllDustZones(){
+  getAllZones().forEach((_,i)=>selectedDustZones.add(i));
+  renderDustZoneGrid();
+}
+
+function clearAllDustZones(){
+  selectedDustZones.clear();
+  renderDustZoneGrid();
+}
+
+function updateDustZoneInfo(){
+  const ZONES=getAllZones();
+  const cnt=selectedDustZones.size;
+  const total=[...selectedDustZones].reduce((s,i)=>s+(ZONES[i]?ZONES[i].ids.length:0),0);
+  const el=document.getElementById('dustZoneSelectInfo');
+  if(el) el.textContent=cnt===0?'선택된 영역 없음':`${cnt}개 영역 · ${total}개 제품`;
 }
 
 async function startDustSearch(){
@@ -1019,15 +1094,14 @@ async function startDustSearch(){
   const errEl=document.getElementById('errorMsg');
   errEl.textContent='';
   const token=document.getElementById('tokenInput').value.trim();
+  const ZONES=getAllZones();
+  const added=new Set();
   const ids=[];
-  const domS=document.getElementById('dustDomStart').value.trim();
-  const domE=document.getElementById('dustDomEnd').value.trim();
-  const glS=document.getElementById('dustGlobalStart').value.trim();
-  const glE=document.getElementById('dustGlobalEnd').value.trim();
-  if(domS&&domE){ const r=buildDustRange(domS,domE,'국내'); if(!r)return; ids.push(...r); }
-  if(glS&&glE){ const r=buildDustRange(glS,glE,'글로벌'); if(!r)return; ids.push(...r); }
-  dustExtraIds.forEach(id=>{ if(!ids.includes(id)) ids.push(id); });
-  if(!ids.length){errEl.textContent='⚠ 조회할 ID 범위를 입력해주세요.';return;}
+  [...selectedDustZones].forEach(i=>{
+    if(ZONES[i]) ZONES[i].ids.forEach(id=>{ if(!added.has(id)){added.add(id);ids.push(id);} });
+  });
+  dustExtraIds.forEach(id=>{ if(!added.has(id)){added.add(id);ids.push(id);} });
+  if(!ids.length){errEl.textContent='⚠ 조회할 영역을 선택해주세요.';return;}
 
   const dateRange={started_at:'2026-04-01',finished_at:todayStr()};
   const resultSection=document.getElementById('dustResultSection');
@@ -1113,7 +1187,7 @@ function openDustModal(id){
   const activeDays=days.filter(d=>d.inc>0);
   dustDays=activeDays;
 
-  document.getElementById('dustModalTitle').textContent=`${id} — 먼지포집 상세`;
+  document.getElementById('dustModalTitle').textContent=`${id} — 먼지 포집 상세`;
   document.getElementById('dustModalSummary').innerHTML=`
     <div class="dust-stat"><span class="dust-stat-label">총 포집량</span>
       <span class="dust-stat-value">${total.toLocaleString()}g</span></div>
@@ -1470,16 +1544,7 @@ async function startInspection(){
   document.getElementById('extraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addExtraId();});
   document.getElementById('dustExtraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addDustExtraId();});
   document.getElementById('singleIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});
-  ['dustDomStart','dustDomEnd','dustGlobalStart','dustGlobalEnd'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(!el) return;
-    el.addEventListener('keydown',e=>{if(e.key==='Enter'){startDustSearch();return;}restrictIdInput(e);});
-    el.addEventListener('paste',e=>{
-      e.preventDefault();
-      const cleaned=(e.clipboardData||window.clipboardData).getData('text').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4);
-      el.value=cleaned;
-    });
-  });
+  document.getElementById('dustZoneSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';filterDustZones();}});
   document.getElementById('adminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateAdmin();});
   document.getElementById('peNewId').addEventListener('keydown',e=>{if(e.key==='Enter')addProductToSheet();});
 
