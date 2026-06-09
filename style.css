@@ -150,7 +150,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 }
 .dash { color:var(--border); font-size:18px; padding:0 2px; }
 
-.extra-ids-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; min-height:30px; }
+.extra-ids-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
 .extra-id-tag {
   display:inline-flex; align-items:center; gap:5px;
   background:var(--tag-bg); border:1px solid var(--tag-border);

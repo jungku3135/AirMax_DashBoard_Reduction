@@ -210,15 +210,23 @@ function updateDateInfo(){
 function switchMode(mode){
   currentMode=mode; lsSet(LS_MODE,mode);
   ['range','single','zone','dust'].forEach(m=>{
-    document.getElementById('tab'+m.charAt(0).toUpperCase()+m.slice(1)).classList.toggle('active',m===mode);
-    document.getElementById('panel'+m.charAt(0).toUpperCase()+m.slice(1)).style.display=m===mode?'block':'none';
+    const cap=m.charAt(0).toUpperCase()+m.slice(1);
+    const tabEl=document.getElementById('tab'+cap);
+    const panelEl=document.getElementById('panel'+cap);
+    if(tabEl) tabEl.classList.toggle('active',m===mode);
+    if(panelEl) panelEl.style.display=m===mode?'block':'none';
   });
   if(mode==='zone') renderZoneGrid();
   updateMobileFixedBtn();
   updateRunBtnText();
   updateSheetBtn();
-  if(mode==='dust') document.getElementById('dateInfo').textContent='';
-  else updateDateInfo();
+  if(mode==='dust'){
+    const d=new Date();
+    const ym=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    document.getElementById('dateInfo').textContent=`조회 기간  ${ym} ~`;
+  } else {
+    updateDateInfo();
+  }
   if(mode!=='single'){
     document.getElementById('singleResultSection').style.display='none';
   }
@@ -346,9 +354,10 @@ function removeExtraId(id){
   extraIds=extraIds.filter(v=>v!==id); lsSet(LS_EXTRA,extraIds); renderExtraTags();
 }
 function renderExtraTags(){
-  document.getElementById('extraTagsRow').innerHTML=extraIds.length===0
-    ?'<span style="color:var(--text4);font-size:12px">추가된 ID 없음</span>'
-    :extraIds.map(id=>`<span class="extra-id-tag">${escHtml(id)}<button onclick="removeExtraId('${escHtml(id)}')" title="삭제">×</button></span>`).join('');
+  const row=document.getElementById('extraTagsRow');
+  if(!extraIds.length){ row.innerHTML=''; row.style.display='none'; return; }
+  row.style.display='flex';
+  row.innerHTML=extraIds.map(id=>`<span class="extra-id-tag">${escHtml(id)}<button onclick="removeExtraId('${escHtml(id)}')" title="삭제">×</button></span>`).join('');
 }
 
 /* ===== ID 유틸 ===== */
@@ -1010,7 +1019,6 @@ async function startInspection(){
 
   const savedMode=lsGet(LS_MODE,'range');
   switchMode(savedMode);
-  updateDateInfo();
 
   const addRestrictedInput=(id)=>{
     const el=document.getElementById(id);
