@@ -345,13 +345,22 @@ function buildJson(obj) {
     </div>
     <div id="dustSearchArea" style="display:none">
       <hr class="divider" style="margin:10px 0"/>
-      <div class="dzp-toolbar">
-        <input type="text" id="dustZoneSearchInput" class="id-input" placeholder="영역명 또는 제품 ID 검색…" oninput="filterDustZones()" style="flex:1;min-width:0"/>
+      <div class="zone-search-row">
+        <input type="text" class="zone-search-input" id="dustZoneSearchInput"
+          placeholder="🔍  영역명 검색 (예: 시청역)"
+          oninput="filterDustZones()"/>
+        <button class="btn-zone-toggle" id="dustZoneToggleBtn" onclick="toggleDustZoneGrid()">
+          <span>펼치기</span>
+          <span class="zone-toggle-arrow" id="dustZoneArrow">▼</span>
+        </button>
         <button class="btn-sm" onclick="selectAllDustZones()">전체 선택</button>
         <button class="btn-sm" onclick="clearAllDustZones()">전체 해제</button>
       </div>
-      <div id="dustZoneSelectInfo" class="dzp-select-info" style="margin-bottom:6px">선택된 영역 없음</div>
-      <div id="dustZonePickerGrid" class="dzp-wrap zone-grid"></div>
+      <div class="zone-grid-wrap" id="dustZoneGridWrap">
+        <div class="zone-grid" id="dustZonePickerGrid"></div>
+        <div class="zone-no-result" id="dustZoneNoResult" style="display:none">검색 결과가 없습니다.</div>
+      </div>
+      <div id="dustZoneSelectInfo" class="zone-select-count" style="margin-top:6px">선택된 영역 없음</div>
       <hr class="divider" style="margin:10px 0"/>
       <div class="section-label" style="margin-bottom:6px">개별 추가 ID
         <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — Demo, Lab0 등 특수 ID</span>
@@ -476,7 +485,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.43b</span>
+  <span class="footer-version">v1.47b</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.10</span>
 </div>

@@ -927,6 +927,8 @@ function fmtTime(str){
 /* ===== 먼지 포집 데이터 렌더 ===== */
 function calcDust(items){
   // dustTotal 필드 있는 항목만, readTime 기준 오름차순 정렬
+  const ERROR_OFFSET=152*1000+156; // 오류 데이터 오프셋 (152kg + 156g)
+
   const sorted=[...items]
     .filter(it=>it.report_data?.dustTotal!==undefined&&it.report_data?.dustTotal!==null)
     .sort((a,b)=>{
@@ -935,11 +937,12 @@ function calcDust(items){
       return ta-tb;
     });
 
-  // grams 값 + 날짜 추출
+  // grams 값 + 날짜 추출 (오류 레코드는 오프셋 차감)
   const pts=sorted.map(it=>{
     const rd=it.report_data;
     const time=rd.readTime||it.format_created_time||'';
-    const grams=(Number(rd.dustTotal)||0)*1000+(Number(rd.dustTotal1)||0);
+    let grams=(Number(rd.dustTotal)||0)*1000+(Number(rd.dustTotal1)||0);
+    if(Number(rd.dustTotal)===152&&Number(rd.dustTotal1)===156) grams-=ERROR_OFFSET;
     const date=time.slice(0,10);
     return{time,grams,date};
   });
@@ -1002,32 +1005,44 @@ function renderDustChart(days,isDark,canvasId){
 
 /* ===== 먼지 포집 범위 검색 ===== */
 /* ===== 먼지 포집 영역 선택기 ===== */
+let dustZoneGridOpen=false;
+
+function toggleDustZoneGrid(){
+  dustZoneGridOpen=!dustZoneGridOpen;
+  const wrap=document.getElementById('dustZoneGridWrap');
+  const arrow=document.getElementById('dustZoneArrow');
+  const btn=document.getElementById('dustZoneToggleBtn');
+  if(wrap) wrap.classList.toggle('open',dustZoneGridOpen);
+  if(arrow) arrow.classList.toggle('open',dustZoneGridOpen);
+  if(btn) btn.querySelector('span').textContent=dustZoneGridOpen?'접기':'펼치기';
+}
+
 function renderDustZoneGrid(){
   const gridEl=document.getElementById('dustZonePickerGrid');
   if(!gridEl) return;
   const ZONES=getAllZones();
   if(!ZONES.length){
-    gridEl.innerHTML='<div class="zone-no-result" style="display:block">영역 데이터 없음 — 시트 새로고침 필요</div>';
+    gridEl.innerHTML='';
+    const noRes=document.getElementById('dustZoneNoResult');
+    if(noRes) noRes.style.display='block';
     return;
   }
   const q=(document.getElementById('dustZoneSearchInput')?.value||'').trim().toLowerCase();
   gridEl.innerHTML=ZONES.map((z,i)=>{
     const sel=selectedDustZones.has(i);
     const rangeText=z.ids.length===1?z.ids[0]:`${z.ids[0]}~${z.ids[z.ids.length-1]} (${z.ids.length}개)`;
-    const nameMatch=!q||z.name.toLowerCase().includes(q);
-    const idMatch=!q||z.ids.some(id=>id.toLowerCase().includes(q));
-    const hidden=!nameMatch&&!idMatch?'hidden':'';
-    const hl=q&&(nameMatch||idMatch)?'highlight':'';
-    return`<button class="zone-btn ${sel?'selected':''} ${hidden} ${hl}" onclick="toggleDustZone(${i})" data-zone-idx="${i}">
+    const match=!q||z.name.toLowerCase().includes(q);
+    const hidden=!match?'hidden':'';
+    return`<button class="zone-btn ${sel?'selected':''} ${hidden}" onclick="toggleDustZone(${i})">
       <span class="zone-name">${escHtml(z.name)}</span>
       <span class="zone-range">${rangeText}</span>
     </button>`;
   }).join('');
+  const allHidden=gridEl.querySelectorAll('.zone-btn:not(.hidden)').length===0;
+  const noRes=document.getElementById('dustZoneNoResult');
+  if(noRes) noRes.style.display=allHidden?'block':'none';
+  if(q&&!dustZoneGridOpen) toggleDustZoneGrid();
   updateDustZoneInfo();
-  if(q){
-    const first=gridEl.querySelector('.zone-btn.highlight:not(.hidden)');
-    if(first) first.scrollIntoView({behavior:'smooth',block:'nearest'});
-  }
 }
 
 function toggleDustZone(i){
@@ -1204,19 +1219,20 @@ function filterDustResults(q){
   if(!grid) return;
   let visible=0;
   grid.querySelectorAll('.dust-zone-group').forEach(group=>{
+    const zoneHeader=group.querySelector('.dust-zone-header');
+    const zoneName=(zoneHeader?.textContent||'').toLowerCase();
+    const zoneNameMatch=!lower||zoneName.includes(lower);
     let groupVisible=0;
     group.querySelectorAll('.dust-card').forEach(card=>{
       const id=(card.querySelector('.dust-card-id')?.textContent||'').toLowerCase();
       const loc=(card.querySelector('.dust-card-loc')?.textContent||'').toLowerCase();
-      const match=!lower||id.includes(lower)||loc.includes(lower);
+      const match=!lower||zoneNameMatch||id.includes(lower)||loc.includes(lower);
       card.classList.toggle('result-hidden',!match);
       if(match) groupVisible++;
     });
-    const zoneHeader=group.querySelector('.dust-zone-header');
-    const zoneName=(zoneHeader?.textContent||'').toLowerCase();
-    const zoneMatch=!lower||zoneName.includes(lower)||groupVisible>0;
-    group.classList.toggle('result-hidden',!zoneMatch);
-    if(zoneMatch) visible+=groupVisible||group.querySelectorAll('.dust-card').length;
+    const groupMatch=!lower||groupVisible>0;
+    group.classList.toggle('result-hidden',!groupMatch);
+    visible+=groupVisible;
   });
   const countEl=document.getElementById('dustResultCount');
   if(countEl) countEl.textContent=lower?`${visible}개 표시`:'';
