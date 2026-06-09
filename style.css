@@ -498,3 +498,14 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 }
 .btn-sheet:hover:not(:disabled) { background:var(--ok-bg); }
 .btn-sheet:disabled { opacity:0.3; cursor:not-allowed; }
+
+/* ===== 먼지포집 요약 ===== */
+#dustSummaryBox {
+  display:flex; gap:20px; flex-wrap:wrap;
+  background:var(--input-bg); border:1px solid var(--border);
+  border-radius:10px; padding:16px 20px; margin:12px 0 16px;
+}
+.dust-stat { display:flex; flex-direction:column; gap:3px; min-width:90px; }
+.dust-stat-label { font-size:11px; color:var(--text3); font-weight:500; }
+.dust-stat-value { font-size:22px; font-weight:700; color:var(--text); line-height:1.1; }
+.dust-stat-sub { font-size:11px; color:var(--text4); }

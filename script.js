@@ -28,6 +28,7 @@ let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
 let logVisible=false, logs=[], extraIds=[];
 let lastResults = [];
 let singleAllItems=[], singlePage=0, singleChartDust=null, singleChartCo2=null;
+let dustBarChart=null, dustDays=[];
 const SINGLE_PAGE_SIZE=30;
 
 const STATUS = {
@@ -58,6 +59,7 @@ function toggleTheme(){
     const start=singlePage*SINGLE_PAGE_SIZE;
     renderSingleChart([...singleAllItems.slice(start,start+SINGLE_PAGE_SIZE)].reverse());
   }
+  if(dustDays.length) renderDustChart(dustDays, next==='dark');
 }
 
 /* ===== 관리자 인증 ===== */
@@ -756,53 +758,136 @@ function fmtTime(str){
   return m?`${m[1]}.${m[2]} ${m[3]}`:str.slice(5,16);
 }
 
-/* ===== 먼지포집 원본 데이터 렌더 ===== */
-let dustRawItems=[];
+/* ===== 먼지포집 데이터 렌더 ===== */
+function calcDust(items){
+  // dustTotal 필드 있는 항목만, readTime 기준 오름차순 정렬
+  const sorted=[...items]
+    .filter(it=>it.report_data?.dustTotal!==undefined&&it.report_data?.dustTotal!==null)
+    .sort((a,b)=>{
+      const ta=new Date((a.report_data.readTime||a.format_created_time||'').replace(' ','T'));
+      const tb=new Date((b.report_data.readTime||b.format_created_time||'').replace(' ','T'));
+      return ta-tb;
+    });
 
-function renderDustDetail(id, items){
-  dustRawItems=items;
-  const titleEl=document.getElementById('dustDetailTitle');
-  const copyBtn=document.getElementById('dustCopyBtn');
-  const section=document.getElementById('dustResultSection');
-  section.style.display='block';
-  titleEl.textContent=`${id} — 총 ${items.length}건`;
+  // grams 값 + 날짜 추출
+  const pts=sorted.map(it=>{
+    const rd=it.report_data;
+    const time=rd.readTime||it.format_created_time||'';
+    const grams=(Number(rd.dustTotal)||0)*1000+(Number(rd.dustTotal1)||0);
+    const date=time.slice(0,10);
+    return{time,grams,date};
+  });
 
-  if(!items.length){
-    document.getElementById('dustDetailHead').innerHTML='';
-    document.getElementById('dustDetailBody').innerHTML=
-      '<tr><td style="text-align:center;padding:20px;color:var(--text3)">조회된 데이터가 없습니다</td></tr>';
-    copyBtn.style.display='none';
-    return;
-  }
+  // 전체 합산 (무조건 합산, 감소 없음)
+  let total=0;
+  for(let i=1;i<pts.length;i++) total+=pts[i].grams-pts[i-1].grams;
 
-  // 모든 아이템에서 등장하는 키 수집 (순서 유지)
-  const keys=[...new Set(items.flatMap(item=>Object.keys(item)))];
+  // 일별 집계
+  const dayMap=new Map();
+  pts.forEach(p=>{
+    if(!dayMap.has(p.date)) dayMap.set(p.date,[]);
+    dayMap.get(p.date).push(p);
+  });
+  const days=[...dayMap.entries()].map(([date,ps])=>{
+    let inc=0;
+    for(let i=1;i<ps.length;i++) inc+=ps[i].grams-ps[i-1].grams;
+    return{date,count:ps.length,first:ps[0].grams,last:ps[ps.length-1].grams,inc};
+  });
 
-  document.getElementById('dustDetailHead').innerHTML=
-    keys.map(k=>`<th>${escHtml(k)}</th>`).join('');
-
-  document.getElementById('dustDetailBody').innerHTML=
-    items.map(item=>
-      `<tr>${keys.map(k=>{
-        const v=item[k];
-        if(v===undefined||v===null) return'<td>—</td>';
-        if(typeof v==='object'){
-          return`<td><pre style="margin:0;font-size:10px;white-space:pre-wrap;word-break:break-all;max-width:320px">${escHtml(JSON.stringify(v,null,2))}</pre></td>`;
-        }
-        return`<td>${escHtml(String(v))}</td>`;
-      }).join('')}</tr>`
-    ).join('');
-
-  copyBtn.style.display='inline-block';
+  return{total,days,scanCount:sorted.length};
 }
 
-function copyDustToClipboard(){
-  if(!dustRawItems.length) return;
-  navigator.clipboard.writeText(JSON.stringify(dustRawItems,null,2)).then(()=>{
-    const btn=document.getElementById('dustCopyBtn');
-    btn.textContent='✓ 복사됨';
-    setTimeout(()=>{ btn.textContent='📋 JSON 복사'; },2000);
-  }).catch(()=>{ alert('클립보드 복사에 실패했습니다.'); });
+function renderDustChart(days,isDark){
+  if(dustBarChart){dustBarChart.destroy();dustBarChart=null;}
+  const canvas=document.getElementById('dustBarCanvas');
+  if(!canvas||!days.length) return;
+  const grid=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
+  const tick=isDark?'#999':'#888';
+  dustBarChart=new Chart(canvas,{
+    type:'bar',
+    data:{
+      labels:days.map(d=>d.date.slice(5)),
+      datasets:[{
+        label:'일별 포집량 (g)',
+        data:days.map(d=>d.inc),
+        backgroundColor:isDark?'rgba(78,142,247,0.65)':'rgba(78,142,247,0.55)',
+        borderColor:'#4e8ef7',borderWidth:1,borderRadius:4,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:isDark?'#1e1e1e':'#fff',
+          titleColor:isDark?'#ddd':'#222',bodyColor:isDark?'#ccc':'#444',
+          borderColor:isDark?'#444':'#ddd',borderWidth:1,padding:10,
+          callbacks:{label:ctx=>`${ctx.parsed.y.toLocaleString()}g`}
+        }
+      },
+      scales:{
+        x:{ticks:{color:tick,font:{size:10}},grid:{color:grid}},
+        y:{ticks:{color:tick,font:{size:10},callback:v=>Number.isInteger(v)?v:null},
+           grid:{color:grid},beginAtZero:true,min:0}
+      }
+    }
+  });
+}
+
+function renderDustDetail(id,items){
+  dustDays=[];
+  const section=document.getElementById('dustResultSection');
+  const sumBox=document.getElementById('dustSummaryBox');
+  const chartWrap=document.getElementById('dustChartWrap');
+  const titleEl=document.getElementById('dustDetailTitle');
+  const headEl=document.getElementById('dustDetailHead');
+  const bodyEl=document.getElementById('dustDetailBody');
+  section.style.display='block';
+
+  const hide=msg=>{
+    titleEl.textContent=`${id} — ${msg}`;
+    sumBox.style.display='none'; chartWrap.style.display='none';
+    headEl.innerHTML=''; bodyEl.innerHTML=`<tr><td style="text-align:center;padding:20px;color:var(--text3)">${msg}</td></tr>`;
+  };
+
+  if(!items.length){hide('조회된 데이터가 없습니다');return;}
+
+  const{total,days,scanCount}=calcDust(items);
+  if(!days.length){hide('먼지포집(dustTotal) 데이터가 없습니다');return;}
+
+  dustDays=days;
+  titleEl.textContent=`${id} — 총 ${items.length}건 · dust 유효 ${scanCount}건`;
+
+  // 요약
+  sumBox.style.display='flex';
+  sumBox.innerHTML=`
+    <div class="dust-stat">
+      <span class="dust-stat-label">총 포집량</span>
+      <span class="dust-stat-value">${total.toLocaleString()}g</span>
+    </div>
+    <div class="dust-stat">
+      <span class="dust-stat-label">집계 일수</span>
+      <span class="dust-stat-value">${days.length}일</span>
+    </div>
+    <div class="dust-stat">
+      <span class="dust-stat-label">유효 기록</span>
+      <span class="dust-stat-value">${scanCount}건</span>
+    </div>`;
+
+  // 차트
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  chartWrap.style.display='block';
+  renderDustChart(days,isDark);
+
+  // 일별 테이블
+  headEl.innerHTML='<th>날짜</th><th>기록 수</th><th>시작 (g)</th><th>마지막 (g)</th><th>일별 포집 (g)</th>';
+  bodyEl.innerHTML=days.map(d=>`<tr>
+    <td>${escHtml(d.date)}</td>
+    <td>${d.count}</td>
+    <td>${d.first.toLocaleString()}</td>
+    <td>${d.last.toLocaleString()}</td>
+    <td style="font-weight:700;color:var(--ok-text)">+${d.inc.toLocaleString()}</td>
+  </tr>`).join('');
 }
 
 function renderSingleDetail(id, items){

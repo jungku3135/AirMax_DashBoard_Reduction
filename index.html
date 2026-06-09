@@ -405,14 +405,17 @@ function buildJson(obj) {
   <div class="single-pagination" id="singlePagination"></div>
 </div>
 
-<!-- 먼지포집 원본 데이터 결과 -->
+<!-- 먼지포집 데이터 결과 -->
 <div id="dustResultSection" style="display:none; padding:20px 32px;">
   <div class="single-detail-header">
     <div class="single-detail-title" id="dustDetailTitle"></div>
-    <button class="btn-copy" id="dustCopyBtn" onclick="copyDustToClipboard()" style="display:none">📋 JSON 복사</button>
+  </div>
+  <div id="dustSummaryBox" style="display:none"></div>
+  <div id="dustChartWrap" style="display:none; height:200px; margin:14px 0 20px;">
+    <canvas id="dustBarCanvas"></canvas>
   </div>
   <div class="single-detail-scroll">
-    <table class="single-detail-table" id="dustDetailTable" style="font-size:11px">
+    <table class="single-detail-table" id="dustDetailTable" style="font-size:12px">
       <thead><tr id="dustDetailHead"></tr></thead>
       <tbody id="dustDetailBody"></tbody>
     </table>
@@ -452,7 +455,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.2.5</span>
+  <span class="footer-version">v1.2.7</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.09</span>
 </div>
