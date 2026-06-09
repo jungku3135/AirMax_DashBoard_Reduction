@@ -340,7 +340,13 @@ function buildJson(obj) {
 
   <!-- 먼지포집 검색 -->
   <div id="panelDust" style="display:none">
-    <div style="text-align:center;padding:28px 0 20px;color:var(--text3);font-size:14px;letter-spacing:0.02em">추후 업데이트 예정</div>
+    <div class="section-label" style="margin-bottom:6px">먼지포집 데이터 조회
+      <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — 2026-04-01부터 전체 이력</span>
+    </div>
+    <div class="row">
+      <label>제품 ID</label>
+      <input type="text" class="id-input" id="dustIdInput" placeholder="A001" style="width:140px"/>
+    </div>
   </div>
 
   <hr class="divider"/>
