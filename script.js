@@ -10,6 +10,7 @@ const LS_THEME = 'airmax_theme';
 const LS_MODE  = 'airmax_mode';
 const LS_PROD_LOCS    = 'airmax_product_locations';
 const LS_SHEET_CACHE  = 'airmax_sheet_cache';
+const LS_DUST_EXTRA   = 'airmax_dust_extra_ids';
 const CACHE_TTL       = 3600000; // 1시간 (ms)
 
 
@@ -25,7 +26,8 @@ let peEditMode = false;
 let peOriginals = {};
 
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
-let logVisible=false, logs=[], extraIds=[];
+let logVisible=false, logs=[], extraIds=[], dustExtraIds=[];
+let isGlobalLocked=false;
 let lastResults = [];
 let singleAllItems=[], singlePage=0, singleChartDust=null, singleChartCo2=null;
 let dustDays=[], dustModalChart=null, dustModalOpen=false;
@@ -67,47 +69,52 @@ function toggleTheme(){
 function authenticateAdmin(){
   const pw=document.getElementById('adminPwInput').value;
   const badge=document.getElementById('adminAuthBadge');
-  if(pw===ADMIN_PASSWORD){
+  const inp=document.getElementById('adminPwInput');
+
+  if(pw===SUPER_ADMIN_PASSWORD){
     adminAuthenticated=true;
-    badge.textContent='✓ 인증됨'; badge.className='admin-auth-badge ok';
-    document.getElementById('adminPwInput').value='';
-    document.getElementById('adminPwInput').disabled=true;
+    superAdminAuthenticated=true;
+    badge.textContent='✓ 슈퍼 관리자'; badge.className='admin-auth-badge super';
+    inp.value=''; inp.disabled=true;
     document.getElementById('deauthBtn').style.display='inline-block';
-    updateRunBtnText();
     document.getElementById('adminActionsRow').style.display='flex';
-    updateSheetBtn();
+    _applyDustAuthUI(true);
+    updateRunBtnText(); updateSheetBtn();
+  } else if(pw===ADMIN_PASSWORD){
+    adminAuthenticated=true;
+    superAdminAuthenticated=false;
+    badge.textContent='✓ 일반 관리자'; badge.className='admin-auth-badge ok';
+    inp.value=''; inp.disabled=true;
+    document.getElementById('deauthBtn').style.display='inline-block';
+    document.getElementById('adminActionsRow').style.display='flex';
+    _applyDustAuthUI(false);
+    updateRunBtnText(); updateSheetBtn();
   } else {
     badge.textContent='✗ 비밀번호 오류'; badge.className='admin-auth-badge fail';
-    setTimeout(()=>{badge.className='admin-auth-badge';},2500);
+    setTimeout(()=>{ badge.textContent=''; badge.className='admin-auth-badge'; },2500);
   }
+}
+
+function _applyDustAuthUI(isSuper){
+  const notMsg=document.getElementById('dustNotAuthMsg');
+  const area=document.getElementById('dustSearchArea');
+  if(notMsg) notMsg.style.display=isSuper?'none':'block';
+  if(area) area.style.display=isSuper?'block':'none';
 }
 
 function deauthAdmin(){
   adminAuthenticated=false;
+  superAdminAuthenticated=false;
   const badge=document.getElementById('adminAuthBadge');
-  badge.className='admin-auth-badge';
+  badge.textContent=''; badge.className='admin-auth-badge';
   document.getElementById('adminPwInput').disabled=false;
   document.getElementById('deauthBtn').style.display='none';
   document.getElementById('adminActionsRow').style.display='none';
   document.getElementById('productEditorSection').style.display='none';
   productLocEditorOpen=false;
-  updateRunBtnText();
-  updateSheetBtn();
+  _applyDustAuthUI(false);
+  updateRunBtnText(); updateSheetBtn();
 }
-
-function authenticateSuperAdmin(){
-  const pw=document.getElementById('superAdminPwInput').value;
-  const badge=document.getElementById('superAdminBadge');
-  if(pw===SUPER_ADMIN_PASSWORD){
-    superAdminAuthenticated=true;
-    badge.textContent='✓ 인증됨'; badge.className='admin-auth-badge ok';
-    document.getElementById('superAdminPwInput').value='';
-    document.getElementById('superAdminPwInput').disabled=true;
-    document.getElementById('dustSearchArea').style.display='block';
-  } else {
-    badge.textContent='✗ 비밀번호 오류'; badge.className='admin-auth-badge fail';
-    setTimeout(()=>{ badge.className='admin-auth-badge'; },2500);
-  }
 }
 
 function updateRunBtnText(){
@@ -245,6 +252,7 @@ function switchMode(mode){
   updateSheetBtn();
   if(mode==='dust'){
     document.getElementById('dateInfo').textContent='조회 기간  2026-04 ~';
+    _applyDustAuthUI(superAdminAuthenticated);
     if(!sessionStorage.getItem('dustBetaNoticed')){
       sessionStorage.setItem('dustBetaNoticed','1');
       alert('현재 ★베타★ 테스트 중 입니다.\n슈퍼 관리자 인증을 입력해야 사용이 가능합니다.');
@@ -370,6 +378,15 @@ function restrictIdInput(e){
   e.preventDefault();
 }
 
+/* ===== 전역 잠금 ===== */
+function setGlobalLock(locked){
+  isGlobalLocked=locked;
+  ['runBtn','mobileRunBtn','dustRangeBtn','tabRange','tabSingle','tabZone','tabDust'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.disabled=locked;
+  });
+}
+
 /* ===== 추가 ID ===== */
 function addExtraId(){
   const inp=document.getElementById('extraIdInput');
@@ -386,6 +403,24 @@ function renderExtraTags(){
   if(!extraIds.length){ row.innerHTML=''; row.style.display='none'; return; }
   row.style.display='flex';
   row.innerHTML=extraIds.map(id=>`<span class="extra-id-tag">${escHtml(id)}<button onclick="removeExtraId('${escHtml(id)}')" title="삭제">×</button></span>`).join('');
+}
+
+function addDustExtraId(){
+  const inp=document.getElementById('dustExtraIdInput');
+  inp.value.trim().split(',').map(v=>v.trim()).filter(Boolean).forEach(v=>{
+    if(!dustExtraIds.includes(v)) dustExtraIds.push(v);
+  });
+  inp.value=''; lsSet(LS_DUST_EXTRA,dustExtraIds); renderDustExtraTags();
+}
+function removeDustExtraId(id){
+  dustExtraIds=dustExtraIds.filter(v=>v!==id); lsSet(LS_DUST_EXTRA,dustExtraIds); renderDustExtraTags();
+}
+function renderDustExtraTags(){
+  const row=document.getElementById('dustExtraTagsRow');
+  if(!row) return;
+  if(!dustExtraIds.length){ row.innerHTML=''; row.style.display='none'; return; }
+  row.style.display='flex';
+  row.innerHTML=dustExtraIds.map(id=>`<span class="extra-id-tag">${escHtml(id)}<button onclick="removeDustExtraId('${escHtml(id)}')" title="삭제">×</button></span>`).join('');
 }
 
 /* ===== ID 유틸 ===== */
@@ -511,7 +546,7 @@ function renderGrid(){
     const tip=r.errMsg?escHtml(r.errMsg):r.item
       ?`PM10: ${r.item.pm_10}㎍/㎥ | PM2.5: ${r.item.pm_2_5}㎍/㎥ | CO2: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
       :'데이터 없음';
-    return`<div class="card ${cfg.cls}">
+    return`<div class="card ${cfg.cls}" data-id="${escHtml(r.id)}">
       <div class="card-status" style="color:var(${cfg.textVar})">${cfg.label}</div>
       <div class="card-id">${escHtml(r.id)}</div>
       ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
@@ -568,43 +603,61 @@ function renderProductEditor(){
 
   const allZoneNames=[...new Set(sheetZones.map(z=>z.name))];
   const datalist=`<datalist id="pe-zone-dl">${allZoneNames.map(z=>`<option value="${escHtml(z)}">`).join('')}</datalist>`;
-  const groupedZones=[...new Set(filtered.map(p=>p.zone))].sort();
 
-  if(peEditMode){
-    el.innerHTML=datalist+groupedZones.map(zone=>{
-      const ps=filtered.filter(p=>p.zone===zone);
-      return `<div class="pe-zone-group">
-        <div class="pe-zone-header">${escHtml(zone)}<span class="pe-zone-count">${ps.length}</span></div>
-        <div class="pe-grid">${ps.map(p=>`
-          <div class="pe-card editing" id="pe-row-${escHtml(p.id)}">
-            <div class="pe-card-id">${escHtml(p.id)}</div>
-            <div class="pe-card-edit-form">
-              <input id="pe-ez-${escHtml(p.id)}" value="${escHtml(p.zone)}" list="pe-zone-dl"
-                placeholder="영역" oninput="markChanged(this,'${escHtml(p.id)}')"/>
-              <input id="pe-el-${escHtml(p.id)}" value="${escHtml(p.loc)}" placeholder="설치 장소"
-                oninput="markChanged(this,'${escHtml(p.id)}')"/>
-            </div>
-            <div class="pe-card-actions">
-              <button class="pe-btn del" onclick="deleteProductFromSheet('${escHtml(p.id)}')">삭제</button>
-            </div>
-          </div>`).join('')}
-        </div>
+  // 각 존의 첫 제품 ID 기준으로 정렬
+  const groupedZones=[...new Set(filtered.map(p=>p.zone))]
+    .sort((a,b)=>{
+      const fa=filtered.filter(p=>p.zone===a).map(p=>p.id).sort()[0]||'';
+      const fb=filtered.filter(p=>p.zone===b).map(p=>p.id).sort()[0]||'';
+      return fa.localeCompare(fb);
+    });
+
+  const viewCard=p=>`<div class="pe-card" id="pe-row-${escHtml(p.id)}" onclick="toggleCardEdit('${escHtml(p.id)}')">
+    <div class="pe-card-id">${escHtml(p.id)}</div>
+    <div class="pe-card-loc">${escHtml(p.loc)||'—'}</div>
+  </div>`;
+  const editCard=p=>`<div class="pe-card editing" id="pe-row-${escHtml(p.id)}">
+    <div class="pe-card-id">${escHtml(p.id)}</div>
+    <div class="pe-card-edit-form">
+      <input id="pe-ez-${escHtml(p.id)}" value="${escHtml(p.zone)}" list="pe-zone-dl"
+        placeholder="영역" oninput="markChanged(this,'${escHtml(p.id)}')"/>
+      <input id="pe-el-${escHtml(p.id)}" value="${escHtml(p.loc)}" placeholder="설치 장소"
+        oninput="markChanged(this,'${escHtml(p.id)}')"/>
+    </div>
+    <div class="pe-card-actions">
+      <button class="pe-btn del" onclick="deleteProductFromSheet('${escHtml(p.id)}')">삭제</button>
+    </div>
+  </div>`;
+  const cardFn=peEditMode?editCard:viewCard;
+
+  let html=datalist;
+  let singleBuf=[];
+  const flushSingle=()=>{
+    if(!singleBuf.length) return;
+    html+=`<div class="pe-compact-row">${singleBuf.map(zone=>{
+      const p=filtered.find(q=>q.zone===zone);
+      return `<div class="pe-compact-zone">
+        <div class="pe-zone-header mini">${escHtml(zone)}</div>
+        ${cardFn(p)}
       </div>`;
-    }).join('');
-  } else {
-    el.innerHTML=datalist+groupedZones.map(zone=>{
-      const ps=filtered.filter(p=>p.zone===zone);
-      return `<div class="pe-zone-group">
+    }).join('')}</div>`;
+    singleBuf=[];
+  };
+
+  groupedZones.forEach(zone=>{
+    const ps=filtered.filter(p=>p.zone===zone);
+    if(ps.length===1){
+      singleBuf.push(zone);
+    } else {
+      flushSingle();
+      html+=`<div class="pe-zone-group">
         <div class="pe-zone-header">${escHtml(zone)}<span class="pe-zone-count">${ps.length}</span></div>
-        <div class="pe-grid">${ps.map(p=>`
-          <div class="pe-card" id="pe-row-${escHtml(p.id)}" onclick="toggleCardEdit('${escHtml(p.id)}')">
-            <div class="pe-card-id">${escHtml(p.id)}</div>
-            <div class="pe-card-loc">${escHtml(p.loc)||'—'}</div>
-          </div>`).join('')}
-        </div>
+        <div class="pe-grid">${ps.map(cardFn).join('')}</div>
       </div>`;
-    }).join('');
-  }
+    }
+  });
+  flushSingle();
+  el.innerHTML=html;
 }
 
 function toggleCardEdit(id){
@@ -813,6 +866,25 @@ function updateSheetCache(){
   lsSet(LS_SHEET_CACHE,{ts:Date.now(),zones:sheetZones,locations:productLocations});
 }
 
+function updateGridCard(r){
+  const cfg=STATUS[r.status]||STATUS.LOAD;
+  const loc=productLocations[r.id]||'';
+  const tip=r.errMsg?escHtml(r.errMsg):r.item
+    ?`PM10: ${r.item.pm_10}㎍/㎥ | PM2.5: ${r.item.pm_2_5}㎍/㎥ | CO2: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
+    :'데이터 없음';
+  const el=document.querySelector(`#grid .card[data-id="${CSS.escape(r.id)}"]`);
+  if(!el) return;
+  el.className=`card ${cfg.cls} card-updated`;
+  el.innerHTML=`
+    <div class="card-status" style="color:var(${cfg.textVar})">${cfg.label}</div>
+    <div class="card-id">${escHtml(r.id)}</div>
+    ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
+    ${r.item?`<div class="card-meta">${r.item.pm_10}㎍/㎥ | ${r.item.pm_2_5}㎍/㎥ | ${r.item.co2}ppm</div>`:''}
+    ${r.status==='ERR'&&r.errMsg?`<div class="card-err-text">${escHtml(r.errMsg.slice(0,50))}</div>`:''}
+    <div class="tooltip">${tip}</div>`;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.remove('card-updated')));
+}
+
 function renderList(){
   const sel=document.getElementById('listFilterSel').value;
   const filtered=sel==='ALL'?results:results.filter(r=>r.status===sel);
@@ -940,6 +1012,7 @@ function buildDustRange(startRaw,endRaw,label){
 }
 
 async function startDustSearch(){
+  if(isGlobalLocked) return;
   if(!superAdminAuthenticated){
     document.getElementById('errorMsg').textContent='⚠ 슈퍼 관리자 인증이 필요합니다.';
     return;
@@ -954,6 +1027,7 @@ async function startDustSearch(){
   const glE=document.getElementById('dustGlobalEnd').value.trim();
   if(domS&&domE){ const r=buildDustRange(domS,domE,'국내'); if(!r)return; ids.push(...r); }
   if(glS&&glE){ const r=buildDustRange(glS,glE,'글로벌'); if(!r)return; ids.push(...r); }
+  dustExtraIds.forEach(id=>{ if(!ids.includes(id)) ids.push(id); });
   if(!ids.length){errEl.textContent='⚠ 조회할 ID 범위를 입력해주세요.';return;}
 
   const dateRange={started_at:'2026-04-01',finished_at:todayStr()};
@@ -972,8 +1046,7 @@ async function startDustSearch(){
       </div>`);
   });
 
-  const btn=document.getElementById('dustRangeBtn');
-  btn.disabled=true;
+  setGlobalLock(true);
 
   for(let i=0;i<ids.length;i++){
     const id=ids[i];
@@ -1007,7 +1080,7 @@ async function startDustSearch(){
     }
   }
   progressEl.style.display='none';
-  btn.disabled=false;
+  setGlobalLock(false);
 }
 
 function openDustModal(id){
@@ -1197,38 +1270,46 @@ function renderSingleChart(items){
 async function runInspection(allIds){
   const token=document.getElementById('tokenInput').value.trim();
   if(!token){document.getElementById('errorMsg').textContent='⚠ 토큰이 설정되지 않았습니다.';return;}
-  document.getElementById('runBtn').disabled=true;
+  setGlobalLock(true);
   document.getElementById('summary').style.display='none';
   document.getElementById('grid').innerHTML=''; document.getElementById('listBody').innerHTML='';
   currentFilter='ALL'; currentView='grid';
   const dateRange=getDateRange(currentMode),nowMs=Date.now(),total=allIds.length;
   setLoading(true,0,total);
-  addLog(`총 ${total}개 전체 동시 요청 시작`,'info');
+  addLog(`총 ${total}개 점검 시작`,'info');
   addLog(`기간: ${dateRange.started_at} ~ ${dateRange.finished_at}`,'muted');
-  const out=allIds.map(id=>({id,status:'LOAD',item:null,errMsg:''}));
+
+  // LOAD 카드 선렌더
+  results=allIds.map(id=>({id,status:'LOAD',item:null,errMsg:''}));
+  lastResults=results;
+  document.getElementById('summary').style.display='flex';
+  document.getElementById('grid').style.display='grid';
+  document.getElementById('listView').style.display='none';
+  document.getElementById('listToolbar').style.display='none';
+  renderSummary(); renderGrid();
+
   let done=0;
   await Promise.all(allIds.map(async(id,idx)=>{
     try{
       const item=await fetchReport(id,dateRange,token);
       const status=id==='A139'?'OK':classify(item,nowMs);
-      out[idx]={id,status,item,errMsg:''};
+      results[idx]={id,status,item,errMsg:''};
       addLog(`[${id}] ${status}`+(item?` | ${item.format_created_time}`:'  | 데이터 없음'),status==='OK'?'ok':status==='ERR'?'err':'warn');
     }catch(err){
-      out[idx]={id,status:'ERR',item:null,errMsg:err.message};
+      results[idx]={id,status:'ERR',item:null,errMsg:err.message};
       addLog(`[${id}] ERR → ${err.message}`,'err');
     }
+    updateGridCard(results[idx]);
+    renderSummary();
     setLoading(true,++done,total);
   }));
-  results=out; lastResults=out; setLoading(false);
-  document.getElementById('summary').style.display='flex';
-  document.getElementById('grid').style.display='grid';
-  document.getElementById('listView').style.display='none';
-  document.getElementById('listToolbar').style.display='none';
+
+  lastResults=[...results];
+  setLoading(false);
+  setGlobalLock(false);
   updateMobileFixedBtn();
   if(zoneGridOpen) toggleZoneGrid();
-  renderSummary(); renderGrid();
   addLog('✓ 점검 완료','ok');
-  document.getElementById('runBtn').disabled=false;
   document.getElementById('logBtn').style.display='inline-block';
   if(adminAuthenticated) updateSheetBtn();
   if(logVisible)renderLog();
@@ -1236,6 +1317,7 @@ async function runInspection(allIds){
 
 /* ===== 메인 진입 ===== */
 async function startInspection(){
+  if(isGlobalLocked) return;
   const errEl=document.getElementById('errorMsg');
   errEl.textContent=''; logs=[];
   const token=document.getElementById('tokenInput').value.trim();
@@ -1250,7 +1332,7 @@ async function startInspection(){
     const endMs=endVal?new Date(endVal).getTime():null;
     if(startMs&&endMs&&startMs>=endMs){errEl.textContent='⚠ 종료 시간이 시작 시간보다 뒤여야 합니다.';return;}
     const dateRange=getDateRange('single');
-    document.getElementById('runBtn').disabled=true;
+    setGlobalLock(true);
     setLoading(true);
     document.getElementById('loadingText').textContent='데이터 수집 중…';
     try{
@@ -1272,7 +1354,7 @@ async function startInspection(){
       errEl.textContent='⚠ 오류: '+e.message;
     }finally{
       setLoading(false);
-      document.getElementById('runBtn').disabled=false;
+      setGlobalLock(false);
     }
     return;
   }
@@ -1336,6 +1418,8 @@ async function startInspection(){
   document.getElementById('singleEndDate').value=todayStr()+'T23:59';
 
   extraIds=lsGet(LS_EXTRA,[]);
+  dustExtraIds=lsGet(LS_DUST_EXTRA,[]);
+  renderDustExtraTags();
   const savedDomEnd=lsGet(LS_ENDID,'');
   if(savedDomEnd) document.getElementById('domEndId').value=savedDomEnd;
   const savedGlobalEnd=lsGet(LS_GLOBAL_ENDID,'');
@@ -1360,6 +1444,7 @@ async function startInspection(){
   addRestrictedInput('globalEndId');
 
   document.getElementById('extraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addExtraId();});
+  document.getElementById('dustExtraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addDustExtraId();});
   document.getElementById('singleIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});
   ['dustDomStart','dustDomEnd','dustGlobalStart','dustGlobalEnd'].forEach(id=>{
     const el=document.getElementById(id);
@@ -1371,7 +1456,6 @@ async function startInspection(){
       el.value=cleaned;
     });
   });
-  document.getElementById('superAdminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateSuperAdmin();});
   document.getElementById('adminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateAdmin();});
   document.getElementById('peNewId').addEventListener('keydown',e=>{if(e.key==='Enter')addProductToSheet();});
 

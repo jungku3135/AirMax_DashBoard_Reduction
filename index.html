@@ -340,11 +340,8 @@ function buildJson(obj) {
 
   <!-- 먼지포집 검색 -->
   <div id="panelDust" style="display:none">
-    <div class="admin-row">
-      <label style="min-width:80px">슈퍼 관리자</label>
-      <input type="password" class="admin-pw-input" id="superAdminPwInput" placeholder="슈퍼 관리자 비밀번호 입력"/>
-      <button class="btn-ghost" onclick="authenticateSuperAdmin()">인증</button>
-      <span class="admin-auth-badge" id="superAdminBadge"></span>
+    <div id="dustNotAuthMsg" style="font-size:12px;color:var(--text3);padding:6px 0">
+      상단 <strong>관리자 PW</strong> 입력창에서 슈퍼 관리자 인증 후 사용 가능합니다.
     </div>
     <div id="dustSearchArea" style="display:none">
       <hr class="divider" style="margin:10px 0"/>
@@ -369,6 +366,15 @@ function buildJson(obj) {
         <label>끝 ID</label>
         <input type="text" class="id-input" id="dustGlobalEnd" placeholder="G010" maxlength="4"/>
       </div>
+      <hr class="divider" style="margin:10px 0"/>
+      <div class="section-label" style="margin-bottom:6px">개별 추가 ID
+        <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — Demo, Lab0 등 특수 ID</span>
+      </div>
+      <div class="extra-ids-row" id="dustExtraTagsRow"></div>
+      <div class="row" style="margin-top:8px">
+        <input type="text" class="extra-id-input" id="dustExtraIdInput" placeholder="예: Demo, Lab0  (쉼표 구분 가능)"/>
+        <button class="btn-add" onclick="addDustExtraId()">+ 추가</button>
+      </div>
     </div>
   </div>
 
@@ -376,7 +382,7 @@ function buildJson(obj) {
 
   <div class="row">
     <button class="btn-primary" id="runBtn" onclick="startInspection()">점검 시작</button>
-    <button class="btn-primary" id="dustRangeBtn" style="display:none" onclick="startDustSearch()">먼지 데이터 조회</button>
+    <button class="btn-primary" id="dustRangeBtn" style="display:none" onclick="startDustSearch()">먼지포집 데이터 조회</button>
     <button class="btn-sheet" id="saveSheetBtn" style="display:none" onclick="saveToSheet()">시트에 저장</button>
     <button class="btn-ghost" id="logBtn" style="display:none" onclick="toggleLog()">로그 보기</button>
   </div>
@@ -480,7 +486,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.31b</span>
+  <span class="footer-version">v1.33b</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.10</span>
 </div>

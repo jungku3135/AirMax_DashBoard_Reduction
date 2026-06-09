@@ -98,6 +98,10 @@ body {
   font-size:10px; color:var(--text4); font-weight:400; text-transform:none; letter-spacing:0;
   background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1px 7px;
 }
+/* 단일 제품 구역 컴팩트 레이아웃 */
+.pe-compact-row { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; margin-bottom:8px; }
+.pe-compact-zone { display:flex; flex-direction:column; gap:4px; }
+.pe-zone-header.mini { font-size:9px; padding-bottom:3px; margin-bottom:2px; }
 /* 카드 그리드 */
 .pe-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:6px; }
 .pe-card {
@@ -232,6 +236,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   border-radius:20px; display:none;
 }
 .admin-auth-badge.ok { display:inline-block; background:var(--ok-bg); color:var(--ok-text); border:1px solid var(--ok-border); }
+.admin-auth-badge.super { display:inline-block; background:var(--em-chip-bg); color:var(--em-text); border:1px solid var(--em-border); }
 .admin-auth-badge.fail { display:inline-block; background:var(--pm-bg); color:var(--pm-text); border:1px solid var(--pm-border); }
 
 /* 로딩 */
@@ -246,6 +251,8 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   animation:spin 0.75s linear infinite;
 }
 @keyframes spin { to { transform:rotate(360deg); } }
+@keyframes cardUpdate { 0%{opacity:0.35;transform:scale(0.96)} 100%{opacity:1;transform:scale(1)} }
+.card-updated { animation:cardUpdate 0.28s ease; }
 .loading-text { font-size:13px; color:var(--text2); }
 .loading-bar-wrap { width:240px; height:3px; background:var(--bar-bg); border-radius:2px; overflow:hidden; }
 .loading-bar { height:100%; background:var(--bar-fg); border-radius:2px; transition:width 0.2s ease; width:0%; }
