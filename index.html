@@ -353,10 +353,12 @@ function buildJson(obj) {
           <span>펼치기</span>
           <span class="zone-toggle-arrow" id="dustZoneArrow">▼</span>
         </button>
-        <button class="btn-sm" onclick="selectAllDustZones()">전체 선택</button>
-        <button class="btn-sm" onclick="clearAllDustZones()">전체 해제</button>
       </div>
       <div class="zone-grid-wrap" id="dustZoneGridWrap">
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <button class="btn-sm" onclick="selectAllDustZones()">전체 선택</button>
+          <button class="btn-sm" onclick="clearAllDustZones()">전체 해제</button>
+        </div>
         <div class="zone-grid" id="dustZonePickerGrid"></div>
         <div class="zone-no-result" id="dustZoneNoResult" style="display:none">검색 결과가 없습니다.</div>
       </div>
