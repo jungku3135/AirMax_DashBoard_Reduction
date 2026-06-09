@@ -340,12 +340,22 @@ function buildJson(obj) {
 
   <!-- 먼지포집 검색 -->
   <div id="panelDust" style="display:none">
-    <div class="section-label" style="margin-bottom:6px">먼지포집 데이터 조회
-      <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — 2026-04-01부터 전체 이력</span>
+    <div class="admin-row">
+      <label style="min-width:80px">슈퍼 관리자</label>
+      <input type="password" class="admin-pw-input" id="superAdminPwInput" placeholder="슈퍼 관리자 비밀번호 입력"/>
+      <button class="btn-ghost" onclick="authenticateSuperAdmin()">인증</button>
+      <span class="admin-auth-badge" id="superAdminBadge"></span>
     </div>
-    <div class="row">
-      <label>제품 ID</label>
-      <input type="text" class="id-input" id="dustIdInput" placeholder="A001" style="width:140px"/>
+    <div id="dustSearchArea" style="display:none">
+      <hr class="divider" style="margin:10px 0"/>
+      <div class="section-label" style="margin-bottom:6px">먼지포집 데이터 조회
+        <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — 2026-04-01부터 전체 이력</span>
+      </div>
+      <div class="row">
+        <label>제품 ID</label>
+        <input type="text" class="id-input" id="dustIdInput" placeholder="A001" style="width:140px"/>
+        <button class="btn-primary" id="dustSearchBtn" style="margin-left:10px" onclick="startInspection()">검색</button>
+      </div>
     </div>
   </div>
 
@@ -395,6 +405,20 @@ function buildJson(obj) {
   <div class="single-pagination" id="singlePagination"></div>
 </div>
 
+<!-- 먼지포집 원본 데이터 결과 -->
+<div id="dustResultSection" style="display:none; padding:20px 32px;">
+  <div class="single-detail-header">
+    <div class="single-detail-title" id="dustDetailTitle"></div>
+    <button class="btn-copy" id="dustCopyBtn" onclick="copyDustToClipboard()" style="display:none">📋 JSON 복사</button>
+  </div>
+  <div class="single-detail-scroll">
+    <table class="single-detail-table" id="dustDetailTable" style="font-size:11px">
+      <thead><tr id="dustDetailHead"></tr></thead>
+      <tbody id="dustDetailBody"></tbody>
+    </table>
+  </div>
+</div>
+
 <div class="summary" id="summary" style="display:none"></div>
 
 <div class="list-toolbar" id="listToolbar" style="display:none">
@@ -428,7 +452,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.2.1</span>
+  <span class="footer-version">v1.2.4</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.09</span>
 </div>

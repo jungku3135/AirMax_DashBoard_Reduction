@@ -1,5 +1,6 @@
 /* ===== 설정 ===== */
-const ADMIN_PASSWORD = 'airmax87'; /* 관리자 비밀번호 */
+const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
+const SUPER_ADMIN_PASSWORD = 'wjdzn';    /* 슈퍼 관리자 비밀번호 */
 const GAS_URL        = 'https://script.google.com/macros/s/AKfycbwlcEh7wNrxgMFHJoWx_JY0aHLPVC7BR8R4soEKbNdBE9tytIYqtyAHgdzkxb_02K5lBQ/exec';
 const API      = 'https://api-airmax.testonic.co.kr/api/external/reports';
 const LS_EXTRA        = 'airmax_extra_ids';
@@ -15,7 +16,8 @@ const CACHE_TTL       = 3600000; // 1시간 (ms)
 /* ===== 상태 ===== */
 let selectedZones   = new Set();
 let zoneGridOpen    = false;
-let adminAuthenticated = false;
+let adminAuthenticated      = false;
+let superAdminAuthenticated = false;
 let sheetZones      = [];   // [{name, ids[]}] — GAS 시트에서 로드
 let productLocations    = {};   // {id: loc} — GAS 시트에서 로드
 let productLocEditorOpen = false;
@@ -90,14 +92,29 @@ function deauthAdmin(){
   updateSheetBtn();
 }
 
+function authenticateSuperAdmin(){
+  const pw=document.getElementById('superAdminPwInput').value;
+  const badge=document.getElementById('superAdminBadge');
+  if(pw===SUPER_ADMIN_PASSWORD){
+    superAdminAuthenticated=true;
+    badge.textContent='✓ 인증됨'; badge.className='admin-auth-badge ok';
+    document.getElementById('superAdminPwInput').value='';
+    document.getElementById('superAdminPwInput').disabled=true;
+    document.getElementById('dustSearchArea').style.display='block';
+  } else {
+    badge.textContent='✗ 비밀번호 오류'; badge.className='admin-auth-badge fail';
+    setTimeout(()=>{ badge.className='admin-auth-badge'; },2500);
+  }
+}
+
 function updateRunBtnText(){
   const btn=document.getElementById('runBtn');
   const mBtn=document.getElementById('mobileRunBtn');
   btn.style.display='';
   mBtn.style.display='';
   if(currentMode==='dust'){
-    btn.textContent='데이터 조회';
-    mBtn.textContent='데이터 조회';
+    btn.style.display='none';
+    mBtn.style.display='none';
     return;
   }
   const label=(adminAuthenticated && currentMode==='range')?'점검 및 시트 저장':'점검 시작';
@@ -227,6 +244,9 @@ function switchMode(mode){
   }
   if(mode!=='single'){
     document.getElementById('singleResultSection').style.display='none';
+  }
+  if(mode!=='dust'){
+    document.getElementById('dustResultSection').style.display='none';
   }
   if(mode==='single'||mode==='dust'){
     document.getElementById('summary').style.display='none';
@@ -736,6 +756,51 @@ function fmtTime(str){
   return m?`${m[1]}.${m[2]} ${m[3]}`:str.slice(5,16);
 }
 
+/* ===== 먼지포집 원본 데이터 렌더 ===== */
+let dustRawItems=[];
+
+function renderDustDetail(id, items){
+  dustRawItems=items;
+  const titleEl=document.getElementById('dustDetailTitle');
+  const copyBtn=document.getElementById('dustCopyBtn');
+  const section=document.getElementById('dustResultSection');
+  section.style.display='block';
+  titleEl.textContent=`${id} — 총 ${items.length}건`;
+
+  if(!items.length){
+    document.getElementById('dustDetailHead').innerHTML='';
+    document.getElementById('dustDetailBody').innerHTML=
+      '<tr><td style="text-align:center;padding:20px;color:var(--text3)">조회된 데이터가 없습니다</td></tr>';
+    copyBtn.style.display='none';
+    return;
+  }
+
+  // 모든 아이템에서 등장하는 키 수집 (순서 유지)
+  const keys=[...new Set(items.flatMap(item=>Object.keys(item)))];
+
+  document.getElementById('dustDetailHead').innerHTML=
+    keys.map(k=>`<th>${escHtml(k)}</th>`).join('');
+
+  document.getElementById('dustDetailBody').innerHTML=
+    items.map(item=>
+      `<tr>${keys.map(k=>{
+        const v=item[k];
+        return`<td>${v!==undefined&&v!==null?escHtml(String(v)):'—'}</td>`;
+      }).join('')}</tr>`
+    ).join('');
+
+  copyBtn.style.display='inline-block';
+}
+
+function copyDustToClipboard(){
+  if(!dustRawItems.length) return;
+  navigator.clipboard.writeText(JSON.stringify(dustRawItems,null,2)).then(()=>{
+    const btn=document.getElementById('dustCopyBtn');
+    btn.textContent='✓ 복사됨';
+    setTimeout(()=>{ btn.textContent='📋 JSON 복사'; },2000);
+  }).catch(()=>{ alert('클립보드 복사에 실패했습니다.'); });
+}
+
 function renderSingleDetail(id, items){
   singleAllItems=[...items].sort((a,b)=>
     new Date(b.format_created_time)-new Date(a.format_created_time));
@@ -915,10 +980,12 @@ async function startInspection(){
 
   /* 먼지포집 검색 */
   if(currentMode==='dust'){
+    if(!superAdminAuthenticated){errEl.textContent='⚠ 슈퍼 관리자 인증이 필요합니다.';return;}
     const raw=document.getElementById('dustIdInput').value.trim();
     if(!raw){errEl.textContent='⚠ 제품 ID를 입력해주세요.';return;}
     const dateRange={started_at:'2026-04-01',finished_at:todayStr()};
-    document.getElementById('runBtn').disabled=true;
+    const searchBtn=document.getElementById('dustSearchBtn');
+    if(searchBtn) searchBtn.disabled=true;
     setLoading(true);
     document.getElementById('loadingText').textContent='데이터 수집 중…';
     try{
@@ -927,12 +994,12 @@ async function startInspection(){
           last>1?`데이터 수집 중… (${pg}/${last} 페이지)`:'데이터 수집 중…';
       });
       addLog(`먼지포집 검색 완료 — [${raw}] ${allItems.length}건`,'ok');
-      renderSingleDetail(raw,allItems);
+      renderDustDetail(raw,allItems);
     }catch(e){
       errEl.textContent='⚠ 오류: '+e.message;
     }finally{
       setLoading(false);
-      document.getElementById('runBtn').disabled=false;
+      if(searchBtn) searchBtn.disabled=false;
     }
     return;
   }
@@ -1059,6 +1126,7 @@ async function startInspection(){
   document.getElementById('extraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addExtraId();});
   document.getElementById('singleIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});
   document.getElementById('dustIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});
+  document.getElementById('superAdminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateSuperAdmin();});
   document.getElementById('adminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateAdmin();});
   document.getElementById('peNewId').addEventListener('keydown',e=>{if(e.key==='Enter')addProductToSheet();});
 
