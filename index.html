@@ -794,9 +794,9 @@ function buildJson(obj) {
       <label>제품 ID</label>
       <input type="text" class="id-input" id="singleIdInput" placeholder="A001" style="width:140px"/>
       <label style="margin-left:8px;min-width:auto">기간</label>
-      <input type="datetime-local" id="singleStartDate" style="width:185px"/>
+      <input type="datetime-local" id="singleStartDate" style="width:210px"/>
       <span class="dash" style="font-size:14px">~</span>
-      <input type="datetime-local" id="singleEndDate" style="width:185px"/>
+      <input type="datetime-local" id="singleEndDate" style="width:210px"/>
     </div>
   </div>
 
@@ -906,9 +906,9 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.1.15</span>
+  <span class="footer-version">v1.1.16</span>
   <span class="footer-divider"></span>
-  <span class="footer-date">Updated 2026.06.04</span>
+  <span class="footer-date">Updated 2026.06.09</span>
 </div>
 
 <script>
@@ -1098,8 +1098,7 @@ function getDateRange(mode){
   if(mode==='single'){
     const s=document.getElementById('singleStartDate').value||(yest+'T00:00');
     const e=document.getElementById('singleEndDate').value||(today+'T23:59');
-    const fmtDt=v=>v.includes('T')?v.replace('T',' ')+':00':v;
-    return{started_at:fmtDt(s), finished_at:fmtDt(e)};
+    return{started_at:s.split('T')[0], finished_at:e.split('T')[0]};
   }
   if(mode==='zone'){
     return{started_at:yest, finished_at:today};
@@ -1836,16 +1835,29 @@ async function startInspection(){
   if(currentMode==='single'){
     const raw=document.getElementById('singleIdInput').value.trim();
     if(!raw){errEl.textContent='⚠ 제품 ID를 입력해주세요.';return;}
+    const startVal=document.getElementById('singleStartDate').value;
+    const endVal=document.getElementById('singleEndDate').value;
+    const startMs=startVal?new Date(startVal).getTime():null;
+    const endMs=endVal?new Date(endVal).getTime():null;
+    if(startMs&&endMs&&startMs>=endMs){errEl.textContent='⚠ 종료 시간이 시작 시간보다 뒤여야 합니다.';return;}
     const dateRange=getDateRange('single');
     document.getElementById('runBtn').disabled=true;
     setLoading(true);
     document.getElementById('loadingText').textContent='데이터 수집 중…';
     try{
-      const items=await fetchAllReports(raw,dateRange,token,(pg,last)=>{
+      const allItems=await fetchAllReports(raw,dateRange,token,(pg,last)=>{
         document.getElementById('loadingText').textContent=
           last>1?`데이터 수집 중… (${pg}/${last} 페이지)`:'데이터 수집 중…';
       });
-      addLog(`단일 검색 완료 — ${items.length}건 수집`,'ok');
+      // API는 날짜 단위로만 필터링되므로 시간 범위는 클라이언트에서 처리
+      const items=allItems.filter(item=>{
+        const d=parseFormatTime(item.format_created_time);
+        if(!d) return false;
+        if(startMs&&d.getTime()<startMs) return false;
+        if(endMs&&d.getTime()>endMs) return false;
+        return true;
+      });
+      addLog(`단일 검색 완료 — 수집 ${allItems.length}건 / 시간 필터 후 ${items.length}건`,'ok');
       renderSingleDetail(raw,items);
     }catch(e){
       errEl.textContent='⚠ 오류: '+e.message;
