@@ -28,7 +28,7 @@ let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
 let logVisible=false, logs=[], extraIds=[];
 let lastResults = [];
 let singleAllItems=[], singlePage=0, singleChartDust=null, singleChartCo2=null;
-let dustBarChart=null, dustDays=[];
+let dustBarChart=null, dustDays=[], dustCaseFree=false;
 const SINGLE_PAGE_SIZE=30;
 
 const STATUS = {
@@ -855,7 +855,9 @@ function renderDustDetail(id,items){
   const{total,days,scanCount}=calcDust(items);
   if(!days.length){hide('먼지포집(dustTotal) 데이터가 없습니다');return;}
 
-  dustDays=days;
+  // 포집량 0인 일 제외
+  const activeDays=days.filter(d=>d.inc>0);
+  dustDays=activeDays;
   titleEl.textContent=`${id} — 총 ${items.length}건 · dust 유효 ${scanCount}건`;
 
   // 요약
@@ -866,8 +868,8 @@ function renderDustDetail(id,items){
       <span class="dust-stat-value">${total.toLocaleString()}g</span>
     </div>
     <div class="dust-stat">
-      <span class="dust-stat-label">집계 일수</span>
-      <span class="dust-stat-value">${days.length}일</span>
+      <span class="dust-stat-label">포집 발생일</span>
+      <span class="dust-stat-value">${activeDays.length}일</span>
     </div>
     <div class="dust-stat">
       <span class="dust-stat-label">유효 기록</span>
@@ -876,18 +878,23 @@ function renderDustDetail(id,items){
 
   // 차트
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  chartWrap.style.display='block';
-  renderDustChart(days,isDark);
+  chartWrap.style.display=activeDays.length?'block':'none';
+  if(activeDays.length) renderDustChart(activeDays,isDark);
 
-  // 일별 테이블
-  headEl.innerHTML='<th>날짜</th><th>기록 수</th><th>시작 (g)</th><th>마지막 (g)</th><th>일별 포집 (g)</th>';
-  bodyEl.innerHTML=days.map(d=>`<tr>
-    <td>${escHtml(d.date)}</td>
-    <td>${d.count}</td>
-    <td>${d.first.toLocaleString()}</td>
-    <td>${d.last.toLocaleString()}</td>
-    <td style="font-weight:700;color:var(--ok-text)">+${d.inc.toLocaleString()}</td>
-  </tr>`).join('');
+  // 일별 테이블 (포집 발생일만)
+  if(activeDays.length){
+    headEl.innerHTML='<th>날짜</th><th>기록 수</th><th>시작 (g)</th><th>마지막 (g)</th><th>일별 포집 (g)</th>';
+    bodyEl.innerHTML=activeDays.map(d=>`<tr>
+      <td>${escHtml(d.date)}</td>
+      <td>${d.count}</td>
+      <td>${d.first.toLocaleString()}</td>
+      <td>${d.last.toLocaleString()}</td>
+      <td style="font-weight:700;color:var(--ok-text)">+${d.inc.toLocaleString()}</td>
+    </tr>`).join('');
+  } else {
+    headEl.innerHTML='';
+    bodyEl.innerHTML='<tr><td style="text-align:center;padding:20px;color:var(--text3)">포집량 변화가 없습니다</td></tr>';
+  }
 }
 
 function renderSingleDetail(id, items){
@@ -1214,7 +1221,30 @@ async function startInspection(){
 
   document.getElementById('extraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addExtraId();});
   document.getElementById('singleIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});
-  document.getElementById('dustIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});
+  const dustInput=document.getElementById('dustIdInput');
+  const dustToggle=document.getElementById('dustCaseToggle');
+  dustToggle.addEventListener('click',()=>{
+    dustCaseFree=!dustCaseFree;
+    dustToggle.classList.toggle('active',dustCaseFree);
+    dustToggle.title=dustCaseFree?'대소문자 자유 입력 중 (클릭 시 대문자 고정)':'대문자 고정 (클릭 시 대소문자 자유)';
+  });
+  dustInput.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){startInspection();return;}
+    if(dustCaseFree) return;
+    if(/^[a-z]$/.test(e.key)){
+      e.preventDefault();
+      const pos=e.target.selectionStart;
+      e.target.value=e.target.value.slice(0,pos)+e.key.toUpperCase()+e.target.value.slice(e.target.selectionEnd);
+      e.target.setSelectionRange(pos+1,pos+1);
+    }
+  });
+  dustInput.addEventListener('paste',e=>{
+    if(dustCaseFree) return;
+    e.preventDefault();
+    const pasted=(e.clipboardData||window.clipboardData).getData('text');
+    const pos=e.target.selectionStart, end=e.target.selectionEnd;
+    e.target.value=e.target.value.slice(0,pos)+pasted.toUpperCase()+e.target.value.slice(end);
+  });
   document.getElementById('superAdminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateSuperAdmin();});
   document.getElementById('adminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateAdmin();});
   document.getElementById('peNewId').addEventListener('keydown',e=>{if(e.key==='Enter')addProductToSheet();});
