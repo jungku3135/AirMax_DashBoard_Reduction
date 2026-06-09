@@ -115,7 +115,6 @@ function deauthAdmin(){
   _applyDustAuthUI(false);
   updateRunBtnText(); updateSheetBtn();
 }
-}
 
 function updateRunBtnText(){
   const btn=document.getElementById('runBtn');
@@ -1407,6 +1406,7 @@ async function startInspection(){
 
 /* ===== 초기화 ===== */
 (function init(){
+  setGlobalLock(false);
   const savedTheme=lsGet(LS_THEME,'light');
   document.documentElement.setAttribute('data-theme',savedTheme);
   document.getElementById('themeIcon').textContent=savedTheme==='dark'?'☀️':'🌙';
