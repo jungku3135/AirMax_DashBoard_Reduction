@@ -245,6 +245,10 @@ function switchMode(mode){
   updateSheetBtn();
   if(mode==='dust'){
     document.getElementById('dateInfo').textContent='조회 기간  2026-04 ~';
+    if(!sessionStorage.getItem('dustBetaNoticed')){
+      sessionStorage.setItem('dustBetaNoticed','1');
+      alert('현재 ★베타★ 테스트 중 입니다.\n슈퍼 관리자 인증을 입력해야 사용이 가능합니다.');
+    }
   } else {
     updateDateInfo();
   }
