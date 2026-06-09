@@ -2,8 +2,9 @@
 const ADMIN_PASSWORD = 'airmax87'; /* 관리자 비밀번호 */
 const GAS_URL        = 'https://script.google.com/macros/s/AKfycbwlcEh7wNrxgMFHJoWx_JY0aHLPVC7BR8R4soEKbNdBE9tytIYqtyAHgdzkxb_02K5lBQ/exec';
 const API      = 'https://api-airmax.testonic.co.kr/api/external/reports';
-const LS_EXTRA = 'airmax_extra_ids';
-const LS_ENDID = 'airmax_end_id';
+const LS_EXTRA        = 'airmax_extra_ids';
+const LS_ENDID        = 'airmax_end_id';
+const LS_GLOBAL_ENDID = 'airmax_global_end_id';
 const LS_THEME = 'airmax_theme';
 const LS_MODE  = 'airmax_mode';
 const LS_PROD_LOCS    = 'airmax_product_locations';
@@ -952,19 +953,37 @@ async function startInspection(){
     return;
   }
 
-  /* 범위/개별 */
-  const startIdRaw=document.getElementById('startIdInput').value.trim()||'A001';
-  const endIdRaw=document.getElementById('endIdInput').value.trim();
-  let rangeIds=[];
-  if(endIdRaw){
-    const s=parseId(startIdRaw),e=parseId(endIdRaw);
-    if(!s||!e){errEl.textContent='⚠ ID 형식이 잘못되었습니다. 예: A001';return;}
-    if(s.prefix!==e.prefix){errEl.textContent='⚠ 시작/끝 ID 접두사가 같아야 합니다.';return;}
-    if(s.num>e.num){errEl.textContent='⚠ 끝 ID가 시작 ID보다 작습니다.';return;}
+  /* 범위 검색 */
+  const domStartRaw    = document.getElementById('domStartId').value.trim()||'A001';
+  const domEndRaw      = document.getElementById('domEndId').value.trim();
+  const globalStartRaw = document.getElementById('globalStartId').value.trim()||'G001';
+  const globalEndRaw   = document.getElementById('globalEndId').value.trim();
+
+  function buildRange(startRaw, endRaw, label){
+    const s=parseId(startRaw), e=parseId(endRaw);
+    if(!s||!e){errEl.textContent=`⚠ ${label} ID 형식이 잘못되었습니다.`;return null;}
+    if(s.prefix!==e.prefix){errEl.textContent=`⚠ ${label} 시작/끝 ID 접두사가 같아야 합니다.`;return null;}
+    if(s.num>e.num){errEl.textContent=`⚠ ${label} 끝 ID가 시작 ID보다 작습니다.`;return null;}
     const padLen=Math.max(s.padLen,e.padLen);
-    for(let n=s.num;n<=e.num;n++)rangeIds.push(formatId(s.prefix,n,padLen));
-    lsSet(LS_ENDID,endIdRaw);
+    const ids=[];
+    for(let n=s.num;n<=e.num;n++) ids.push(formatId(s.prefix,n,padLen));
+    return ids;
   }
+
+  let rangeIds=[];
+  if(domEndRaw){
+    const ids=buildRange(domStartRaw, domEndRaw, '국내');
+    if(ids===null) return;
+    rangeIds.push(...ids);
+    lsSet(LS_ENDID, domEndRaw);
+  }
+  if(globalEndRaw){
+    const ids=buildRange(globalStartRaw, globalEndRaw, '글로벌');
+    if(ids===null) return;
+    rangeIds.push(...ids);
+    lsSet(LS_GLOBAL_ENDID, globalEndRaw);
+  }
+
   const allIds=[...new Set([...rangeIds,...extraIds])];
   if(allIds.length===0){errEl.textContent='⚠ 점검할 ID가 없습니다.';return;}
   await runInspection(allIds);
@@ -983,8 +1002,10 @@ async function startInspection(){
   document.getElementById('singleEndDate').value=todayStr()+'T23:59';
 
   extraIds=lsGet(LS_EXTRA,[]);
-  const savedEnd=lsGet(LS_ENDID,'');
-  if(savedEnd) document.getElementById('endIdInput').value=savedEnd;
+  const savedDomEnd=lsGet(LS_ENDID,'');
+  if(savedDomEnd) document.getElementById('domEndId').value=savedDomEnd;
+  const savedGlobalEnd=lsGet(LS_GLOBAL_ENDID,'');
+  if(savedGlobalEnd) document.getElementById('globalEndId').value=savedGlobalEnd;
   renderExtraTags();
 
   const savedMode=lsGet(LS_MODE,'range');
@@ -1000,8 +1021,10 @@ async function startInspection(){
       el.value=cleaned;
     });
   };
-  addRestrictedInput('startIdInput');
-  addRestrictedInput('endIdInput');
+  addRestrictedInput('domStartId');
+  addRestrictedInput('domEndId');
+  addRestrictedInput('globalStartId');
+  addRestrictedInput('globalEndId');
 
   document.getElementById('extraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addExtraId();});
   document.getElementById('singleIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});

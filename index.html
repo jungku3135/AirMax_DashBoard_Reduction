@@ -258,21 +258,34 @@ function buildJson(obj) {
   <hr class="divider"/>
 
   <div class="mode-tabs">
-    <button class="mode-tab active" id="tabRange"  onclick="switchMode('range')">범위 / 개별 검색</button>
+    <button class="mode-tab active" id="tabRange"  onclick="switchMode('range')">범위 검색</button>
     <button class="mode-tab"        id="tabSingle" onclick="switchMode('single')">단일 검색</button>
     <button class="mode-tab"        id="tabZone"   onclick="switchMode('zone')">영역 지정 점검</button>
     <button class="mode-tab"        id="tabDust"   onclick="switchMode('dust')">먼지포집 검색</button>
   </div>
 
-  <!-- 범위/개별 -->
+  <!-- 범위 검색 -->
   <div id="panelRange">
-    <div class="section-label" style="margin-bottom:6px">범위 점검 (A001 ~ 끝 ID)</div>
+    <div class="section-label" style="margin-bottom:6px">국내 버전
+      <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — A001 형식</span>
+    </div>
     <div class="row">
       <label>시작 ID</label>
-      <input type="text" class="id-input" id="startIdInput" placeholder="A000" maxlength="4" value="A001"/>
+      <input type="text" class="id-input" id="domStartId" placeholder="A001" maxlength="4" value="A001"/>
       <span class="dash">—</span>
       <label>끝 ID</label>
-      <input type="text" class="id-input" id="endIdInput" placeholder="A000" maxlength="4"/>
+      <input type="text" class="id-input" id="domEndId" placeholder="A000" maxlength="4"/>
+    </div>
+    <hr class="divider" style="margin:12px 0"/>
+    <div class="section-label" style="margin-bottom:6px">글로벌 버전
+      <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — G001 형식</span>
+    </div>
+    <div class="row">
+      <label>시작 ID</label>
+      <input type="text" class="id-input" id="globalStartId" placeholder="G001" maxlength="4"/>
+      <span class="dash">—</span>
+      <label>끝 ID</label>
+      <input type="text" class="id-input" id="globalEndId" placeholder="G000" maxlength="4"/>
     </div>
     <hr class="divider" style="margin:12px 0"/>
     <div class="section-label" style="margin-bottom:6px">개별 추가 ID
