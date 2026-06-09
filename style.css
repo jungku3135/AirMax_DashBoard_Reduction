@@ -100,7 +100,7 @@ body {
 }
 /* 단일 제품 구역 컴팩트 레이아웃 */
 .pe-compact-row { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:10px; }
-.pe-compact-zone { display:flex; flex-direction:column; gap:4px; flex:1 1 130px; max-width:200px; }
+.pe-compact-zone { display:flex; flex-direction:column; gap:4px; flex:0 0 150px; }
 .pe-zone-header.mini { font-size:9px; padding-bottom:3px; margin-bottom:2px; }
 /* 카드 그리드 */
 .pe-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:6px; }
@@ -108,13 +108,14 @@ body {
   background:var(--surface); border:1px solid var(--border); border-radius:7px;
   padding:9px 11px; cursor:pointer; transition:border-color 0.12s;
   display:flex; flex-direction:column; gap:3px; user-select:none;
+  min-height:62px; box-sizing:border-box; width:100%;
 }
 .pe-card:hover:not(.editing) { border-color:var(--text3); }
 .pe-card.editing { border-color:var(--em-border); cursor:default; background:var(--em-chip-bg); }
 .pe-card-id { font-size:13px; font-weight:700; color:var(--text); }
 .pe-card-loc { font-size:11px; color:var(--text3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pe-card-actions { display:flex; gap:4px; margin-top:6px; flex-wrap:nowrap; }
-.pe-card-actions button { flex:1; min-width:0; font-size:11px; }
+.pe-card-actions { display:flex; gap:4px; margin-top:auto; padding-top:6px; flex-wrap:nowrap; }
+.pe-card-actions button { flex:1; min-width:0; font-size:11px; text-align:center; justify-content:center; }
 .pe-card-edit-form { display:flex; flex-direction:column; gap:5px; margin-top:5px; }
 .pe-card-edit-form input {
   background:var(--input-bg); border:1.5px solid var(--border); border-radius:5px;
@@ -419,7 +420,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .zone-search-input {
   background:var(--input-bg); border:1.5px solid var(--border); border-radius:7px;
   color:var(--text); padding:7px 12px; font-size:12px; outline:none;
-  font-family:inherit; flex:1; min-width:0; transition:border-color 0.15s;
+  font-family:inherit; width:180px; transition:border-color 0.15s;
 }
 .zone-search-input:focus { border-color:var(--text3); }
 .zone-search-input::placeholder { color:var(--text4); }
