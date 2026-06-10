@@ -979,6 +979,11 @@ function renderDustChart(days,isDark,canvasId){
     },
     options:{
       responsive:true,maintainAspectRatio:false,
+      animation:{
+        duration:600,
+        easing:'easeOutCubic',
+        delay:ctx=>ctx.type==='data'&&ctx.mode==='default'?ctx.dataIndex*40:0
+      },
       plugins:{
         legend:{display:false},
         tooltip:{
