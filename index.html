@@ -331,11 +331,11 @@ function buildJson(obj) {
     <div class="zone-grid-wrap" id="zoneGridWrap">
       <div class="zone-grid" id="zoneGrid"></div>
       <div class="zone-no-result" id="zoneNoResult" style="display:none">검색 결과가 없습니다.</div>
+      <button class="btn-ghost" style="font-size:11px;padding:5px 10px;margin-top:8px" onclick="clearZones()">선택 해제</button>
     </div>
 
     <div class="zone-select-row">
       <span class="zone-select-count" id="zoneSelectCount">선택된 영역 없음</span>
-      <button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="clearZones()">선택 해제</button>
     </div>
   </div>
 
@@ -345,8 +345,10 @@ function buildJson(obj) {
       모바일 환경에서는 상단 <strong>관리자 PW</strong> 인증 후 사용 가능합니다.
     </div>
     <div id="dustSearchArea" style="display:none">
-      <hr class="divider" style="margin:10px 0"/>
-      <div class="zone-search-row">
+      <div class="zone-header">
+        <div class="section-label" style="margin-bottom:0">영역 선택
+          <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — 복수 선택 가능</span>
+        </div>
         <input type="text" class="zone-search-input" id="dustZoneSearchInput"
           placeholder="🔍  영역명 검색 (예: 시청역)"
           oninput="filterDustZones()"/>
@@ -354,6 +356,7 @@ function buildJson(obj) {
           <span>펼치기</span>
           <span class="zone-toggle-arrow" id="dustZoneArrow">▼</span>
         </button>
+        <button class="btn-zone-toggle" onclick="refreshSheetData()" title="시트에서 영역 목록 새로고침" style="padding:6px 10px">🔄 영역 새로고침</button>
       </div>
       <div class="zone-grid-wrap" id="dustZoneGridWrap">
         <div style="display:flex;gap:6px;margin-bottom:8px;">
@@ -363,7 +366,9 @@ function buildJson(obj) {
         <div class="zone-grid" id="dustZonePickerGrid"></div>
         <div class="zone-no-result" id="dustZoneNoResult" style="display:none">검색 결과가 없습니다.</div>
       </div>
-      <div id="dustZoneSelectInfo" class="zone-select-count" style="margin-top:6px">선택된 영역 없음</div>
+      <div class="zone-select-row">
+        <span class="zone-select-count" id="dustZoneSelectInfo">선택된 영역 없음</span>
+      </div>
       <hr class="divider" style="margin:10px 0"/>
       <div class="section-label" style="margin-bottom:6px">개별 추가 ID
         <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — Demo, Lab0 등 특수 ID</span>
