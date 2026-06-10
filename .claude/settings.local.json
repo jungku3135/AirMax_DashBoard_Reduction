@@ -17,7 +17,12 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/index.html)",
       "Bash(curl -v --max-time 3 \"http://localhost:8080/proxy/192.168.0.62/?action=stream\")",
       "Read(//c/airmax-server/**)",
-      "Bash(chmod +x /c/Users/ku/Documents/GitHub/AirMax_DashBoard_Reduction/.git/hooks/pre-commit)"
+      "Bash(chmod +x /c/Users/ku/Documents/GitHub/AirMax_DashBoard_Reduction/.git/hooks/pre-commit)",
+      "Bash(node --check \"C:\\\\Users\\\\ku\\\\Documents\\\\GitHub\\\\AirMax_DashBoard_Reduction\\\\script.js\")",
+      "Bash(git -C \"c:\\\\Users\\\\ku\\\\Documents\\\\GitHub\\\\AirMax_DashBoard_Reduction\" show HEAD:script.js)",
+      "Bash(node --check script.js)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ],
     "additionalDirectories": [
       "C:\\airmax-server"
