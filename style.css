@@ -232,7 +232,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 
 /* 관리자 인증 */
 .admin-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.admin-pw-input { width:180px; }
+.admin-pw-input { width:200px; }
 .admin-auth-badge {
   font-size:11px; font-weight:600; padding:4px 10px;
   border-radius:20px; display:none;
@@ -420,7 +420,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .zone-search-input {
   background:var(--input-bg); border:1.5px solid var(--border); border-radius:7px;
   color:var(--text); padding:7px 12px; font-size:12px; outline:none;
-  font-family:inherit; width:180px; transition:border-color 0.15s;
+  font-family:inherit; width:200px; transition:border-color 0.15s;
 }
 .zone-search-input:focus { border-color:var(--text3); }
 .zone-search-input::placeholder { color:var(--text4); }
