@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <link rel="icon" href="https://airmax.testonic.co.kr/favicon.ico" type="image/x-icon" sizes="16x16">
 <title>AIRMAX 제품 점검</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.13/dist/web/variable/pretendardvariable.min.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.14/dist/web/variable/pretendardvariable.min.css"/>
 <link rel="stylesheet" href="style.css"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -433,7 +433,7 @@ function buildJson(obj) {
 <div id="dustResultSection" style="display:none; padding:16px 24px;">
   <div id="dustProgressRow" style="display:none;font-size:12px;color:var(--text3);margin-bottom:10px;"></div>
   <div class="dust-result-toolbar">
-    <input type="text" id="dustResultSearch" class="id-input" placeholder="제품 ID 또는 설치 장소 검색…" oninput="filterDustResults(this.value)" style="flex:1;min-width:0"/>
+    <input type="text" id="dustResultSearch" class="id-input" placeholder="제품 ID 또는 설치 장소 검색…" oninput="filterDustResults(this.value)" style="flex:1;max-width:240px;min-width:0"/>
     <span id="dustResultCount" class="dzp-select-info"></span>
   </div>
   <div class="dust-cards-grid" id="dustCardsGrid"></div>

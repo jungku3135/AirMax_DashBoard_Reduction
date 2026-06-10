@@ -135,7 +135,7 @@ body {
 .pe-card.editing { border-color:var(--em-border); cursor:default; background:var(--em-chip-bg); }
 .pe-card-id { font-size:13px; font-weight:700; color:var(--text); }
 .pe-card-loc { font-size:11px; color:var(--text3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pe-card-actions { display:flex; gap:4px; margin-top:auto; padding-top:6px; flex-wrap:nowrap; }
+.pe-card-actions { display:flex; gap:4px; margin-top:auto; padding-top:6px; flex-wrap:nowrap; width:100%; justify-content:center; }
 .pe-card-actions button { flex:1; min-width:0; font-size:11px; text-align:center; justify-content:center; }
 .pe-card-edit-form { display:flex; flex-direction:column; gap:5px; margin-top:5px; }
 .pe-card-edit-form input {
