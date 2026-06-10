@@ -13,6 +13,7 @@ const LS_SHEET_CACHE  = 'airmax_sheet_cache';
 const LS_DUST_EXTRA   = 'airmax_dust_extra_ids';
 const CACHE_TTL       = 3600000; // 1시간 (ms)
 
+const isMobile = () => window.innerWidth <= 768;
 
 /* ===== 상태 ===== */
 let selectedZones   = new Set();
@@ -75,7 +76,7 @@ function authenticateAdmin(){
     inp.value=''; inp.disabled=true;
     document.getElementById('deauthBtn').style.display='inline-block';
     document.getElementById('adminActionsRow').style.display='flex';
-    _applyDustAuthUI(true);
+    _applyDustAuthUI();
     updateRunBtnText(); updateSheetBtn();
   } else if(pw===ADMIN_PASSWORD){
     adminAuthenticated=true;
@@ -84,7 +85,7 @@ function authenticateAdmin(){
     inp.value=''; inp.disabled=true;
     document.getElementById('deauthBtn').style.display='inline-block';
     document.getElementById('adminActionsRow').style.display='flex';
-    _applyDustAuthUI(false);
+    _applyDustAuthUI();
     updateRunBtnText(); updateSheetBtn();
   } else {
     badge.textContent='✗ 비밀번호 오류'; badge.className='admin-auth-badge fail';
@@ -92,12 +93,13 @@ function authenticateAdmin(){
   }
 }
 
-function _applyDustAuthUI(isSuper){
+function _applyDustAuthUI(){
   const notMsg=document.getElementById('dustNotAuthMsg');
   const area=document.getElementById('dustSearchArea');
-  if(notMsg) notMsg.style.display=isSuper?'none':'block';
-  if(area) area.style.display=isSuper?'block':'none';
-  if(isSuper) renderDustZoneGrid();
+  const blocked = isMobile() && !adminAuthenticated;
+  if(notMsg) notMsg.style.display=blocked?'block':'none';
+  if(area) area.style.display=blocked?'none':'block';
+  if(!blocked) renderDustZoneGrid();
 }
 
 function deauthAdmin(){
@@ -110,7 +112,7 @@ function deauthAdmin(){
   document.getElementById('adminActionsRow').style.display='none';
   document.getElementById('productEditorSection').style.display='none';
   productLocEditorOpen=false;
-  _applyDustAuthUI(false);
+  _applyDustAuthUI();
   updateRunBtnText(); updateSheetBtn();
 }
 
@@ -245,11 +247,7 @@ function switchMode(mode){
   updateSheetBtn();
   if(mode==='dust'){
     document.getElementById('dateInfo').textContent='조회 기간  2026-04 ~';
-    _applyDustAuthUI(superAdminAuthenticated);
-    if(!sessionStorage.getItem('dustBetaNoticed')){
-      sessionStorage.setItem('dustBetaNoticed','1');
-      alert('현재 ★베타★ 테스트 중 입니다.\n슈퍼 관리자 인증을 입력해야 사용이 가능합니다.');
-    }
+    _applyDustAuthUI();
   } else {
     updateDateInfo();
   }
@@ -1021,8 +1019,8 @@ function updateDustZoneInfo(){
 
 async function startDustSearch(){
   if(isGlobalLocked) return;
-  if(!superAdminAuthenticated){
-    document.getElementById('errorMsg').textContent='⚠ 슈퍼 관리자 인증이 필요합니다.';
+  if(isMobile() && !adminAuthenticated){
+    document.getElementById('errorMsg').textContent='⚠ 모바일에서는 관리자 인증이 필요합니다.';
     return;
   }
   const errEl=document.getElementById('errorMsg');

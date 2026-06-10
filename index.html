@@ -257,11 +257,12 @@ function buildJson(obj) {
 
   <hr class="divider"/>
 
+  <div class="section-label" style="margin-bottom:6px">제품 검색</div>
   <div class="mode-tabs">
-    <button class="mode-tab active" id="tabRange"  onclick="switchMode('range')">범위 검색</button>
-    <button class="mode-tab"        id="tabSingle" onclick="switchMode('single')">단일 검색</button>
-    <button class="mode-tab"        id="tabZone"   onclick="switchMode('zone')">영역 지정 점검</button>
-    <button class="mode-tab"        id="tabDust"   onclick="switchMode('dust')">먼지 포집 검색</button>
+    <button class="mode-tab active" id="tabRange"  onclick="switchMode('range')">범위</button>
+    <button class="mode-tab"        id="tabSingle" onclick="switchMode('single')">단일</button>
+    <button class="mode-tab"        id="tabZone"   onclick="switchMode('zone')">영역 지정</button>
+    <button class="mode-tab"        id="tabDust"   onclick="switchMode('dust')">먼지 포집</button>
   </div>
 
   <!-- 범위 검색 -->
@@ -341,7 +342,7 @@ function buildJson(obj) {
   <!-- 먼지 포집 검색 -->
   <div id="panelDust" style="display:none">
     <div id="dustNotAuthMsg" style="font-size:12px;color:var(--text3);padding:6px 0">
-      상단 <strong>관리자 PW</strong> 입력창에서 슈퍼 관리자 인증 후 사용 가능합니다.
+      모바일 환경에서는 상단 <strong>관리자 PW</strong> 인증 후 사용 가능합니다.
     </div>
     <div id="dustSearchArea" style="display:none">
       <hr class="divider" style="margin:10px 0"/>
@@ -487,7 +488,7 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.50b</span>
+  <span class="footer-version">v1.50</span>
   <span class="footer-divider"></span>
   <span class="footer-date">Updated 2026.06.10</span>
 </div>
