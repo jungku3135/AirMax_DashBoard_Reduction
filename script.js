@@ -1148,8 +1148,6 @@ function openDustModal(id){
       <td style="font-weight:700;color:var(--ok-text)">+${d.inc.toLocaleString()}</td>
     </tr>`).join('');
     chartWrap.style.display='block';
-    const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-    renderDustChart(activeDays,isDark,'dustModalCanvas');
   } else {
     headEl.innerHTML='';
     bodyEl.innerHTML='<tr><td style="padding:16px;color:var(--text3)">포집량 변화가 없습니다</td></tr>';
@@ -1159,6 +1157,13 @@ function openDustModal(id){
   dustModalOpen=true;
   document.getElementById('dustModal').style.display='flex';
   document.body.style.overflow='hidden';
+
+  if(activeDays.length){
+    requestAnimationFrame(()=>setTimeout(()=>{
+      const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+      renderDustChart(activeDays,isDark,'dustModalCanvas');
+    },50));
+  }
 }
 
 function filterDustResults(q){
