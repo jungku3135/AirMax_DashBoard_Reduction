@@ -49,10 +49,6 @@ function lsGet(k,d){try{const v=localStorage.getItem(k);return v!==null?JSON.par
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-function getAllZones(){
-  return sheetZones;
-}
-
 /* ===== 테마 ===== */
 function toggleTheme(){
   const html=document.documentElement;
@@ -209,14 +205,9 @@ async function loadSheetData(force=false){
 }
 
 /* ===== 날짜 ===== */
-function todayStr(){
-  const d=new Date();
-  return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-function yesterdayStr(){
-  const d=new Date(); d.setDate(d.getDate()-1);
-  return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
+function fmtDate(d){ return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function todayStr(){ return fmtDate(new Date()); }
+function yesterdayStr(){ const d=new Date(); d.setDate(d.getDate()-1); return fmtDate(d); }
 
 function getDateRange(mode){
   const today=todayStr(), yest=yesterdayStr();
@@ -230,8 +221,7 @@ function getDateRange(mode){
   }
   // range: 2일 전 ~ 오늘
   const d=new Date(); d.setDate(d.getDate()-2);
-  const fmt=x=>`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-  return{started_at:fmt(d), finished_at:today};
+  return{started_at:fmtDate(d), finished_at:today};
 }
 
 function updateDateInfo(){
@@ -287,67 +277,60 @@ function updateMobileZoneInfo(){
   const infoEl=document.getElementById('mobileZoneInfo');
   const cnt=selectedZones.size;
   if(cnt===0){ infoEl.textContent='영역을 선택하세요'; return; }
-  const ZONES=getAllZones();
-  const total=[...selectedZones].reduce((s,i)=>s+(ZONES[i]?ZONES[i].ids.length:0),0);
+  const total=[...selectedZones].reduce((s,i)=>s+(sheetZones[i]?sheetZones[i].ids.length:0),0);
   infoEl.textContent=`${cnt}개 영역 · ${total}개 제품`;
 }
 
 /* ===== 영역 그리드 접기/펼치기 ===== */
+function _applyZoneGridUI(open,wrapId,arrowId,btnId){
+  const wrap=document.getElementById(wrapId);
+  const arrow=document.getElementById(arrowId);
+  const btn=document.getElementById(btnId);
+  if(wrap) wrap.classList.toggle('open',open);
+  if(arrow) arrow.classList.toggle('open',open);
+  if(btn) btn.querySelector('span').textContent=open?'접기':'펼치기';
+}
 function toggleZoneGrid(){
   zoneGridOpen=!zoneGridOpen;
-  const wrap=document.getElementById('zoneGridWrap');
-  const arrow=document.getElementById('zoneArrow');
-  const btn=document.getElementById('zoneToggleBtn');
-  wrap.classList.toggle('open',zoneGridOpen);
-  arrow.classList.toggle('open',zoneGridOpen);
-  btn.querySelector('span').textContent=zoneGridOpen?'접기':'펼치기';
+  _applyZoneGridUI(zoneGridOpen,'zoneGridWrap','zoneArrow','zoneToggleBtn');
 }
 
-function filterZones(query){
-  if(query && !zoneGridOpen) toggleZoneGrid();
-  const q=query.trim().toLowerCase();
-  let visible=0;
-  document.querySelectorAll('.zone-btn').forEach(btn=>{
-    const name=btn.querySelector('.zone-name').textContent.toLowerCase();
-    const match=!q||name.includes(q);
-    btn.classList.toggle('hidden',!match);
-    if(match) visible++;
-  });
-  document.getElementById('zoneNoResult').style.display=visible===0?'block':'none';
-}
+function filterZones(){ renderZoneGrid(); }
 
-function renderZoneGrid(){
-  const ZONES=getAllZones();
-  const q=document.getElementById('zoneSearchInput').value.trim().toLowerCase();
-  document.getElementById('zoneGrid').innerHTML=ZONES.map((z,i)=>{
-    const sel=selectedZones.has(i);
+function _renderZoneGrid(gridId,noResultId,searchId,selSet,toggleFn,isOpen,openFn,afterFn){
+  const gridEl=document.getElementById(gridId); if(!gridEl) return;
+  const q=(document.getElementById(searchId)?.value||'').trim().toLowerCase();
+  gridEl.innerHTML=sheetZones.map((z,i)=>{
+    const sel=selSet.has(i);
     const rangeText=z.ids.length===1?z.ids[0]:`${z.ids[0]}~${z.ids[z.ids.length-1]} (${z.ids.length}개)`;
     const hidden=q&&!z.name.toLowerCase().includes(q)?'hidden':'';
-    return`<button class="zone-btn ${sel?'selected':''} ${hidden}" onclick="toggleZone(${i})">
+    return`<button class="zone-btn ${sel?'selected':''} ${hidden}" onclick="${toggleFn}(${i})">
       <span class="zone-name">${escHtml(z.name)}</span>
       <span class="zone-range">${rangeText}</span>
     </button>`;
   }).join('');
-  updateZoneCount();
-  if(q&&!zoneGridOpen) toggleZoneGrid();
-  const allHidden=document.querySelectorAll('.zone-btn:not(.hidden)').length===0;
-  document.getElementById('zoneNoResult').style.display=allHidden?'block':'none';
+  const noRes=document.getElementById(noResultId);
+  const allHidden=!gridEl.querySelector('.zone-btn:not(.hidden)');
+  if(noRes) noRes.style.display=allHidden?'block':'none';
+  if(q&&!isOpen) openFn();
+  afterFn();
 }
+function _updateZoneInfo(selSet,el,fmt){
+  if(!el) return;
+  const cnt=selSet.size;
+  const total=[...selSet].reduce((s,i)=>s+(sheetZones[i]?sheetZones[i].ids.length:0),0);
+  el.textContent=cnt===0?'선택된 영역 없음':fmt(cnt,total);
+}
+function _toggleZoneItem(selSet,i,renderFn){ if(selSet.has(i)) selSet.delete(i); else selSet.add(i); renderFn(); }
 
+function renderZoneGrid(){
+  _renderZoneGrid('zoneGrid','zoneNoResult','zoneSearchInput',selectedZones,'toggleZone',zoneGridOpen,toggleZoneGrid,updateZoneCount);
+}
 function updateZoneCount(){
-  const ZONES=getAllZones();
-  const cnt=selectedZones.size;
-  const total=[...selectedZones].reduce((s,i)=>s+(ZONES[i]?ZONES[i].ids.length:0),0);
-  document.getElementById('zoneSelectCount').textContent=
-    cnt===0?'선택된 영역 없음':`${cnt}개 영역 / 총 ${total}개 제품 선택됨`;
+  _updateZoneInfo(selectedZones,document.getElementById('zoneSelectCount'),(c,t)=>`${c}개 영역 / 총 ${t}개 제품 선택됨`);
   updateMobileZoneInfo();
 }
-
-function toggleZone(i){
-  if(selectedZones.has(i)) selectedZones.delete(i);
-  else selectedZones.add(i);
-  renderZoneGrid();
-}
+function toggleZone(i){ _toggleZoneItem(selectedZones,i,renderZoneGrid); }
 
 function clearZones(){
   selectedZones.clear();
@@ -391,40 +374,22 @@ function setGlobalLock(locked){
 }
 
 /* ===== 추가 ID ===== */
-function addExtraId(){
-  const inp=document.getElementById('extraIdInput');
-  inp.value.trim().split(',').map(v=>v.trim()).filter(Boolean).forEach(v=>{
-    if(!extraIds.includes(v)) extraIds.push(v);
-  });
-  inp.value=''; lsSet(LS_EXTRA,extraIds); renderExtraTags();
+function _addExtraId(arr,lsKey,inputId,renderFn){
+  const inp=document.getElementById(inputId);
+  inp.value.trim().split(',').map(v=>v.trim()).filter(Boolean).forEach(v=>{if(!arr.includes(v))arr.push(v);});
+  inp.value=''; lsSet(lsKey,arr); renderFn();
 }
-function removeExtraId(id){
-  extraIds=extraIds.filter(v=>v!==id); lsSet(LS_EXTRA,extraIds); renderExtraTags();
+function _renderExtraTags(arr,rowId,removeFn){
+  const row=document.getElementById(rowId); if(!row) return;
+  row.style.display=arr.length?'flex':'none';
+  row.innerHTML=arr.map(id=>`<span class="extra-id-tag">${escHtml(id)}<button onclick="${removeFn}('${escHtml(id)}')" title="삭제">×</button></span>`).join('');
 }
-function renderExtraTags(){
-  const row=document.getElementById('extraTagsRow');
-  if(!extraIds.length){ row.innerHTML=''; row.style.display='none'; return; }
-  row.style.display='flex';
-  row.innerHTML=extraIds.map(id=>`<span class="extra-id-tag">${escHtml(id)}<button onclick="removeExtraId('${escHtml(id)}')" title="삭제">×</button></span>`).join('');
-}
-
-function addDustExtraId(){
-  const inp=document.getElementById('dustExtraIdInput');
-  inp.value.trim().split(',').map(v=>v.trim()).filter(Boolean).forEach(v=>{
-    if(!dustExtraIds.includes(v)) dustExtraIds.push(v);
-  });
-  inp.value=''; lsSet(LS_DUST_EXTRA,dustExtraIds); renderDustExtraTags();
-}
-function removeDustExtraId(id){
-  dustExtraIds=dustExtraIds.filter(v=>v!==id); lsSet(LS_DUST_EXTRA,dustExtraIds); renderDustExtraTags();
-}
-function renderDustExtraTags(){
-  const row=document.getElementById('dustExtraTagsRow');
-  if(!row) return;
-  if(!dustExtraIds.length){ row.innerHTML=''; row.style.display='none'; return; }
-  row.style.display='flex';
-  row.innerHTML=dustExtraIds.map(id=>`<span class="extra-id-tag">${escHtml(id)}<button onclick="removeDustExtraId('${escHtml(id)}')" title="삭제">×</button></span>`).join('');
-}
+function addExtraId(){ _addExtraId(extraIds,LS_EXTRA,'extraIdInput',renderExtraTags); }
+function removeExtraId(id){ extraIds=extraIds.filter(v=>v!==id); lsSet(LS_EXTRA,extraIds); renderExtraTags(); }
+function renderExtraTags(){ _renderExtraTags(extraIds,'extraTagsRow','removeExtraId'); }
+function addDustExtraId(){ _addExtraId(dustExtraIds,LS_DUST_EXTRA,'dustExtraIdInput',renderDustExtraTags); }
+function removeDustExtraId(id){ dustExtraIds=dustExtraIds.filter(v=>v!==id); lsSet(LS_DUST_EXTRA,dustExtraIds); renderDustExtraTags(); }
+function renderDustExtraTags(){ _renderExtraTags(dustExtraIds,'dustExtraTagsRow','removeDustExtraId'); }
 
 /* ===== ID 유틸 ===== */
 function parseId(id){
@@ -925,10 +890,18 @@ function fmtTime(str){
 }
 
 /* ===== 먼지 포집 데이터 렌더 ===== */
-function calcDust(items){
-  // dustTotal 필드 있는 항목만, readTime 기준 오름차순 정렬
-  const ERROR_OFFSET=152*1000+156; // 오류 데이터 오프셋 (152kg + 156g)
+// 스파이크 감지 배수: 직전값 대비 이 배수 이상 증가 후 다음값이 내려오면 오류로 판정
+const DUST_SPIKE_RATIO = 5;
 
+function isSpike(prev, cur, next){
+  if(prev==null||next==null) return false;
+  // 직전값 대비 SPIKE_RATIO배 이상 튀어오르고, 다음값이 cur보다 낮게 내려오면 스파이크
+  return (cur - prev) > Math.max(prev * (DUST_SPIKE_RATIO - 1), 10000) && next < cur;
+}
+
+const DUST_BASELINE_THRESHOLD = 150000; // 최초 입력값이 이 값 초과면 기준점(baseline)으로 정규화
+
+function calcDust(items){
   const sorted=[...items]
     .filter(it=>it.report_data?.dustTotal!==undefined&&it.report_data?.dustTotal!==null)
     .sort((a,b)=>{
@@ -937,19 +910,39 @@ function calcDust(items){
       return ta-tb;
     });
 
-  // grams 값 + 날짜 추출 (오류 레코드는 오프셋 차감)
-  const pts=sorted.map(it=>{
+  if(!sorted.length) return{total:0, days:[], scanCount:0};
+
+  // grams 변환
+  const raw=sorted.map(it=>{
     const rd=it.report_data;
     const time=rd.readTime||it.format_created_time||'';
-    let grams=(Number(rd.dustTotal)||0)*1000+(Number(rd.dustTotal1)||0);
-    if(Number(rd.dustTotal)===152&&Number(rd.dustTotal1)===156) grams-=ERROR_OFFSET;
-    const date=time.slice(0,10);
-    return{time,grams,date};
+    const grams=(Number(rd.dustTotal)||0)*1000+(Number(rd.dustTotal1)||0);
+    return{time, grams, date:time.slice(0,10)};
   });
 
-  // 전체 합산 (무조건 합산, 감소 없음)
+  // 스파이크 레코드 제외
+  const noSpike=raw.filter((p,i)=>{
+    const prev=i>0?raw[i-1].grams:null;
+    const next=i<raw.length-1?raw[i+1].grams:null;
+    return !isSpike(prev, p.grams, next);
+  });
+
+  if(!noSpike.length) return{total:0, days:[], scanCount:sorted.length};
+
+  // 최초 입력값이 15만g 초과면 그 값을 기준(0점)으로 정규화
+  // 15만 이하 레코드(리셋 후 소량값 등)는 그대로 유지
+  const baseline = noSpike[0].grams > DUST_BASELINE_THRESHOLD ? noSpike[0].grams : 0;
+  const pts = baseline === 0 ? noSpike : noSpike.map(p=>({
+    ...p,
+    grams: p.grams > DUST_BASELINE_THRESHOLD ? p.grams - baseline : p.grams
+  }));
+
+  // 증가분만 합산 (리셋 시 음수 diff는 무시)
   let total=0;
-  for(let i=1;i<pts.length;i++) total+=pts[i].grams-pts[i-1].grams;
+  for(let i=1;i<pts.length;i++){
+    const diff=pts[i].grams-pts[i-1].grams;
+    if(diff>0) total+=diff;
+  }
 
   // 일별 집계
   const dayMap=new Map();
@@ -959,7 +952,10 @@ function calcDust(items){
   });
   const days=[...dayMap.entries()].map(([date,ps])=>{
     let inc=0;
-    for(let i=1;i<ps.length;i++) inc+=ps[i].grams-ps[i-1].grams;
+    for(let i=1;i<ps.length;i++){
+      const diff=ps[i].grams-ps[i-1].grams;
+      if(diff>0) inc+=diff;
+    }
     return{date,count:ps.length,first:ps[0].grams,last:ps[ps.length-1].grams,inc};
   });
 
@@ -977,7 +973,7 @@ function renderDustChart(days,isDark,canvasId){
     data:{
       labels:days.map(d=>d.date.slice(5)),
       datasets:[{
-        label:'일별 포집량 (g)',
+        label:'회별 포집량 (g)',
         data:days.map(d=>d.inc),
         backgroundColor:isDark?'rgba(78,142,247,0.65)':'rgba(78,142,247,0.55)',
         borderColor:'#4e8ef7',borderWidth:1,borderRadius:4,
@@ -1009,68 +1005,18 @@ let dustZoneGridOpen=false;
 
 function toggleDustZoneGrid(){
   dustZoneGridOpen=!dustZoneGridOpen;
-  const wrap=document.getElementById('dustZoneGridWrap');
-  const arrow=document.getElementById('dustZoneArrow');
-  const btn=document.getElementById('dustZoneToggleBtn');
-  if(wrap) wrap.classList.toggle('open',dustZoneGridOpen);
-  if(arrow) arrow.classList.toggle('open',dustZoneGridOpen);
-  if(btn) btn.querySelector('span').textContent=dustZoneGridOpen?'접기':'펼치기';
+  _applyZoneGridUI(dustZoneGridOpen,'dustZoneGridWrap','dustZoneArrow','dustZoneToggleBtn');
 }
 
 function renderDustZoneGrid(){
-  const gridEl=document.getElementById('dustZonePickerGrid');
-  if(!gridEl) return;
-  const ZONES=getAllZones();
-  if(!ZONES.length){
-    gridEl.innerHTML='';
-    const noRes=document.getElementById('dustZoneNoResult');
-    if(noRes) noRes.style.display='block';
-    return;
-  }
-  const q=(document.getElementById('dustZoneSearchInput')?.value||'').trim().toLowerCase();
-  gridEl.innerHTML=ZONES.map((z,i)=>{
-    const sel=selectedDustZones.has(i);
-    const rangeText=z.ids.length===1?z.ids[0]:`${z.ids[0]}~${z.ids[z.ids.length-1]} (${z.ids.length}개)`;
-    const match=!q||z.name.toLowerCase().includes(q);
-    const hidden=!match?'hidden':'';
-    return`<button class="zone-btn ${sel?'selected':''} ${hidden}" onclick="toggleDustZone(${i})">
-      <span class="zone-name">${escHtml(z.name)}</span>
-      <span class="zone-range">${rangeText}</span>
-    </button>`;
-  }).join('');
-  const allHidden=gridEl.querySelectorAll('.zone-btn:not(.hidden)').length===0;
-  const noRes=document.getElementById('dustZoneNoResult');
-  if(noRes) noRes.style.display=allHidden?'block':'none';
-  if(q&&!dustZoneGridOpen) toggleDustZoneGrid();
-  updateDustZoneInfo();
+  _renderZoneGrid('dustZonePickerGrid','dustZoneNoResult','dustZoneSearchInput',selectedDustZones,'toggleDustZone',dustZoneGridOpen,toggleDustZoneGrid,updateDustZoneInfo);
 }
-
-function toggleDustZone(i){
-  if(selectedDustZones.has(i)) selectedDustZones.delete(i);
-  else selectedDustZones.add(i);
-  renderDustZoneGrid();
-}
-
-function filterDustZones(){
-  renderDustZoneGrid();
-}
-
-function selectAllDustZones(){
-  getAllZones().forEach((_,i)=>selectedDustZones.add(i));
-  renderDustZoneGrid();
-}
-
-function clearAllDustZones(){
-  selectedDustZones.clear();
-  renderDustZoneGrid();
-}
-
+function toggleDustZone(i){ _toggleZoneItem(selectedDustZones,i,renderDustZoneGrid); }
+function filterDustZones(){ renderDustZoneGrid(); }
+function selectAllDustZones(){ sheetZones.forEach((_,i)=>selectedDustZones.add(i)); renderDustZoneGrid(); }
+function clearAllDustZones(){ selectedDustZones.clear(); renderDustZoneGrid(); }
 function updateDustZoneInfo(){
-  const ZONES=getAllZones();
-  const cnt=selectedDustZones.size;
-  const total=[...selectedDustZones].reduce((s,i)=>s+(ZONES[i]?ZONES[i].ids.length:0),0);
-  const el=document.getElementById('dustZoneSelectInfo');
-  if(el) el.textContent=cnt===0?'선택된 영역 없음':`${cnt}개 영역 · ${total}개 제품`;
+  _updateZoneInfo(selectedDustZones,document.getElementById('dustZoneSelectInfo'),(c,t)=>`${c}개 영역 · ${t}개 제품`);
 }
 
 async function startDustSearch(){
@@ -1082,11 +1028,10 @@ async function startDustSearch(){
   const errEl=document.getElementById('errorMsg');
   errEl.textContent='';
   const token=document.getElementById('tokenInput').value.trim();
-  const ZONES=getAllZones();
   const added=new Set();
   const ids=[];
   [...selectedDustZones].forEach(i=>{
-    if(ZONES[i]) ZONES[i].ids.forEach(id=>{ if(!added.has(id)){added.add(id);ids.push(id);} });
+    if(sheetZones[i]) sheetZones[i].ids.forEach(id=>{ if(!added.has(id)){added.add(id);ids.push(id);} });
   });
   dustExtraIds.forEach(id=>{ if(!added.has(id)){added.add(id);ids.push(id);} });
   if(!ids.length){errEl.textContent='⚠ 조회할 영역을 선택해주세요.';return;}
@@ -1155,7 +1100,7 @@ async function startDustSearch(){
         card.className='dust-card';
         card.innerHTML=`<div class="dust-card-id">${escHtml(id)}</div>${loc}
           <div class="dust-card-total">${total.toLocaleString()}g</div>
-          <div class="dust-card-meta">${activeDays.length}일 포집 · 최근 ${lastDate}</div>`;
+          <div class="dust-card-meta">${activeDays.length}회 포집 · 최근 ${lastDate}</div>`;
         card.addEventListener('click',()=>openDustModal(id));
       }
     }catch(e){
@@ -1183,8 +1128,8 @@ function openDustModal(id){
   document.getElementById('dustModalSummary').innerHTML=`
     <div class="dust-stat"><span class="dust-stat-label">총 포집량</span>
       <span class="dust-stat-value">${total.toLocaleString()}g</span></div>
-    <div class="dust-stat"><span class="dust-stat-label">포집 발생일</span>
-      <span class="dust-stat-value">${activeDays.length}일</span></div>
+    <div class="dust-stat"><span class="dust-stat-label">포집 발생 수</span>
+      <span class="dust-stat-value">${activeDays.length}회</span></div>
     <div class="dust-stat"><span class="dust-stat-label">리포트 데이터 수</span>
       <span class="dust-stat-value">${scanCount}건</span></div>`;
 
@@ -1193,7 +1138,7 @@ function openDustModal(id){
   const chartWrap=document.getElementById('dustModalChartWrap');
 
   if(activeDays.length){
-    headEl.innerHTML='<th>날짜</th><th>시작 (g)</th><th>마지막 (g)</th><th>일별 포집 (g)</th>';
+    headEl.innerHTML='<th>날짜</th><th>시작 (g)</th><th>마지막 (g)</th><th>회별 포집 (g)</th>';
     bodyEl.innerHTML=activeDays.map(d=>`<tr>
       <td>${escHtml(d.date)}</td>
       <td>${d.first.toLocaleString()}</td><td>${d.last.toLocaleString()}</td>
@@ -1476,9 +1421,8 @@ async function startInspection(){
   /* 영역 점검 */
   if(currentMode==='zone'){
     if(selectedZones.size===0){errEl.textContent='⚠ 영역을 하나 이상 선택해주세요.';return;}
-    const ZONES=getAllZones();
     const zoneIds=[];
-    selectedZones.forEach(i=>{ if(ZONES[i]) zoneIds.push(...ZONES[i].ids); });
+    selectedZones.forEach(i=>{ if(sheetZones[i]) zoneIds.push(...sheetZones[i].ids); });
     await runInspection([...new Set(zoneIds)]);
     return;
   }
