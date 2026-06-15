@@ -883,6 +883,11 @@ function updateGridCard(r){
   requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.remove('card-updated')));
 }
 
+function getZoneAndLoc(id){
+  const zone=(sheetZones.find(z=>z.ids.includes(id))||{}).name||'';
+  const loc=productLocations[id]||'';
+  return [zone,loc].filter(Boolean).join(' · ')||'—';
+}
 function filterByListSel(sel){
   if(sel==='ALL') return results;
   if(sel==='EM_PM') return results.filter(r=>r.status==='EM'||r.status==='PM');
@@ -893,7 +898,7 @@ function renderList(){
   const filtered=filterByListSel(sel);
   document.getElementById('listBody').innerHTML=filtered.map(r=>{
     const cfg=STATUS[r.status]||STATUS.LOAD;
-    const loc=productLocations[r.id]||'—';
+    const loc=getZoneAndLoc(r.id);
     const time=r.item?r.item.format_created_time:(r.errMsg?r.errMsg.slice(0,60):'—');
     return`<div class="list-row">
       <div class="list-id-cell">${escHtml(r.id)}</div>
