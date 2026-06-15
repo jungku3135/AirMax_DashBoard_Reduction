@@ -37,18 +37,46 @@ const dustResultMap=new Map();
 const SINGLE_PAGE_SIZE=30;
 
 const STATUS = {
-  OK:   {label:'OK',  cls:'card-ok',   textVar:'--ok-text',  chipBgVar:'--ok-chip-bg',  chipBdVar:'--ok-chip-border',  chipTxVar:'--ok-chip-text'  },
-  NO:   {label:'NO',  cls:'card-no',   textVar:'--no-text',  chipBgVar:'--no-chip-bg',  chipBdVar:'--no-chip-border',  chipTxVar:'--no-chip-text'  },
-  EM:   {label:'EM',  cls:'card-em',   textVar:'--em-text',  chipBgVar:'--em-chip-bg',  chipBdVar:'--em-chip-border',  chipTxVar:'--em-chip-text'  },
-  PM:   {label:'PM',  cls:'card-pm',   textVar:'--pm-text',  chipBgVar:'--pm-chip-bg',  chipBdVar:'--pm-chip-border',  chipTxVar:'--pm-chip-text'  },
-  ERR:  {label:'ERR', cls:'card-err',  textVar:'--err-text', chipBgVar:'--err-chip-bg', chipBdVar:'--err-chip-border', chipTxVar:'--err-chip-text' },
-  LOAD: {label:'···', cls:'card-load', textVar:'--text4',    chipBgVar:'--input-bg',    chipBdVar:'--border',          chipTxVar:'--text4'         },
+  OK:   {label:'OK',  icon:'✓', cls:'card-ok',   textVar:'--ok-text',  chipBgVar:'--ok-chip-bg',  chipBdVar:'--ok-chip-border',  chipTxVar:'--ok-chip-text'  },
+  NO:   {label:'NO',  icon:'✗', cls:'card-no',   textVar:'--no-text',  chipBgVar:'--no-chip-bg',  chipBdVar:'--no-chip-border',  chipTxVar:'--no-chip-text'  },
+  EM:   {label:'EM',  icon:'⚡', cls:'card-em',   textVar:'--em-text',  chipBgVar:'--em-chip-bg',  chipBdVar:'--em-chip-border',  chipTxVar:'--em-chip-text'  },
+  PM:   {label:'PM',  icon:'🔧', cls:'card-pm',   textVar:'--pm-text',  chipBgVar:'--pm-chip-bg',  chipBdVar:'--pm-chip-border',  chipTxVar:'--pm-chip-text'  },
+  ERR:  {label:'ERR', icon:'⚠', cls:'card-err',  textVar:'--err-text', chipBgVar:'--err-chip-bg', chipBdVar:'--err-chip-border', chipTxVar:'--err-chip-text' },
+  LOAD: {label:'···', icon:'',  cls:'card-load', textVar:'--text4',    chipBgVar:'--input-bg',    chipBdVar:'--border',          chipTxVar:'--text4'         },
 };
 
 /* ===== 유틸 ===== */
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v!==null?JSON.parse(v):d;}catch{return d;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function sparklineSvg(data){
+  if(!data||data.length<2) return '';
+  const w=72,h=24,pad=2;
+  const max=Math.max(...data),min=Math.min(...data),range=max-min||1;
+  const pts=data.map((v,i)=>`${pad+i*(w-pad*2)/(data.length-1)},${h-pad-(v-min)/range*(h-pad*2)}`).join(' ');
+  return`<div class="dust-sparkline"><svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+}
+
+function renderSummaryDonut(counts){
+  const el=document.getElementById('summaryDonut');
+  if(!el) return;
+  const order=['OK','NO','EM','PM','ERR'];
+  const hexColors={OK:'#22c55e',NO:'#9ca3af',EM:'#3b82f6',PM:'#f43f5e',ERR:'#f59e0b'};
+  const total=order.reduce((s,k)=>s+(counts[k]||0),0);
+  if(!total){el.innerHTML='';return;}
+  const r=18,C=2*Math.PI*r;
+  let cum=0;
+  const segs=order.filter(k=>(counts[k]||0)>0).map(k=>{
+    const pct=(counts[k]||0)/total;
+    const seg=`<circle cx="22" cy="22" r="${r}" fill="none" stroke="${hexColors[k]}" stroke-width="7"
+      stroke-dasharray="${(pct*C).toFixed(2)} ${((1-pct)*C).toFixed(2)}"
+      stroke-dashoffset="${(-cum*C).toFixed(2)}"
+      transform="rotate(-90 22 22)"/>`;
+    cum+=pct;return seg;
+  }).join('');
+  el.innerHTML=`<svg width="44" height="44" viewBox="0 0 44 44">${segs}</svg>`;
+}
 
 /* ===== 테마 ===== */
 function toggleTheme(){
@@ -496,16 +524,25 @@ function renderSummary(){
       <span class="chip-count" style="color:${active?tx:'var(--chip-def-count)'};">${cnt}</span>
     </button>`;
   }).join('');
-  const viewHtml=`<div class="summary-right"><div class="view-tabs">
-    <button class="view-tab ${currentView==='grid'?'active':''}" onclick="switchView('grid')">그리드</button>
-    <button class="view-tab ${currentView==='list'?'active':''}" onclick="switchView('list')">리스트</button>
-  </div></div>`;
+  const viewHtml=`<div class="summary-right">
+    <div id="summaryDonut" class="summary-donut"></div>
+    <div class="view-tabs">
+      <button class="view-tab ${currentView==='grid'?'active':''}" onclick="switchView('grid')">그리드</button>
+      <button class="view-tab ${currentView==='list'?'active':''}" onclick="switchView('list')">리스트</button>
+    </div>
+  </div>`;
   document.getElementById('summary').innerHTML=chipsHtml+viewHtml;
+  renderSummaryDonut(counts);
 }
 
 /* ===== Grid / List ===== */
 function renderGrid(){
   const filtered=currentFilter==='ALL'?results:results.filter(r=>r.status===currentFilter);
+  if(!filtered.length){
+    const msg=currentFilter==='ALL'?'검색 결과가 없습니다':'해당 상태의 결과가 없습니다';
+    document.getElementById('grid').innerHTML=`<div class="empty-inline"><span class="empty-inline-icon">🔍</span><span>${msg}</span></div>`;
+    return;
+  }
   document.getElementById('grid').innerHTML=filtered.map(r=>{
     const cfg=STATUS[r.status]||STATUS.LOAD;
     const loc=productLocations[r.id]||'';
@@ -513,7 +550,7 @@ function renderGrid(){
       ?`PM10: ${r.item.pm_10}㎍/㎥ | PM2.5: ${r.item.pm_2_5}㎍/㎥ | CO2: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
       :'데이터 없음';
     return`<div class="card ${cfg.cls}" data-id="${escHtml(r.id)}">
-      <div class="card-status" style="color:var(${cfg.textVar})">${cfg.label}</div>
+      <div class="card-status" style="color:var(${cfg.textVar})"><span class="card-icon">${cfg.icon}</span>${cfg.label}</div>
       <div class="card-id">${escHtml(r.id)}</div>
       ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
       ${r.item?`<div class="card-meta">${r.item.pm_10}㎍/㎥ | ${r.item.pm_2_5}㎍/㎥ | ${r.item.co2}ppm</div>`:''}
@@ -840,7 +877,7 @@ function updateGridCard(r){
   if(!el) return;
   el.className=`card ${cfg.cls} card-updated`;
   el.innerHTML=`
-    <div class="card-status" style="color:var(${cfg.textVar})">${cfg.label}</div>
+    <div class="card-status" style="color:var(${cfg.textVar})"><span class="card-icon">${cfg.icon}</span>${cfg.label}</div>
     <div class="card-id">${escHtml(r.id)}</div>
     ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
     ${r.item?`<div class="card-meta">${r.item.pm_10}㎍/㎥ | ${r.item.pm_2_5}㎍/㎥ | ${r.item.co2}ppm</div>`:''}
@@ -1103,7 +1140,8 @@ async function startDustSearch(){
         card.className='dust-card';
         card.innerHTML=`<div class="dust-card-id">${escHtml(id)}</div>${loc}
           <div class="dust-card-total">${total.toLocaleString()}g</div>
-          <div class="dust-card-meta">${activeDays.length}회 포집 · 최근 ${lastDate}</div>`;
+          <div class="dust-card-meta">${activeDays.length}회 포집 · 최근 ${lastDate}</div>
+          ${sparklineSvg(activeDays.map(d=>d.inc))}`;
         card.addEventListener('click',()=>openDustModal(id));
       }
     }catch(e){
@@ -1118,6 +1156,10 @@ async function startDustSearch(){
 
   progressEl.style.display='none';
   setGlobalLock(false);
+  setTimeout(()=>{
+    const el=document.getElementById('dustResultSection');
+    if(el&&el.offsetParent!==null) el.scrollIntoView({behavior:'smooth',block:'start'});
+  },150);
 }
 
 function openDustModal(id){
@@ -1339,6 +1381,8 @@ async function runInspection(allIds){
   if(!token){document.getElementById('errorMsg').textContent='⚠ 토큰이 설정되지 않았습니다.';return;}
   setGlobalLock(true);
   document.body.classList.remove('zone-active');
+  const psh=document.getElementById('preSearchHint');
+  if(psh) psh.style.display='none';
   document.getElementById('summary').style.display='none';
   document.getElementById('grid').innerHTML=''; document.getElementById('listBody').innerHTML='';
   currentFilter='ALL'; currentView='grid';
@@ -1376,10 +1420,17 @@ async function runInspection(allIds){
   setLoading(false);
   setGlobalLock(false);
   if(zoneGridOpen) toggleZoneGrid();
+  selectedZones.clear();
+  renderZoneGrid();
+  updateZoneCount();
   addLog('✓ 점검 완료','ok');
   document.getElementById('logBtn').style.display='inline-block';
   if(adminAuthenticated) updateSheetBtn();
   if(logVisible)renderLog();
+  setTimeout(()=>{
+    const s=document.getElementById('summary');
+    if(s&&s.offsetParent!==null) s.scrollIntoView({behavior:'smooth',block:'start'});
+  },150);
 }
 
 /* ===== 메인 진입 ===== */
@@ -1523,4 +1574,35 @@ async function startInspection(){
 
   // GAS 시트에서 영역/설치장소 로드 (캐시 사용)
   loadSheetData();
+
+  // 모바일 먼지 모달 스와이프 닫기
+  const modalBox=document.getElementById('dustModalBox');
+  let swipeStartY=0;
+  modalBox.addEventListener('touchstart',e=>{
+    if(e.target.closest('.dust-modal-body')) return;
+    swipeStartY=e.touches[0].clientY;
+  },{passive:true});
+  modalBox.addEventListener('touchmove',e=>{
+    if(e.target.closest('.dust-modal-body')) return;
+    const dy=Math.max(0,e.touches[0].clientY-swipeStartY);
+    modalBox.style.transition='none';
+    modalBox.style.transform=`translateY(${dy}px)`;
+  },{passive:true});
+  modalBox.addEventListener('touchend',e=>{
+    const dy=e.changedTouches[0].clientY-swipeStartY;
+    modalBox.style.transition='transform 0.25s cubic-bezier(0.32,0.72,0,1)';
+    if(dy>80){
+      modalBox.style.transform='translateY(100%)';
+      setTimeout(()=>{closeDustModal();modalBox.style.transform='';modalBox.style.transition='';},260);
+    } else {
+      modalBox.style.transform='';
+      setTimeout(()=>{modalBox.style.transition='';},260);
+    }
+  });
+
+  // 맨 위로 FAB 스크롤 감지
+  const fab=document.getElementById('scrollTopFab');
+  window.addEventListener('scroll',()=>{
+    fab.style.display=window.scrollY>280?'flex':'none';
+  },{passive:true});
 })();

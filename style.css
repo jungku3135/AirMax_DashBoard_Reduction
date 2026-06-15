@@ -545,11 +545,38 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   body.zone-active .mobile-fixed-run { display:block; }
   .controls { padding:14px 16px; }
   .header { padding:12px 16px 10px; }
-  .grid { padding:14px 16px; }
-  .summary { padding:10px 16px; }
+  .grid { padding:14px 16px; grid-template-columns:1fr; }
+  .summary { padding:10px 16px; flex-wrap:wrap; row-gap:6px; }
+  .summary-right { width:100%; margin-left:0; justify-content:flex-end; }
   .list-toolbar { padding:10px 16px 0; }
   .list-view { padding:10px 16px; }
   .debug-box { margin:8px 16px; }
+  /* iOS 자동 줌 방지 (16px 미만 input에 포커스 시 줌 발생) */
+  input, select, textarea { font-size:16px !important; }
+  /* 터치 타겟 최소 44px */
+  .mode-tab { min-height:44px; padding:10px 14px; }
+  .chip { min-height:44px; padding:6px 14px; }
+  .view-tab { min-height:44px; padding:0 14px; display:flex; align-items:center; }
+  /* 카드 가독성 */
+  .card-meta {
+    font-size:13px; color:var(--text2);
+    white-space:normal; word-break:break-all; line-height:1.5;
+  }
+  .card-id     { font-size:15px; }
+  .card-status { font-size:12px; letter-spacing:1.5px; }
+  /* 리스트 뷰 2줄 레이아웃 */
+  .list-header { display:none; }
+  .list-body   { max-height:none; }
+  .list-row {
+    grid-template-columns:1fr auto;
+    grid-template-areas:"id status" "time time";
+    row-gap:3px; padding:12px 14px;
+  }
+  .list-id-cell     { grid-area:id; font-size:14px; }
+  .list-status-cell { grid-area:status; }
+  .list-time-cell   { grid-area:time; font-size:11px; color:var(--text3); }
+  /* 모달 드래그 핸들 표시 */
+  .modal-drag-handle { display:block; }
 }
 
 /* ===== 푸터 ===== */
@@ -675,3 +702,62 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .dust-stat-label { font-size:11px; color:var(--text3); font-weight:600; letter-spacing:0.5px; text-transform:uppercase; }
 .dust-stat-value { font-size:22px; font-weight:800; color:var(--text); line-height:1.1; }
 .dust-stat-sub { font-size:11px; color:var(--text4); }
+
+/* ===== 먼지 스파크라인 ===== */
+.dust-sparkline { margin-top:6px; opacity:0.75; line-height:0; }
+
+/* ===== 점검 전 빈 상태 힌트 ===== */
+.pre-search-hint {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:8px; padding:48px 24px; color:var(--text4);
+  border:2px dashed var(--border2); border-radius:var(--radius-lg);
+  margin-top:8px;
+}
+.psh-icon { font-size:36px; line-height:1; }
+.psh-title { font-size:15px; font-weight:700; color:var(--text3); }
+.psh-desc  { font-size:13px; color:var(--text4); text-align:center; }
+
+/* ===== 필터 후 결과 없음 ===== */
+.empty-inline {
+  grid-column:1/-1; display:flex; align-items:center; justify-content:center;
+  gap:8px; padding:32px 16px; color:var(--text4); font-size:14px;
+}
+.empty-inline-icon { font-size:20px; }
+
+/* ===== 카드 상태 아이콘 ===== */
+.card-icon { margin-right:4px; font-style:normal; }
+
+/* ===== 요약 도넛 차트 ===== */
+.summary-donut { display:flex; align-items:center; margin-right:4px; flex-shrink:0; }
+
+/* ===== 드래그 핸들 (모바일 하단 시트) ===== */
+.modal-drag-handle {
+  display:none; width:36px; height:4px;
+  background:var(--border); border-radius:2px;
+  margin:10px auto 0; flex-shrink:0; cursor:grab;
+}
+
+/* ===== 맨 위로 FAB ===== */
+.scroll-top-fab {
+  position:fixed; bottom:64px; right:16px; z-index:200;
+  width:44px; height:44px; border-radius:50%;
+  background:var(--accent); color:#fff;
+  border:none; font-size:20px; font-weight:700;
+  cursor:pointer; display:none; align-items:center; justify-content:center;
+  box-shadow:var(--shadow-md); transition:opacity 0.2s, transform 0.15s;
+  line-height:1;
+}
+.scroll-top-fab:active { transform:scale(0.9); }
+
+/* ===== 모달 모바일 전체화면 ===== */
+@media (max-width:768px) {
+  .dust-modal-overlay {
+    padding:0;
+    align-items:flex-end;
+  }
+  .dust-modal-box {
+    max-width:100%;
+    max-height:92dvh;
+    border-radius:var(--radius-xl) var(--radius-xl) 0 0;
+  }
+}
