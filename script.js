@@ -326,7 +326,7 @@ function renderZoneGrid(){
 }
 function updateZoneCount(){
   _updateZoneInfo(selectedZones,document.getElementById('zoneSelectCount'),(c,t)=>`${c}개 영역 / 총 ${t}개 제품 선택됨`);
-  updateMobileZoneInfo();
+  updateMobileFixedBtn();
 }
 function toggleZone(i){ _toggleZoneItem(selectedZones,i,renderZoneGrid); }
 
@@ -1338,6 +1338,7 @@ async function runInspection(allIds){
   const token=document.getElementById('tokenInput').value.trim();
   if(!token){document.getElementById('errorMsg').textContent='⚠ 토큰이 설정되지 않았습니다.';return;}
   setGlobalLock(true);
+  document.body.classList.remove('zone-active');
   document.getElementById('summary').style.display='none';
   document.getElementById('grid').innerHTML=''; document.getElementById('listBody').innerHTML='';
   currentFilter='ALL'; currentView='grid';
@@ -1374,7 +1375,6 @@ async function runInspection(allIds){
   lastResults=[...results];
   setLoading(false);
   setGlobalLock(false);
-  updateMobileFixedBtn();
   if(zoneGridOpen) toggleZoneGrid();
   addLog('✓ 점검 완료','ok');
   document.getElementById('logBtn').style.display='inline-block';
