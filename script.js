@@ -304,7 +304,7 @@ function switchMode(mode){
 
 /* ===== 모바일 고정 버튼 ===== */
 function updateMobileFixedBtn(){
-  document.body.classList.toggle('zone-active', currentMode==='zone');
+  document.body.classList.toggle('zone-active', currentMode==='zone' && selectedZones.size>0);
   updateMobileZoneInfo();
 }
 
@@ -1074,6 +1074,7 @@ async function startDustSearch(){
     document.getElementById('errorMsg').textContent='⚠ 모바일에서는 관리자 인증이 필요합니다.';
     return;
   }
+  if(dustZoneGridOpen) toggleDustZoneGrid();
   const errEl=document.getElementById('errorMsg');
   errEl.textContent='';
   const token=document.getElementById('tokenInput').value.trim();
