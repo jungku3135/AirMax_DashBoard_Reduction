@@ -35,7 +35,8 @@
       "Bash(powershell -Command \"Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force\" sleep 1 cd /c/airmax-server)",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('state:',d.get\\('deviceState'\\), '| progress:',d.get\\('printProgress'\\), '| file:',str\\(d.get\\('printFileName',''\\)\\).split\\('/'\\)[-1]\\)\")",
       "WebSearch",
-      "WebFetch(domain:support.claude.com)"
+      "WebFetch(domain:support.claude.com)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
