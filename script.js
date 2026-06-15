@@ -1,3 +1,7 @@
+/* ===== 버전 ===== */
+const APP_VERSION = 'v1.59';
+const APP_DATE    = '2026.06.15';
+
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
 const SUPER_ADMIN_PASSWORD = 'wjdzn';    /* 슈퍼 관리자 비밀번호 */
@@ -1531,6 +1535,8 @@ async function startInspection(){
 
 /* ===== 초기화 ===== */
 (function init(){
+  document.getElementById('footerVersion').textContent=APP_VERSION;
+  document.getElementById('footerDate').textContent='Updated '+APP_DATE;
   setGlobalLock(false);
   const savedTheme=lsGet(LS_THEME,'light');
   document.documentElement.setAttribute('data-theme',savedTheme);

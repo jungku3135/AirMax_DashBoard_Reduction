@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <link rel="icon" href="https://airmax.testonic.co.kr/favicon.ico" type="image/x-icon" sizes="16x16">
 <title>AIRMAX 제품 점검</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.22/dist/web/variable/pretendardvariable.min.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.23/dist/web/variable/pretendardvariable.min.css"/>
 <link rel="stylesheet" href="style.css"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -13,18 +13,18 @@
 
 <!--
 ================================================================================
- Google Apps Script 코드 — 아래 코드를 복사하여 GAS 프로젝트에 붙여넣고
- [배포 > 새 배포 > 웹앱] 으로 배포 후 URL을 아래 GAS_URL 변수에 입력하세요.
- 액세스 권한: "모든 사용자"로 설정해야 합니다.
+Google Apps Script 코드 — 아래 코드를 복사하여 GAS 프로젝트에 붙여넣고
+[배포 > 새 배포 > 웹앱] 으로 배포 후 URL을 아래 GAS_URL 변수에 입력하세요.
+액세스 권한: "모든 사용자"로 설정해야 합니다.
 
- 시트 구조:
-   점검 결과 시트 (예: "26년 4월")
-     - 8행  : 날짜 헤더 (예: "04.27(일)") — D열부터 오른쪽으로 날짜 순
-     - B열  : 제품 ID (9행부터)
+시트 구조:
+  점검 결과 시트 (예: "26년 4월")
+    - 8행  : 날짜 헤더 (예: "04.27(일)") — D열부터 오른쪽으로 날짜 순
+    - B열  : 제품 ID (9행부터)
 
-   제품 리스트 시트 ("제품 리스트")
-     - 3행  : 헤더 (B=제품ID, C=영역명, E=설치장소)
-     - 4행~ : 데이터
+  제품 리스트 시트 ("제품 리스트")
+    - 3행  : 헤더 (B=제품ID, C=영역명, E=설치장소)
+    - 4행~ : 데이터
 ================================================================================
 
 // GET 요청 — 제품 리스트 시트에서 영역/설치장소 반환
@@ -502,9 +502,9 @@ function buildJson(obj) {
 <div class="footer">
   <span class="footer-brand">AIRMAX</span>
   <span class="footer-divider"></span>
-  <span class="footer-version">v1.58</span>
+  <span class="footer-version" id="footerVersion"></span>
   <span class="footer-divider"></span>
-  <span class="footer-date">Updated 2026.06.15</span>
+  <span class="footer-date" id="footerDate"></span>
 </div>
 
 <script src="script.js"></script>
