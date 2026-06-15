@@ -56,14 +56,13 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 
 function sparklineSvg(data){
   if(!data||data.length<2) return '';
-  const w=64,h=40,pad=3;
+  const h=22,pad=2,n=data.length;
   const max=Math.max(...data),min=Math.min(...data),range=max-min||1;
-  const pts=data.map((v,i)=>`${pad+i*(w-pad*2)/(data.length-1)},${h-pad-(v-min)/range*(h-pad*2)}`).join(' ');
-  const last=data[data.length-1];
-  const lx=w-pad, ly=h-pad-(last-min)/range*(h-pad*2);
-  return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
-    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
-    <circle cx="${lx}" cy="${ly}" r="2.5" fill="var(--accent)" opacity="0.9"/>
+  const pts=data.map((v,i)=>`${pad+i*(100-pad*2)/(n-1)},${h-pad-(v-min)/range*(h-pad*2)}`).join(' ');
+  const lx=100-pad, ly=h-pad-(data[n-1]-min)/range*(h-pad*2);
+  return`<svg width="100%" height="${h}" viewBox="0 0 100 ${h}" preserveAspectRatio="none">
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+    <circle cx="${lx}" cy="${ly}" r="2.5" fill="var(--accent)" opacity="0.9" vector-effect="non-scaling-stroke"/>
   </svg>`;
 }
 
@@ -1149,11 +1148,10 @@ async function startDustSearch(){
         const lastDate=activeDays[activeDays.length-1].date;
         card.className='dust-card';
         const spark=activeDays.length>=3?`<div class="dust-card-spark">${sparklineSvg(activeDays.map(d=>d.inc))}</div>`:'';
-        card.innerHTML=`<div class="dust-card-info">
-          <div class="dust-card-id">${escHtml(id)}</div>${loc}
+        card.innerHTML=`<div class="dust-card-id">${escHtml(id)}</div>${loc}
           <div class="dust-card-total">${total.toLocaleString()}g</div>
           <div class="dust-card-meta">${activeDays.length}회 포집 · 최근 ${lastDate}</div>
-        </div>${spark}`;
+          ${spark}`;
         card.addEventListener('click',()=>openDustModal(id));
       }
     }catch(e){
@@ -1435,6 +1433,7 @@ async function runInspection(allIds){
   selectedZones.clear();
   renderZoneGrid();
   updateZoneCount();
+  document.body.classList.remove('zone-active');
   addLog('✓ 점검 완료','ok');
   document.getElementById('logBtn').style.display='inline-block';
   if(adminAuthenticated) updateSheetBtn();

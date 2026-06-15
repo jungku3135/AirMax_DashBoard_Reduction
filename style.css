@@ -370,7 +370,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .card-load{ background:var(--input-bg); border-color:var(--border); }
 .card-status { font-size:11px; font-weight:800; letter-spacing:2px; }
 .card-id { font-size:14px; font-weight:700; color:var(--text2); }
-.card-meta { font-size:12px; color:var(--text3); }
+.card-meta { font-size:13px; color:var(--text2); font-weight:500; }
 .card-err-text { font-size:12px; color:var(--err-text); text-align:center; word-break:break-all; }
 .card:hover .tooltip { display:block; }
 .tooltip {
@@ -558,17 +558,15 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   .list-toolbar { padding:10px 16px 0; }
   .list-view { padding:10px 16px; }
   .debug-box { margin:8px 16px; }
-  /* iOS 자동 줌 방지 (16px 미만 input에 포커스 시 줌 발생) */
-  input, select, textarea { font-size:16px !important; }
+  /* iOS 자동 줌 방지 (16px 미만 input 포커스 시 줌 발생) — font-size는 유지, padding 축소 */
+  input, select, textarea { font-size:16px !important; padding-top:6px !important; padding-bottom:6px !important; }
+  select { padding-top:5px !important; padding-bottom:5px !important; }
   /* 터치 타겟 최소 44px */
   .mode-tab { min-height:44px; padding:10px 14px; }
   .chip { min-height:44px; padding:6px 14px; }
   .view-tab { min-height:44px; padding:0 14px; display:flex; align-items:center; }
   /* 카드 가독성 */
-  .card-meta {
-    font-size:13px; color:var(--text2);
-    white-space:normal; word-break:break-all; line-height:1.5;
-  }
+  .card-meta { white-space:normal; word-break:break-all; line-height:1.5; }
   .card-id     { font-size:15px; }
   .card-status { font-size:12px; letter-spacing:1.5px; }
   /* 리스트 뷰 2줄 레이아웃 */
@@ -666,7 +664,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .dust-zone-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; }
 .dust-card {
   background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius-lg);
-  padding:14px 16px; cursor:pointer; display:flex; align-items:center; gap:10px;
+  padding:14px 16px; cursor:pointer;
   transition:border-color 0.15s, box-shadow 0.2s, transform 0.15s;
   min-height:90px; display:flex; flex-direction:column; gap:3px; user-select:none;
   box-shadow:var(--shadow-xs);
@@ -710,9 +708,8 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .dust-stat-value { font-size:22px; font-weight:800; color:var(--text); line-height:1.1; }
 .dust-stat-sub { font-size:11px; color:var(--text4); }
 
-/* ===== 먼지 카드 레이아웃 ===== */
-.dust-card-info { flex:1; min-width:0; }
-.dust-card-spark { flex-shrink:0; display:flex; align-items:center; }
+/* ===== 먼지 카드 스파크라인 ===== */
+.dust-card-spark { margin-top:8px; line-height:0; }
 
 /* ===== 점검 전 빈 상태 힌트 ===== */
 .pre-search-hint {
