@@ -708,8 +708,6 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .dust-stat-value { font-size:22px; font-weight:800; color:var(--text); line-height:1.1; }
 .dust-stat-sub { font-size:11px; color:var(--text4); }
 
-/* ===== 먼지 카드 스파크라인 ===== */
-.dust-card-spark { margin-top:8px; line-height:0; }
 
 /* ===== 점검 전 빈 상태 힌트 ===== */
 .pre-search-hint {
