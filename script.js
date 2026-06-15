@@ -1147,7 +1147,7 @@ async function startDustSearch(){
         dustResultMap.set(id,items);
         const lastDate=activeDays[activeDays.length-1].date;
         card.className='dust-card';
-        const spark=activeDays.length>=2?`<div class="dust-card-spark">${sparklineSvg(activeDays.map(d=>d.inc))}</div>`:'';
+        const spark=activeDays.length>=3?`<div class="dust-card-spark">${sparklineSvg(activeDays.map(d=>d.inc))}</div>`:'';
         card.innerHTML=`<div class="dust-card-info">
           <div class="dust-card-id">${escHtml(id)}</div>${loc}
           <div class="dust-card-total">${total.toLocaleString()}g</div>
