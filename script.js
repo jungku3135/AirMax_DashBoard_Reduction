@@ -52,10 +52,15 @@ function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').
 
 function sparklineSvg(data){
   if(!data||data.length<2) return '';
-  const w=72,h=24,pad=2;
+  const w=64,h=40,pad=3;
   const max=Math.max(...data),min=Math.min(...data),range=max-min||1;
   const pts=data.map((v,i)=>`${pad+i*(w-pad*2)/(data.length-1)},${h-pad-(v-min)/range*(h-pad*2)}`).join(' ');
-  return`<div class="dust-sparkline"><svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
+  const last=data[data.length-1];
+  const lx=w-pad, ly=h-pad-(last-min)/range*(h-pad*2);
+  return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+    <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+    <circle cx="${lx}" cy="${ly}" r="2.5" fill="var(--accent)" opacity="0.9"/>
+  </svg>`;
 }
 
 function renderSummaryDonut(counts){
@@ -1138,10 +1143,12 @@ async function startDustSearch(){
         dustResultMap.set(id,items);
         const lastDate=activeDays[activeDays.length-1].date;
         card.className='dust-card';
-        card.innerHTML=`<div class="dust-card-id">${escHtml(id)}</div>${loc}
+        const spark=activeDays.length>=2?`<div class="dust-card-spark">${sparklineSvg(activeDays.map(d=>d.inc))}</div>`:'';
+        card.innerHTML=`<div class="dust-card-info">
+          <div class="dust-card-id">${escHtml(id)}</div>${loc}
           <div class="dust-card-total">${total.toLocaleString()}g</div>
           <div class="dust-card-meta">${activeDays.length}회 포집 · 최근 ${lastDate}</div>
-          ${sparklineSvg(activeDays.map(d=>d.inc))}`;
+        </div>${spark}`;
         card.addEventListener('click',()=>openDustModal(id));
       }
     }catch(e){
