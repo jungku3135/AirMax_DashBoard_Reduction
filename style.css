@@ -389,7 +389,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 }
 .list-view { padding:14px 32px; }
 .list-header {
-  display:grid; grid-template-columns:130px 70px 1fr; padding:8px 14px;
+  display:grid; grid-template-columns:110px 1fr 64px 1fr; padding:8px 14px;
   font-size:10px; letter-spacing:1.2px; text-transform:uppercase; font-weight:700;
   color:var(--text4); background:var(--input-bg);
   border:1.5px solid var(--border); border-radius:var(--radius) var(--radius) 0 0;
@@ -400,13 +400,14 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   max-height:520px; overflow-y:auto; background:var(--surface);
 }
 .list-row {
-  display:grid; grid-template-columns:130px 70px 1fr;
+  display:grid; grid-template-columns:110px 1fr 64px 1fr;
   padding:9px 14px; font-size:12px;
   border-bottom:1px solid var(--border2); align-items:center; transition:background 0.1s;
 }
 .list-row:last-child { border-bottom:none; }
 .list-row:hover { background:var(--input-bg); }
-.list-id-cell { color:var(--text2); font-size:13px; font-weight:600; }
+.list-id-cell   { color:var(--text2); font-size:13px; font-weight:600; }
+.list-loc-cell  { color:var(--text3); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .list-status-cell { font-weight:800; font-size:11px; letter-spacing:1px; }
 .list-time-cell { color:var(--text3); font-size:11px; }
 
@@ -574,10 +575,11 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   .list-body   { max-height:none; }
   .list-row {
     grid-template-columns:1fr auto;
-    grid-template-areas:"id status" "time time";
-    row-gap:3px; padding:12px 14px;
+    grid-template-areas:"id status" "loc loc" "time time";
+    row-gap:2px; padding:12px 14px;
   }
   .list-id-cell     { grid-area:id; font-size:14px; }
+  .list-loc-cell    { grid-area:loc; font-size:11px; color:var(--text3); white-space:normal; }
   .list-status-cell { grid-area:status; }
   .list-time-cell   { grid-area:time; font-size:11px; color:var(--text3); }
   /* 모달 드래그 핸들 표시 */

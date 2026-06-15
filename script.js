@@ -883,22 +883,29 @@ function updateGridCard(r){
   requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.remove('card-updated')));
 }
 
+function filterByListSel(sel){
+  if(sel==='ALL') return results;
+  if(sel==='EM_PM') return results.filter(r=>r.status==='EM'||r.status==='PM');
+  return results.filter(r=>r.status===sel);
+}
 function renderList(){
   const sel=document.getElementById('listFilterSel').value;
-  const filtered=sel==='ALL'?results:results.filter(r=>r.status===sel);
+  const filtered=filterByListSel(sel);
   document.getElementById('listBody').innerHTML=filtered.map(r=>{
     const cfg=STATUS[r.status]||STATUS.LOAD;
+    const loc=productLocations[r.id]||'—';
     const time=r.item?r.item.format_created_time:(r.errMsg?r.errMsg.slice(0,60):'—');
     return`<div class="list-row">
       <div class="list-id-cell">${escHtml(r.id)}</div>
-      <div class="list-status-cell" style="color:var(${cfg.textVar})">${cfg.label}</div>
+      <div class="list-loc-cell">${escHtml(loc)}</div>
+      <div class="list-status-cell" style="color:var(${cfg.textVar})">${cfg.icon} ${cfg.label}</div>
       <div class="list-time-cell">${escHtml(time||'—')}</div>
     </div>`;
   }).join('');
 }
 function copyListToClipboard(){
   const sel=document.getElementById('listFilterSel').value;
-  const filtered=sel==='ALL'?results:results.filter(r=>r.status===sel);
+  const filtered=filterByListSel(sel);
   navigator.clipboard.writeText(filtered.map(r=>`${r.id}\t${r.status}`).join('\n')).then(()=>{
     const msg=document.getElementById('copyMsg');
     msg.style.display='inline';
