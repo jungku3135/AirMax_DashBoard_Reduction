@@ -35,7 +35,7 @@ let logVisible=false, logs=[], extraIds=[], dustExtraIds=[];
 let isGlobalLocked=false;
 let selectedDustZones=new Set();
 let lastResults = [];
-let singleAllItems=[], singlePage=0, singleChartDust=null, singleChartCo2=null;
+let singleAllItems=[], singlePage=0, singleShowAll=false, singleChartDust=null, singleChartCo2=null;
 let dustDays=[], dustModalChart=null, dustModalOpen=false;
 const dustResultMap=new Map();
 const SINGLE_PAGE_SIZE=30;
@@ -1257,7 +1257,9 @@ function dustModalOverlayClick(e){
 function renderSingleDetail(id, items){
   singleAllItems=[...items].sort((a,b)=>
     new Date(b.format_created_time)-new Date(a.format_created_time));
-  singlePage=0;
+  singlePage=0; singleShowAll=false;
+  const showAllBtn=document.getElementById('singleShowAllBtn');
+  if(showAllBtn) showAllBtn.classList.remove('active');
   document.getElementById('singleDetailTitle').textContent=`${id} — 총 ${items.length}건`;
   document.getElementById('singleResultSection').style.display='block';
   const copyBtn=document.getElementById('singleCopyBtn');
@@ -1278,10 +1280,11 @@ function renderSinglePage(){
   const total=singleAllItems.length;
   const totalPages=Math.ceil(total/SINGLE_PAGE_SIZE);
   const start=singlePage*SINGLE_PAGE_SIZE;
-  const pageItems=singleAllItems.slice(start, start+SINGLE_PAGE_SIZE);
+  const pageItems=singleShowAll ? singleAllItems : singleAllItems.slice(start, start+SINGLE_PAGE_SIZE);
 
-  document.getElementById('singlePageInfo').textContent=
-    `${start+1}–${Math.min(start+SINGLE_PAGE_SIZE,total)} / ${total}건`;
+  document.getElementById('singlePageInfo').textContent= singleShowAll
+    ? `전체 ${total}건`
+    : `${start+1}–${Math.min(start+SINGLE_PAGE_SIZE,total)} / ${total}건`;
 
   document.getElementById('singleDetailBody').innerHTML=pageItems.map(item=>`<tr>
     <td>${escHtml(fmtTime(item.format_created_time))}</td>
@@ -1293,7 +1296,7 @@ function renderSinglePage(){
   renderSingleChart([...pageItems].reverse());
 
   const pg=document.getElementById('singlePagination');
-  if(totalPages<=1){pg.innerHTML='';return;}
+  if(singleShowAll||totalPages<=1){pg.innerHTML='';return;}
   let html=`<button class="pg-btn" onclick="goSinglePage(${singlePage-1})" ${singlePage===0?'disabled':''}>← 이전</button>`;
   const range=3, start2=Math.max(0,singlePage-range), end2=Math.min(totalPages-1,singlePage+range);
   if(start2>0) html+=`<button class="pg-btn" onclick="goSinglePage(0)">1</button>${start2>1?'<span class="pg-info">…</span>':''}`;
@@ -1310,6 +1313,12 @@ function goSinglePage(p){
   singlePage=p;
   renderSinglePage();
   document.getElementById('singleResultSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function toggleSingleShowAll(){
+  singleShowAll=!singleShowAll;
+  document.getElementById('singleShowAllBtn').classList.toggle('active',singleShowAll);
+  singlePage=0;
+  if(singleAllItems.length) renderSinglePage();
 }
 
 function copySingleToClipboard(){
