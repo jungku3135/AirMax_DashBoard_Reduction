@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin/>
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.34/dist/web/variable/pretendardvariable.min.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.35/dist/web/variable/pretendardvariable.min.css"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"/>
 <link rel="stylesheet" href="style.css"/>
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -416,7 +416,7 @@ function buildJson(obj) {
       <div class="single-chart-wrap"><canvas id="singleChartDust"></canvas></div>
     </div>
     <div class="single-chart-panel">
-      <div class="single-chart-panel-label">이산화탄소 농도 (CO2)</div>
+      <div class="single-chart-panel-label">이산화탄소 농도 (CO₂)</div>
       <div class="single-chart-wrap"><canvas id="singleChartCo2"></canvas></div>
     </div>
   </div>
@@ -425,7 +425,7 @@ function buildJson(obj) {
     <table class="single-detail-table">
       <colgroup><col/><col/><col/><col/></colgroup>
       <thead>
-        <tr><th>수집 시간</th><th>PM10</th><th>PM2.5</th><th>CO2</th></tr>
+        <tr><th>수집 시간</th><th>PM10</th><th>PM2.5</th><th>CO₂</th></tr>
       </thead>
       <tbody id="singleDetailBody"></tbody>
     </table>
@@ -482,13 +482,15 @@ function buildJson(obj) {
       <div class="dust-modal-summary" id="cardDetailSummary"></div>
       <div id="cardDetailLoading" style="text-align:center;padding:32px 0;color:var(--text3);font-size:13px">데이터 불러오는 중…</div>
       <div id="cardDetailTableWrap" style="display:none">
+        <div style="height:150px;margin-bottom:10px"><canvas id="cardDetailChartDust"></canvas></div>
+        <div style="height:120px;margin-bottom:14px"><canvas id="cardDetailChartCo2"></canvas></div>
         <div style="font-size:11px;color:var(--text3);margin-bottom:6px;text-align:right" id="cardDetailCount"></div>
         <div class="single-detail-scroll">
           <table class="single-detail-table" style="font-size:12px">
             <colgroup>
               <col style="width:44%"><col style="width:18.67%"><col style="width:18.67%"><col style="width:18.67%">
             </colgroup>
-            <thead><tr><th>수집 시간</th><th>PM10</th><th>PM2.5</th><th>CO2</th></tr></thead>
+            <thead><tr><th>수집 시간</th><th>PM10</th><th>PM2.5</th><th>CO₂</th></tr></thead>
             <tbody id="cardDetailBody"></tbody>
           </table>
         </div>

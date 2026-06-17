@@ -1,5 +1,5 @@
 /* ===== 버전 ===== */
-const APP_VERSION = 'v1.62';
+const APP_VERSION = 'v1.63';
 const APP_DATE    = '2026.06.17';
 
 /* ===== 설정 ===== */
@@ -38,6 +38,8 @@ let lastResults = [];
 let lastDateRange=null, cardDetailModalOpen=false;
 let singleAllItems=[], singlePage=0, singleShowAll=false, singleChartDust=null, singleChartCo2=null;
 let dustDays=[], dustModalChart=null, dustModalOpen=false;
+const cardDetailCache=new Map();
+let cardDetailChartDust=null, cardDetailChartCo2=null;
 const dustResultMap=new Map();
 const SINGLE_PAGE_SIZE=30;
 
@@ -554,7 +556,7 @@ function renderGrid(){
     const cfg=STATUS[r.status]||STATUS.LOAD;
     const loc=productLocations[r.id]||'';
     const tip=r.errMsg?escHtml(r.errMsg):r.item
-      ?`PM10: ${r.item.pm_10}㎍/㎥ | PM2.5: ${r.item.pm_2_5}㎍/㎥ | CO2: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
+      ?`PM10: ${r.item.pm_10}㎍/㎥<br>PM2.5: ${r.item.pm_2_5}㎍/㎥<br>CO₂: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
       :'데이터 없음';
     return`<div class="card ${cfg.cls}" data-id="${escHtml(r.id)}" onclick="openCardDetailModal('${escHtml(r.id)}')">
       <div class="card-status" style="color:var(${cfg.textVar})"><span class="card-icon">${cfg.icon}</span>${cfg.label}</div>
@@ -878,7 +880,7 @@ function updateGridCard(r){
   const cfg=STATUS[r.status]||STATUS.LOAD;
   const loc=productLocations[r.id]||'';
   const tip=r.errMsg?escHtml(r.errMsg):r.item
-    ?`PM10: ${r.item.pm_10}㎍/㎥ | PM2.5: ${r.item.pm_2_5}㎍/㎥ | CO2: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
+    ?`PM10: ${r.item.pm_10}㎍/㎥<br>PM2.5: ${r.item.pm_2_5}㎍/㎥<br>CO₂: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
     :'데이터 없음';
   const el=document.querySelector(`#grid .card[data-id="${CSS.escape(r.id)}"]`);
   if(!el) return;
@@ -1289,42 +1291,102 @@ async function openCardDetailModal(id){
       <span class="dust-stat-value">${r.item.pm_2_5}<span class="dust-stat-sub">㎍/㎥</span></span>
     </div>
     <div class="dust-stat">
-      <span class="dust-stat-label">CO2</span>
+      <span class="dust-stat-label">CO₂</span>
       <span class="dust-stat-value">${r.item.co2}<span class="dust-stat-sub">ppm</span></span>
+    </div>
+    <div class="dust-stat">
+      <span class="dust-stat-label">수집 시점</span>
+      <span class="dust-stat-value" style="font-size:12px;font-weight:600;line-height:1.5">${escHtml(r.item.format_created_time)}</span>
     </div>`:''}
   `:'';
+
+  cardDetailModalOpen=true;
+  document.getElementById('cardDetailModal').style.display='flex';
+  document.body.style.overflow='hidden';
+
+  if(cardDetailCache.has(id)){
+    _renderCardDetailContent(cardDetailCache.get(id));
+    return;
+  }
+
   const loadEl=document.getElementById('cardDetailLoading');
   const tableWrap=document.getElementById('cardDetailTableWrap');
   loadEl.textContent='데이터 불러오는 중…';
   loadEl.style.display='block';
   tableWrap.style.display='none';
-  cardDetailModalOpen=true;
-  document.getElementById('cardDetailModal').style.display='flex';
-  document.body.style.overflow='hidden';
 
   try{
     const items=await fetchAllReports(id,lastDateRange,token);
     const sorted=[...items].sort((a,b)=>new Date(b.format_created_time)-new Date(a.format_created_time));
-    loadEl.style.display='none';
-    tableWrap.style.display='block';
+    cardDetailCache.set(id,sorted);
     if(!cardDetailModalOpen) return;
-    document.getElementById('cardDetailCount').textContent=`총 ${sorted.length}건`;
-    document.getElementById('cardDetailBody').innerHTML=sorted.length
-      ?sorted.map(item=>`<tr>
-          <td>${escHtml(item.format_created_time||'—')}</td>
-          <td>${item.pm_10??'—'}㎍/㎥</td>
-          <td>${item.pm_2_5??'—'}㎍/㎥</td>
-          <td>${item.co2??'—'}ppm</td>
-        </tr>`).join('')
-      :'<tr><td colspan="4" class="single-detail-empty" style="text-align:center">조회된 데이터가 없습니다</td></tr>';
+    _renderCardDetailContent(sorted);
   }catch(e){
     loadEl.textContent='⚠ 오류: '+e.message;
   }
+}
+function _renderCardDetailContent(sorted){
+  const loadEl=document.getElementById('cardDetailLoading');
+  const tableWrap=document.getElementById('cardDetailTableWrap');
+  loadEl.style.display='none';
+  tableWrap.style.display='block';
+  document.getElementById('cardDetailCount').textContent=`총 ${sorted.length}건`;
+  document.getElementById('cardDetailBody').innerHTML=sorted.length
+    ?sorted.map(item=>`<tr>
+        <td>${escHtml(item.format_created_time||'—')}</td>
+        <td>${item.pm_10??'—'}㎍/㎥</td>
+        <td>${item.pm_2_5??'—'}㎍/㎥</td>
+        <td>${item.co2??'—'}ppm</td>
+      </tr>`).join('')
+    :'<tr><td colspan="4" class="single-detail-empty" style="text-align:center">조회된 데이터가 없습니다</td></tr>';
+  _renderCardDetailChart([...sorted].reverse());
+}
+function _renderCardDetailChart(items){
+  if(cardDetailChartDust){cardDetailChartDust.destroy();cardDetailChartDust=null;}
+  if(cardDetailChartCo2){cardDetailChartCo2.destroy();cardDetailChartCo2=null;}
+  if(!items.length) return;
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
+  const tickColor=isDark?'#999':'#888';
+  const labels=items.map(d=>fmtTime(d.format_created_time));
+  const pt=items.length>15?2:4;
+  const makeOpts=(showLegend)=>({
+    responsive:true, maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{display:showLegend,labels:{color:isDark?'#ccc':'#444',font:{size:10},boxWidth:10,padding:10}},
+      tooltip:{backgroundColor:isDark?'#1e1e1e':'#fff',titleColor:isDark?'#ddd':'#222',
+        bodyColor:isDark?'#ccc':'#444',borderColor:isDark?'#444':'#ddd',borderWidth:1,padding:8}
+    },
+    scales:{
+      x:{ticks:{color:tickColor,font:{size:9},maxRotation:45,autoSkip:true,maxTicksLimit:8},grid:{color:gridColor}},
+      y:{ticks:{color:tickColor,font:{size:9},callback:v=>Number.isInteger(v)?v:null},grid:{color:gridColor},beginAtZero:true,min:0}
+    }
+  });
+  requestAnimationFrame(()=>setTimeout(()=>{
+    const c1=document.getElementById('cardDetailChartDust');
+    if(c1) cardDetailChartDust=new Chart(c1,{type:'line',data:{labels,datasets:[
+      {label:'PM10 (㎍/㎥)',data:items.map(d=>d.pm_10!==undefined?Number(d.pm_10):null),
+       borderColor:'#4e8ef7',backgroundColor:'rgba(78,142,247,0.08)',
+       fill:false,tension:0.35,pointRadius:pt,pointHoverRadius:6,borderWidth:2,spanGaps:false},
+      {label:'PM2.5 (㎍/㎥)',data:items.map(d=>d.pm_2_5!==undefined?Number(d.pm_2_5):null),
+       borderColor:'#4ecf8e',backgroundColor:'rgba(78,207,142,0.08)',
+       fill:false,tension:0.35,pointRadius:pt,pointHoverRadius:6,borderWidth:2,spanGaps:false},
+    ]},options:makeOpts(true)});
+    const c2=document.getElementById('cardDetailChartCo2');
+    if(c2) cardDetailChartCo2=new Chart(c2,{type:'line',data:{labels,datasets:[
+      {label:'CO₂ (ppm)',data:items.map(d=>d.co2!==undefined?Number(d.co2):null),
+       borderColor:'#f7a14e',backgroundColor:'rgba(247,161,78,0.12)',
+       fill:true,tension:0.35,pointRadius:pt,pointHoverRadius:6,borderWidth:2,spanGaps:false},
+    ]},options:makeOpts(false)});
+  },50));
 }
 function closeCardDetailModal(){
   cardDetailModalOpen=false;
   document.getElementById('cardDetailModal').style.display='none';
   document.body.style.overflow='';
+  if(cardDetailChartDust){cardDetailChartDust.destroy();cardDetailChartDust=null;}
+  if(cardDetailChartCo2){cardDetailChartCo2.destroy();cardDetailChartCo2=null;}
 }
 function cardDetailOverlayClick(e){
   if(e.target===document.getElementById('cardDetailModal')) closeCardDetailModal();
@@ -1399,7 +1461,7 @@ function toggleSingleShowAll(){
 
 function copySingleToClipboard(){
   if(!singleAllItems.length) return;
-  const header='수집 시간\tPM10\tPM2.5\tCO2';
+  const header='수집 시간\tPM10\tPM2.5\tCO₂';
   const rows=singleAllItems.map(d=>
     [fmtTime(d.format_created_time),
      d.pm_10!==undefined?d.pm_10:'',
@@ -1462,7 +1524,7 @@ function renderSingleChart(items){
   const canvasCo2=document.getElementById('singleChartCo2');
   if(canvasCo2){
     singleChartCo2=new Chart(canvasCo2,{type:'line', data:{labels, datasets:[
-      {label:'CO2 (ppm)', data:items.map(d=>d.co2!==undefined?Number(d.co2):null),
+      {label:'CO₂ (ppm)', data:items.map(d=>d.co2!==undefined?Number(d.co2):null),
        borderColor:'#f7a14e', backgroundColor:'rgba(247,161,78,0.12)',
        fill:true, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false},
     ]}, options:makeOpts(false)});
@@ -1474,6 +1536,7 @@ async function runInspection(allIds){
   const token=document.getElementById('tokenInput').value.trim();
   if(!token){document.getElementById('errorMsg').textContent='⚠ 토큰이 설정되지 않았습니다.';return;}
   setGlobalLock(true);
+  cardDetailCache.clear();
   document.body.classList.remove('zone-active');
   const psh=document.getElementById('preSearchHint');
   if(psh) psh.style.display='none';
