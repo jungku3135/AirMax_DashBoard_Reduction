@@ -1331,9 +1331,9 @@ function _renderCardDetailContent(sorted){
   document.getElementById('cardDetailBody').innerHTML=sorted.length
     ?sorted.map(item=>`<tr>
         <td>${escHtml(item.format_created_time||'—')}</td>
-        <td>${item.pm_10??'—'}㎍/㎥</td>
-        <td>${item.pm_2_5??'—'}㎍/㎥</td>
-        <td>${item.co2??'—'}ppm</td>
+        <td>${item.pm_10??'—'}</td>
+        <td>${item.pm_2_5??'—'}</td>
+        <td>${item.co2??'—'}</td>
       </tr>`).join('')
     :'<tr><td colspan="4" class="single-detail-empty" style="text-align:center">조회된 데이터가 없습니다</td></tr>';
   _renderCardDetailChart([...sorted].reverse());
@@ -1771,18 +1771,19 @@ async function startInspection(){
 
   // 모바일 먼지 모달 스와이프 닫기
   const modalBox=document.getElementById('dustModalBox');
-  let swipeStartY=0;
+  let swipeStartY=-1;
   modalBox.addEventListener('touchstart',e=>{
-    if(e.target.closest('.dust-modal-body')) return;
+    if(e.target.closest('.dust-modal-body')){swipeStartY=-1;return;}
     swipeStartY=e.touches[0].clientY;
   },{passive:true});
   modalBox.addEventListener('touchmove',e=>{
-    if(e.target.closest('.dust-modal-body')) return;
+    if(swipeStartY<0) return;
     const dy=Math.max(0,e.touches[0].clientY-swipeStartY);
     modalBox.style.transition='none';
     modalBox.style.transform=`translateY(${dy}px)`;
   },{passive:true});
   modalBox.addEventListener('touchend',e=>{
+    if(swipeStartY<0) return;
     const dy=e.changedTouches[0].clientY-swipeStartY;
     modalBox.style.transition='transform 0.25s cubic-bezier(0.32,0.72,0,1)';
     if(dy>80){
@@ -1796,18 +1797,19 @@ async function startInspection(){
 
   // 카드 상세 모달 스와이프 닫기
   const cardDetailBox=document.getElementById('cardDetailModalBox');
-  let cdSwipeY=0;
+  let cdSwipeY=-1;
   cardDetailBox.addEventListener('touchstart',e=>{
-    if(e.target.closest('.dust-modal-body')) return;
+    if(e.target.closest('.dust-modal-body')){cdSwipeY=-1;return;}
     cdSwipeY=e.touches[0].clientY;
   },{passive:true});
   cardDetailBox.addEventListener('touchmove',e=>{
-    if(e.target.closest('.dust-modal-body')) return;
+    if(cdSwipeY<0) return;
     const dy=Math.max(0,e.touches[0].clientY-cdSwipeY);
     cardDetailBox.style.transition='none';
     cardDetailBox.style.transform=`translateY(${dy}px)`;
   },{passive:true});
   cardDetailBox.addEventListener('touchend',e=>{
+    if(cdSwipeY<0) return;
     const dy=e.changedTouches[0].clientY-cdSwipeY;
     cardDetailBox.style.transition='transform 0.25s cubic-bezier(0.32,0.72,0,1)';
     if(dy>80){

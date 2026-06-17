@@ -474,6 +474,9 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   border-bottom:1.5px solid var(--border); text-align:center; white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis; text-transform:uppercase;
 }
+#cardDetailTableWrap .single-detail-table th {
+  white-space:normal; font-size:11px; letter-spacing:0.5px; line-height:1.4;
+}
 .single-detail-table th:first-child { text-align:left; }
 .single-detail-table td {
   padding:8px 10px; border-bottom:1px solid var(--border2);
