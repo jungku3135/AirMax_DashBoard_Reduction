@@ -1,6 +1,6 @@
 /* ===== 버전 ===== */
-const APP_VERSION = 'v1.59';
-const APP_DATE    = '2026.06.15';
+const APP_VERSION = 'v1.60';
+const APP_DATE    = '2026.06.17';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
