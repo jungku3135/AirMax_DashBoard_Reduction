@@ -1341,12 +1341,43 @@ function _renderCardDetailContent(sorted){
 function _renderCardDetailChart(items){
   if(cardDetailChartDust){cardDetailChartDust.destroy();cardDetailChartDust=null;}
   if(cardDetailChartCo2){cardDetailChartCo2.destroy();cardDetailChartCo2=null;}
+  const dustEl=document.getElementById('cardDetailDustMinMax');
+  const co2El=document.getElementById('cardDetailCo2MinMax');
+  if(dustEl) dustEl.innerHTML='';
+  if(co2El)  co2El.innerHTML='';
   if(!items.length) return;
+
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
   const tickColor=isDark?'#999':'#888';
   const labels=items.map(d=>fmtTime(d.format_created_time));
   const pt=items.length>15?2:4;
+
+  const pm10Vals=items.map(d=>d.pm_10!==undefined?Number(d.pm_10):null);
+  const pm25Vals=items.map(d=>d.pm_2_5!==undefined?Number(d.pm_2_5):null);
+  const co2Vals =items.map(d=>d.co2!==undefined?Number(d.co2):null);
+  const safeMinMax=vals=>{const v=vals.filter(x=>x!==null);return v.length?[Math.min(...v),Math.max(...v)]:[null,null];};
+  const [minPm10,maxPm10]=safeMinMax(pm10Vals);
+  const [minPm25,maxPm25]=safeMinMax(pm25Vals);
+  const [minCo2, maxCo2 ]=safeMinMax(co2Vals);
+
+  const ptStyle=(vals,minV,maxV,def)=>({
+    bg:vals.map(v=>v===maxV?'#e05252':v===minV?'#4ecf8e':def),
+    r: vals.map(v=>(v===maxV||v===minV)?(pt<3?4:6):pt),
+    hr:vals.map(v=>(v===maxV||v===minV)?8:6),
+  });
+  const p10=ptStyle(pm10Vals,minPm10,maxPm10,'#4e8ef7');
+  const p25=ptStyle(pm25Vals,minPm25,maxPm25,'#4ecf8e');
+  const pc2=ptStyle(co2Vals,minCo2,maxCo2,'#f7a14e');
+
+  const minMaxRow=(items2)=>items2.filter(([,mn])=>mn!==null).map(([label,mn,mx,unit])=>
+    `<span>${label} <b style="color:#4ecf8e">${mn}${unit}</b> · <b style="color:#e05252">${mx}${unit}</b></span>`
+  ).join('<span style="color:var(--border2)">|</span>');
+
+  const rowStyle='display:flex;gap:10px;align-items:center;font-size:11px;color:var(--text3);padding:4px 0 10px;flex-wrap:wrap';
+  if(dustEl) dustEl.innerHTML=`<div style="${rowStyle}">${minMaxRow([['PM10 ',minPm10,maxPm10,'㎍/㎥'],['PM2.5 ',minPm25,maxPm25,'㎍/㎥']])}</div>`;
+  if(co2El)  co2El.innerHTML=`<div style="${rowStyle}">${minMaxRow([['CO₂ ',minCo2,maxCo2,'ppm']])}</div>`;
+
   const makeOpts=(showLegend)=>({
     responsive:true, maintainAspectRatio:false,
     interaction:{mode:'index',intersect:false},
@@ -1363,18 +1394,18 @@ function _renderCardDetailChart(items){
   requestAnimationFrame(()=>setTimeout(()=>{
     const c1=document.getElementById('cardDetailChartDust');
     if(c1) cardDetailChartDust=new Chart(c1,{type:'line',data:{labels,datasets:[
-      {label:'PM10 (㎍/㎥)',data:items.map(d=>d.pm_10!==undefined?Number(d.pm_10):null),
+      {label:'PM10 (㎍/㎥)',data:pm10Vals,
        borderColor:'#4e8ef7',backgroundColor:'rgba(78,142,247,0.08)',
-       fill:false,tension:0.35,pointRadius:pt,pointHoverRadius:6,borderWidth:2,spanGaps:false},
-      {label:'PM2.5 (㎍/㎥)',data:items.map(d=>d.pm_2_5!==undefined?Number(d.pm_2_5):null),
+       fill:false,tension:0.35,pointBackgroundColor:p10.bg,pointRadius:p10.r,pointHoverRadius:p10.hr,borderWidth:2,spanGaps:false},
+      {label:'PM2.5 (㎍/㎥)',data:pm25Vals,
        borderColor:'#4ecf8e',backgroundColor:'rgba(78,207,142,0.08)',
-       fill:false,tension:0.35,pointRadius:pt,pointHoverRadius:6,borderWidth:2,spanGaps:false},
+       fill:false,tension:0.35,pointBackgroundColor:p25.bg,pointRadius:p25.r,pointHoverRadius:p25.hr,borderWidth:2,spanGaps:false},
     ]},options:makeOpts(true)});
     const c2=document.getElementById('cardDetailChartCo2');
     if(c2) cardDetailChartCo2=new Chart(c2,{type:'line',data:{labels,datasets:[
-      {label:'CO₂ (ppm)',data:items.map(d=>d.co2!==undefined?Number(d.co2):null),
+      {label:'CO₂ (ppm)',data:co2Vals,
        borderColor:'#f7a14e',backgroundColor:'rgba(247,161,78,0.12)',
-       fill:true,tension:0.35,pointRadius:pt,pointHoverRadius:6,borderWidth:2,spanGaps:false},
+       fill:true,tension:0.35,pointBackgroundColor:pc2.bg,pointRadius:pc2.r,pointHoverRadius:pc2.hr,borderWidth:2,spanGaps:false},
     ]},options:makeOpts(false)});
   },50));
 }

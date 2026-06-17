@@ -482,8 +482,10 @@ function buildJson(obj) {
       <div class="dust-modal-summary" id="cardDetailSummary"></div>
       <div id="cardDetailLoading" style="text-align:center;padding:32px 0;color:var(--text3);font-size:13px">데이터 불러오는 중…</div>
       <div id="cardDetailTableWrap" style="display:none">
-        <div style="height:150px;margin-bottom:10px"><canvas id="cardDetailChartDust"></canvas></div>
-        <div style="height:120px;margin-bottom:14px"><canvas id="cardDetailChartCo2"></canvas></div>
+        <div style="height:150px;margin-bottom:4px"><canvas id="cardDetailChartDust"></canvas></div>
+        <div id="cardDetailDustMinMax"></div>
+        <div style="height:120px;margin-bottom:4px"><canvas id="cardDetailChartCo2"></canvas></div>
+        <div id="cardDetailCo2MinMax"></div>
         <div style="font-size:11px;color:var(--text3);margin-bottom:6px;text-align:right" id="cardDetailCount"></div>
         <div class="single-detail-scroll">
           <table class="single-detail-table" style="font-size:12px">
