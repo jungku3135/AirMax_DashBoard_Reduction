@@ -1356,13 +1356,15 @@ function _renderCardDetailChart(items){
   const pm10Vals=items.map(d=>d.pm_10!==undefined?Number(d.pm_10):null);
   const pm25Vals=items.map(d=>d.pm_2_5!==undefined?Number(d.pm_2_5):null);
   const co2Vals =items.map(d=>d.co2!==undefined?Number(d.co2):null);
-  const safeMinMax=vals=>{const v=vals.filter(x=>x!==null);return v.length?[Math.min(...v),Math.max(...v)]:[null,null];};
+  const allZeroMask=items.map(d=>Number(d.pm_10)===0&&Number(d.pm_2_5)===0&&Number(d.co2)===0);
+  const safeMinMax=vals=>{const v=vals.filter((x,i)=>x!==null&&!allZeroMask[i]);return v.length?[Math.min(...v),Math.max(...v)]:[null,null];};
   const [minPm10,maxPm10]=safeMinMax(pm10Vals);
   const [minPm25,maxPm25]=safeMinMax(pm25Vals);
   const [minCo2, maxCo2 ]=safeMinMax(co2Vals);
 
   const ptStyle=(vals,minV,maxV,def)=>{
-    const lastMin=vals.lastIndexOf(minV), lastMax=vals.lastIndexOf(maxV);
+    const lastMin=vals.reduce((a,v,i)=>(!allZeroMask[i]&&v===minV)?i:a,-1);
+    const lastMax=vals.reduce((a,v,i)=>(!allZeroMask[i]&&v===maxV)?i:a,-1);
     return{
       bg:vals.map(()=>def),
       r: vals.map((_,i)=>(i===lastMax||i===lastMin)?(pt<3?5:7):pt),
