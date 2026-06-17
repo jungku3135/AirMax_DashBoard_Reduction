@@ -1278,7 +1278,6 @@ async function openCardDetailModal(id){
   document.getElementById('cardDetailTitle').textContent=id;
   document.getElementById('cardDetailSubtitle').textContent=loc!=='—'?`${loc}  ·  ${period}`:period;
   document.getElementById('cardDetailSummary').innerHTML=cfg?`
-    ${r.item?`<div style="width:100%;font-size:11px;color:var(--text3);font-weight:500;margin-bottom:2px">마지막 수집: ${escHtml(r.item.format_created_time)}</div>`:''}
     <div class="dust-stat">
       <span class="dust-stat-label">최근 상태</span>
       <span class="dust-stat-value" style="font-size:18px;color:var(${cfg.textVar})">${cfg.icon} ${cfg.label}</span>
@@ -1294,7 +1293,8 @@ async function openCardDetailModal(id){
     <div class="dust-stat">
       <span class="dust-stat-label">CO₂</span>
       <span class="dust-stat-value">${r.item.co2}<span class="dust-stat-sub">ppm</span></span>
-    </div>`:''}
+    </div>
+    <div style="width:100%;font-size:11px;color:var(--text3);font-weight:500;text-align:right;margin-top:4px">마지막 수집: ${escHtml(r.item.format_created_time)}</div>`:''}
   `:'';
 
   cardDetailModalOpen=true;
