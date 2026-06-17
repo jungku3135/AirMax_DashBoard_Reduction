@@ -1361,11 +1361,14 @@ function _renderCardDetailChart(items){
   const [minPm25,maxPm25]=safeMinMax(pm25Vals);
   const [minCo2, maxCo2 ]=safeMinMax(co2Vals);
 
-  const ptStyle=(vals,minV,maxV,def)=>({
-    bg:vals.map(()=>def),
-    r: vals.map(v=>(v===maxV||v===minV)?(pt<3?7:10):pt),
-    hr:vals.map(v=>(v===maxV||v===minV)?13:6),
-  });
+  const ptStyle=(vals,minV,maxV,def)=>{
+    const lastMin=vals.lastIndexOf(minV), lastMax=vals.lastIndexOf(maxV);
+    return{
+      bg:vals.map(()=>def),
+      r: vals.map((_,i)=>(i===lastMax||i===lastMin)?(pt<3?5:7):pt),
+      hr:vals.map((_,i)=>(i===lastMax||i===lastMin)?9:6),
+    };
+  };
   const p10=ptStyle(pm10Vals,minPm10,maxPm10,'#4e8ef7');
   const p25=ptStyle(pm25Vals,minPm25,maxPm25,'#4ecf8e');
   const pc2=ptStyle(co2Vals,minCo2,maxCo2,'#f7a14e');
