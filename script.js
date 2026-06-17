@@ -556,7 +556,7 @@ function renderGrid(){
     const cfg=STATUS[r.status]||STATUS.LOAD;
     const loc=productLocations[r.id]||'';
     const tip=r.errMsg?escHtml(r.errMsg):r.item
-      ?`PM10: ${r.item.pm_10}㎍/㎥<br>PM2.5: ${r.item.pm_2_5}㎍/㎥<br>CO₂: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
+      ?`PM10: ${r.item.pm_10}㎍/㎥<br>PM2.5: ${r.item.pm_2_5}㎍/㎥<br>CO₂: ${r.item.co2}ppm<br><span class="tooltip-time">수집: ${escHtml(r.item.format_created_time)}</span>`
       :'데이터 없음';
     return`<div class="card ${cfg.cls}" data-id="${escHtml(r.id)}" onclick="openCardDetailModal('${escHtml(r.id)}')">
       <div class="card-status" style="color:var(${cfg.textVar})"><span class="card-icon">${cfg.icon}</span>${cfg.label}</div>
@@ -880,7 +880,7 @@ function updateGridCard(r){
   const cfg=STATUS[r.status]||STATUS.LOAD;
   const loc=productLocations[r.id]||'';
   const tip=r.errMsg?escHtml(r.errMsg):r.item
-    ?`PM10: ${r.item.pm_10}㎍/㎥<br>PM2.5: ${r.item.pm_2_5}㎍/㎥<br>CO₂: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
+    ?`PM10: ${r.item.pm_10}㎍/㎥<br>PM2.5: ${r.item.pm_2_5}㎍/㎥<br>CO₂: ${r.item.co2}ppm<br><span class="tooltip-time">수집: ${escHtml(r.item.format_created_time)}</span>`
     :'데이터 없음';
   const el=document.querySelector(`#grid .card[data-id="${CSS.escape(r.id)}"]`);
   if(!el) return;

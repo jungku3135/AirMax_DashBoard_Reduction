@@ -378,7 +378,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .card-load{ background:var(--input-bg); border-color:var(--border); }
 .card-status { font-size:11px; font-weight:800; letter-spacing:2px; }
 .card-id { font-size:14px; font-weight:700; color:var(--text2); }
-.card-meta { font-size:13px; color:var(--text2); font-weight:500; }
+.card-meta { font-size:11px; color:var(--text2); font-weight:500; white-space:nowrap; }
 .card-err-text { font-size:12px; color:var(--err-text); text-align:center; word-break:break-all; }
 .card:hover .tooltip { display:block; }
 .tooltip {
@@ -575,7 +575,9 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   .chip { min-height:44px; padding:6px 14px; }
   .view-tab { min-height:44px; padding:0 14px; display:flex; align-items:center; }
   /* 카드 가독성 */
-  .card-meta { white-space:normal; word-break:break-all; line-height:1.5; }
+  .card-meta { line-height:1.5; }
+  .tooltip { font-size:15px; line-height:2.1; }
+  .tooltip-time { font-size:13px; }
   .card-id     { font-size:15px; }
   .card-status { font-size:12px; letter-spacing:1.5px; }
   /* 리스트 뷰 2줄 레이아웃 */
