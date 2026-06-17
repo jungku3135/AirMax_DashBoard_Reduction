@@ -366,7 +366,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .card {
   border-radius:var(--radius-lg); border:2px solid; padding:10px;
   display:flex; flex-direction:column; align-items:center;
-  gap:4px; cursor:default; position:relative;
+  gap:4px; cursor:pointer; position:relative;
   transition:transform 0.2s,box-shadow 0.2s;
 }
 .card:hover { transform:translateY(-3px); box-shadow:var(--shadow-md); }
@@ -384,9 +384,9 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .tooltip {
   display:none; position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
   background:var(--tooltip-bg); border:1px solid var(--tooltip-border); border-radius:var(--radius);
-  padding:10px 14px; font-size:13px; white-space:nowrap; z-index:50;
+  padding:10px 14px; font-size:13px; white-space:normal; max-width:240px; min-width:160px; z-index:50;
   color:var(--tooltip-text); line-height:1.9; pointer-events:none;
-  box-shadow:var(--shadow-md);
+  box-shadow:var(--shadow-md); word-break:keep-all;
 }
 
 /* ===== 리스트 뷰 ===== */
@@ -409,7 +409,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 }
 .list-row {
   display:grid; grid-template-columns:110px 1fr 64px 1fr;
-  padding:9px 14px; font-size:12px;
+  padding:9px 14px; font-size:12px; cursor:pointer;
   border-bottom:1px solid var(--border2); align-items:center; transition:background 0.1s;
 }
 .list-row:last-child { border-bottom:none; }

@@ -1,5 +1,5 @@
 /* ===== 버전 ===== */
-const APP_VERSION = 'v1.61';
+const APP_VERSION = 'v1.62';
 const APP_DATE    = '2026.06.17';
 
 /* ===== 설정 ===== */
@@ -35,6 +35,7 @@ let logVisible=false, logs=[], extraIds=[], dustExtraIds=[];
 let isGlobalLocked=false;
 let selectedDustZones=new Set();
 let lastResults = [];
+let lastDateRange=null, cardDetailModalOpen=false;
 let singleAllItems=[], singlePage=0, singleShowAll=false, singleChartDust=null, singleChartCo2=null;
 let dustDays=[], dustModalChart=null, dustModalOpen=false;
 const dustResultMap=new Map();
@@ -287,7 +288,16 @@ function switchMode(mode){
     document.getElementById('grid').style.display='none';
     document.getElementById('listView').style.display='none';
     document.getElementById('listToolbar').style.display='none';
+  } else {
+    if(results.length){
+      document.getElementById('grid').style.display=currentView==='grid'?'grid':'none';
+      document.getElementById('listView').style.display=currentView==='list'?'block':'none';
+      document.getElementById('listToolbar').style.display=currentView==='list'?'flex':'none';
+      document.getElementById('summary').style.display='flex';
+    }
   }
+  const psh=document.getElementById('preSearchHint');
+  if(psh) psh.style.display=(mode!=='single'&&mode!=='dust'&&!results.length)?'':'none';
 }
 
 /* ===== 모바일 고정 버튼 ===== */
@@ -546,7 +556,7 @@ function renderGrid(){
     const tip=r.errMsg?escHtml(r.errMsg):r.item
       ?`PM10: ${r.item.pm_10}㎍/㎥ | PM2.5: ${r.item.pm_2_5}㎍/㎥ | CO2: ${r.item.co2}ppm<br>수집: ${escHtml(r.item.format_created_time)}`
       :'데이터 없음';
-    return`<div class="card ${cfg.cls}" data-id="${escHtml(r.id)}">
+    return`<div class="card ${cfg.cls}" data-id="${escHtml(r.id)}" onclick="openCardDetailModal('${escHtml(r.id)}')">
       <div class="card-status" style="color:var(${cfg.textVar})"><span class="card-icon">${cfg.icon}</span>${cfg.label}</div>
       <div class="card-id">${escHtml(r.id)}</div>
       ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
@@ -900,7 +910,7 @@ function renderList(){
     const cfg=STATUS[r.status]||STATUS.LOAD;
     const loc=getZoneAndLoc(r.id);
     const time=r.item?r.item.format_created_time:(r.errMsg?r.errMsg.slice(0,60):'—');
-    return`<div class="list-row">
+    return`<div class="list-row" onclick="openCardDetailModal('${escHtml(r.id)}')">
       <div class="list-id-cell">${escHtml(r.id)}</div>
       <div class="list-loc-cell">${escHtml(loc)}</div>
       <div class="list-status-cell" style="color:var(${cfg.textVar})">${cfg.icon} ${cfg.label}</div>
@@ -1254,6 +1264,72 @@ function dustModalOverlayClick(e){
   if(e.target===document.getElementById('dustModal')) closeDustModal();
 }
 
+/* ===== 카드 상세 모달 (범위/영역 점검 결과 클릭) ===== */
+async function openCardDetailModal(id){
+  const token=document.getElementById('tokenInput').value.trim();
+  if(!token||!lastDateRange) return;
+  const r=results.find(x=>x.id===id);
+  const cfg=r?(STATUS[r.status]||STATUS.LOAD):null;
+  const loc=getZoneAndLoc(id);
+  const period=`${lastDateRange.started_at} ~ ${lastDateRange.finished_at}`;
+
+  document.getElementById('cardDetailTitle').textContent=id;
+  document.getElementById('cardDetailSubtitle').textContent=loc!=='—'?`${loc}  ·  ${period}`:period;
+  document.getElementById('cardDetailSummary').innerHTML=cfg?`
+    <div class="dust-stat">
+      <span class="dust-stat-label">최근 상태</span>
+      <span class="dust-stat-value" style="font-size:18px;color:var(${cfg.textVar})">${cfg.icon} ${cfg.label}</span>
+    </div>
+    ${r.item?`<div class="dust-stat">
+      <span class="dust-stat-label">PM10</span>
+      <span class="dust-stat-value">${r.item.pm_10}<span class="dust-stat-sub">㎍/㎥</span></span>
+    </div>
+    <div class="dust-stat">
+      <span class="dust-stat-label">PM2.5</span>
+      <span class="dust-stat-value">${r.item.pm_2_5}<span class="dust-stat-sub">㎍/㎥</span></span>
+    </div>
+    <div class="dust-stat">
+      <span class="dust-stat-label">CO2</span>
+      <span class="dust-stat-value">${r.item.co2}<span class="dust-stat-sub">ppm</span></span>
+    </div>`:''}
+  `:'';
+  const loadEl=document.getElementById('cardDetailLoading');
+  const tableWrap=document.getElementById('cardDetailTableWrap');
+  loadEl.textContent='데이터 불러오는 중…';
+  loadEl.style.display='block';
+  tableWrap.style.display='none';
+  cardDetailModalOpen=true;
+  document.getElementById('cardDetailModal').style.display='flex';
+  document.body.style.overflow='hidden';
+
+  try{
+    const items=await fetchAllReports(id,lastDateRange,token);
+    const sorted=[...items].sort((a,b)=>new Date(b.format_created_time)-new Date(a.format_created_time));
+    loadEl.style.display='none';
+    tableWrap.style.display='block';
+    if(!cardDetailModalOpen) return;
+    document.getElementById('cardDetailCount').textContent=`총 ${sorted.length}건`;
+    document.getElementById('cardDetailBody').innerHTML=sorted.length
+      ?sorted.map(item=>`<tr>
+          <td>${escHtml(item.format_created_time||'—')}</td>
+          <td>${item.pm_10??'—'}㎍/㎥</td>
+          <td>${item.pm_2_5??'—'}㎍/㎥</td>
+          <td>${item.co2??'—'}ppm</td>
+        </tr>`).join('')
+      :'<tr><td colspan="4" class="single-detail-empty" style="text-align:center">조회된 데이터가 없습니다</td></tr>';
+  }catch(e){
+    loadEl.textContent='⚠ 오류: '+e.message;
+  }
+}
+function closeCardDetailModal(){
+  cardDetailModalOpen=false;
+  document.getElementById('cardDetailModal').style.display='none';
+  document.body.style.overflow='';
+}
+function cardDetailOverlayClick(e){
+  if(e.target===document.getElementById('cardDetailModal')) closeCardDetailModal();
+}
+
 function renderSingleDetail(id, items){
   singleAllItems=[...items].sort((a,b)=>
     new Date(b.format_created_time)-new Date(a.format_created_time));
@@ -1404,7 +1480,8 @@ async function runInspection(allIds){
   document.getElementById('summary').style.display='none';
   document.getElementById('grid').innerHTML=''; document.getElementById('listBody').innerHTML='';
   currentFilter='ALL'; currentView='grid';
-  const dateRange=getDateRange(currentMode),nowMs=Date.now(),total=allIds.length;
+  const dateRange=getDateRange(currentMode); lastDateRange=dateRange;
+  const nowMs=Date.now(),total=allIds.length;
   setLoading(true,0,total);
   addLog(`총 ${total}개 점검 시작`,'info');
   addLog(`기간: ${dateRange.started_at} ~ ${dateRange.finished_at}`,'muted');
@@ -1618,6 +1695,31 @@ async function startInspection(){
     } else {
       modalBox.style.transform='';
       setTimeout(()=>{modalBox.style.transition='';},260);
+    }
+  });
+
+  // 카드 상세 모달 스와이프 닫기
+  const cardDetailBox=document.getElementById('cardDetailModalBox');
+  let cdSwipeY=0;
+  cardDetailBox.addEventListener('touchstart',e=>{
+    if(e.target.closest('.dust-modal-body')) return;
+    cdSwipeY=e.touches[0].clientY;
+  },{passive:true});
+  cardDetailBox.addEventListener('touchmove',e=>{
+    if(e.target.closest('.dust-modal-body')) return;
+    const dy=Math.max(0,e.touches[0].clientY-cdSwipeY);
+    cardDetailBox.style.transition='none';
+    cardDetailBox.style.transform=`translateY(${dy}px)`;
+  },{passive:true});
+  cardDetailBox.addEventListener('touchend',e=>{
+    const dy=e.changedTouches[0].clientY-cdSwipeY;
+    cardDetailBox.style.transition='transform 0.25s cubic-bezier(0.32,0.72,0,1)';
+    if(dy>80){
+      cardDetailBox.style.transform='translateY(100%)';
+      setTimeout(()=>{closeCardDetailModal();cardDetailBox.style.transform='';cardDetailBox.style.transition='';},260);
+    } else {
+      cardDetailBox.style.transform='';
+      setTimeout(()=>{cardDetailBox.style.transition='';},260);
     }
   });
 
