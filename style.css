@@ -700,6 +700,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   display:flex; flex-direction:column; overflow:hidden;
   box-shadow:var(--shadow-lg);
 }
+#cardDetailModalBox { max-width:668px; }
 .dust-modal-header {
   display:flex; align-items:center; justify-content:space-between;
   padding:16px 20px; border-bottom:1px solid var(--border); flex-shrink:0;
@@ -773,4 +774,5 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
     max-height:92dvh;
     border-radius:var(--radius-xl) var(--radius-xl) 0 0;
   }
+  #cardDetailModalBox { max-width:100%; }
 }

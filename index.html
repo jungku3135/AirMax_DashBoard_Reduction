@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin/>
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.35/dist/web/variable/pretendardvariable.min.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.36/dist/web/variable/pretendardvariable.min.css"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"/>
 <link rel="stylesheet" href="style.css"/>
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -476,7 +476,10 @@ function buildJson(obj) {
         <div class="dust-modal-title" id="cardDetailTitle"></div>
         <div id="cardDetailSubtitle" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
       </div>
-      <button class="pe-btn" onclick="closeCardDetailModal()">✕ 닫기</button>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div id="cardDetailCollectedAt" style="font-size:10px;color:var(--text3);white-space:nowrap"></div>
+        <button class="pe-btn" onclick="closeCardDetailModal()">✕ 닫기</button>
+      </div>
     </div>
     <div class="dust-modal-body">
       <div class="dust-modal-summary" id="cardDetailSummary"></div>

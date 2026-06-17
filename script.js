@@ -1277,6 +1277,7 @@ async function openCardDetailModal(id){
 
   document.getElementById('cardDetailTitle').textContent=id;
   document.getElementById('cardDetailSubtitle').textContent=loc!=='—'?`${loc}  ·  ${period}`:period;
+  document.getElementById('cardDetailCollectedAt').textContent=r?.item?`수집: ${r.item.format_created_time}`:'';
   document.getElementById('cardDetailSummary').innerHTML=cfg?`
     <div class="dust-stat">
       <span class="dust-stat-label">최근 상태</span>
@@ -1293,10 +1294,6 @@ async function openCardDetailModal(id){
     <div class="dust-stat">
       <span class="dust-stat-label">CO₂</span>
       <span class="dust-stat-value">${r.item.co2}<span class="dust-stat-sub">ppm</span></span>
-    </div>
-    <div class="dust-stat">
-      <span class="dust-stat-label">수집 시점</span>
-      <span class="dust-stat-value" style="font-size:12px;font-weight:600;line-height:1.5">${escHtml(r.item.format_created_time)}</span>
     </div>`:''}
   `:'';
 
