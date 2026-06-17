@@ -1,4 +1,4 @@
-/* ===== 버전 ===== */
+﻿/* ===== 버전 ===== */
 const APP_VERSION = 'v1.63';
 const APP_DATE    = '2026.06.17';
 
@@ -1277,8 +1277,8 @@ async function openCardDetailModal(id){
 
   document.getElementById('cardDetailTitle').textContent=id;
   document.getElementById('cardDetailSubtitle').textContent=loc!=='—'?`${loc}  ·  ${period}`:period;
-  document.getElementById('cardDetailCollectedAt').textContent=r?.item?`수집: ${r.item.format_created_time}`:'';
   document.getElementById('cardDetailSummary').innerHTML=cfg?`
+    ${r.item?`<div style="width:100%;font-size:11px;color:var(--text3);font-weight:500;margin-bottom:2px">마지막 수집: ${escHtml(r.item.format_created_time)}</div>`:''}
     <div class="dust-stat">
       <span class="dust-stat-label">최근 상태</span>
       <span class="dust-stat-value" style="font-size:18px;color:var(${cfg.textVar})">${cfg.icon} ${cfg.label}</span>
@@ -1789,3 +1789,4 @@ async function startInspection(){
     fab.style.display=window.scrollY>280?'flex':'none';
   },{passive:true});
 })();
+
