@@ -1362,9 +1362,9 @@ function _renderCardDetailChart(items){
   const [minCo2, maxCo2 ]=safeMinMax(co2Vals);
 
   const ptStyle=(vals,minV,maxV,def)=>({
-    bg:vals.map(v=>v===maxV?'#e05252':v===minV?'#4ecf8e':def),
-    r: vals.map(v=>(v===maxV||v===minV)?(pt<3?4:6):pt),
-    hr:vals.map(v=>(v===maxV||v===minV)?8:6),
+    bg:vals.map(()=>def),
+    r: vals.map(v=>(v===maxV||v===minV)?(pt<3?7:10):pt),
+    hr:vals.map(v=>(v===maxV||v===minV)?13:6),
   });
   const p10=ptStyle(pm10Vals,minPm10,maxPm10,'#4e8ef7');
   const p25=ptStyle(pm25Vals,minPm25,maxPm25,'#4ecf8e');
