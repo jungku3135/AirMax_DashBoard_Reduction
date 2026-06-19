@@ -1247,8 +1247,7 @@ function copyDustByMonth(){
     monthDays.forEach(d=>lines.push(`${d.date} : ${d.inc}g`));
   });
   const btn=document.getElementById('dustMonthCopyBtn');
-  navigator.clipboard.writeText(lines.join('
-'))
+  navigator.clipboard.writeText(lines.join('\n'))
     .then(()=>{btn.textContent='✓ 복사됨';setTimeout(()=>{btn.textContent='📋 월별 복사';},2000);})
     .catch(()=>{alert('클립보드 복사에 실패했습니다.');});
 }
