@@ -441,6 +441,10 @@ function buildJson(obj) {
     <input type="text" id="dustResultSearch" class="id-input" placeholder="제품 ID 또는 설치 장소 검색…" oninput="filterDustResults(this.value)" style="flex:1;max-width:240px;min-width:0"/>
     <span id="dustResultCount" class="dzp-select-info"></span>
   </div>
+  <div id="dustMonthCopyBar" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+    <select id="dustMonthSelect" class="id-input" style="min-width:130px;max-width:180px;cursor:pointer;"></select>
+    <button id="dustMonthCopyBtn" class="pe-btn" onclick="copyDustByMonth()">📋 월별 복사</button>
+  </div>
   <div class="dust-cards-grid" id="dustCardsGrid"></div>
 </div>
 
