@@ -384,7 +384,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .tooltip {
   display:none; position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
   background:var(--tooltip-bg); border:1px solid var(--tooltip-border); border-radius:var(--radius);
-  padding:10px 14px; font-size:13px; white-space:normal; max-width:240px; min-width:160px; z-index:50;
+  padding:10px 14px; font-size:13px; white-space:normal; max-width:290px; min-width:200px; z-index:50;
   color:var(--tooltip-text); line-height:1.9; pointer-events:none;
   box-shadow:var(--shadow-md); word-break:keep-all;
 }
