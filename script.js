@@ -157,9 +157,8 @@ function updateRunBtnText(){
     dustBtn.style.display='';
     return;
   }
-  const label=(adminAuthenticated && currentMode==='range')?'점검 및 시트 저장':'점검 시작';
-  btn.textContent=label;
-  mBtn.textContent=label;
+  btn.textContent='점검 시작';
+  mBtn.textContent='점검 시작';
 }
 
 function updateSheetBtn(){
@@ -1384,6 +1383,16 @@ async function openCardDetailModal(id){
 
   document.getElementById('cardDetailTitle').textContent=id;
   document.getElementById('cardDetailSubtitle').textContent=loc!=='—'?`${loc}  ·  ${period}`:period;
+  const tabsEl=document.getElementById('cardDetailIdTabs');
+  if(tabsEl&&results.length>1){
+    tabsEl.innerHTML=results.map(rx=>{
+      const c=STATUS[rx.status]||STATUS.LOAD;
+      return`<button class="card-detail-id-tab${rx.id===id?' active':''}" style="color:var(${c.textVar});border-color:var(${c.textVar})" onclick="openCardDetailModal('${escHtml(rx.id)}')">${escHtml(rx.id)}</button>`;
+    }).join('');
+    tabsEl.style.display='flex';
+    const activeTab=tabsEl.querySelector('.card-detail-id-tab.active');
+    if(activeTab) activeTab.scrollIntoView({block:'nearest',inline:'center'});
+  } else if(tabsEl){ tabsEl.style.display='none'; }
   document.getElementById('cardDetailSummary').innerHTML=cfg?`
     <div class="dust-stat">
       <span class="dust-stat-label">최근 상태</span>
