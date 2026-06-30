@@ -175,6 +175,13 @@
       모바일 환경에서는 상단 <strong>관리자 PW</strong> 인증 후 사용 가능합니다.
     </div>
     <div id="dustSearchArea" style="display:none">
+      <div class="row" style="margin-bottom:10px;align-items:center;gap:6px;flex-wrap:wrap">
+        <label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:700;color:var(--text3)">조회 기간</label>
+        <select id="dustStartMonth" class="list-filter-sel" style="min-width:130px;" onchange="onDustStartMonthChange()"></select>
+        <span style="font-size:12px;color:var(--text3);font-weight:500">~</span>
+        <select id="dustEndMonth" class="list-filter-sel" style="min-width:130px;"></select>
+      </div>
+      <hr class="divider" style="margin:0 0 10px"/>
       <div class="zone-header">
         <div class="section-label" style="margin-bottom:0">영역 선택
           <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — 복수 선택 가능</span>

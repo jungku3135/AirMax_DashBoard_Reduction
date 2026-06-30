@@ -574,7 +574,8 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   input, select, textarea { font-size:16px !important; padding-top:6px !important; padding-bottom:6px !important; }
   select { padding-top:5px !important; padding-bottom:5px !important; }
   /* 터치 타겟 최소 44px */
-  .mode-tab { min-height:44px; padding:10px 14px; }
+  .mode-tabs { display:grid; grid-template-columns:1fr 1fr; width:100%; }
+  .mode-tab { min-height:44px; padding:10px 8px; text-align:center; }
   .chip { min-height:44px; padding:6px 14px; }
   .view-tab { min-height:44px; padding:0 14px; display:flex; align-items:center; }
   /* 카드 가독성 */

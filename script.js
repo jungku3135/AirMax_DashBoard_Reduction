@@ -1,6 +1,6 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v1.64';
-const APP_DATE    = '2026.06.19';
+const APP_VERSION = 'v1.65';
+const APP_DATE    = '2026.06.30';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
@@ -1081,16 +1081,21 @@ function updateDustZoneInfo(){
 }
 
 /* ===== 먼지 포집 localStorage 캐시 ===== */
-function getDustCache(id){
+function dustCacheKey(startYm,endYm){
+  const today=todayStr(), curYm=today.slice(0,7);
+  const range=`${startYm}_${endYm}`;
+  return endYm>=curYm?`dustCache_${range}_${today}`:`dustCache_${range}`;
+}
+function getDustCache(id,startYm,endYm){
   try{
-    const raw=localStorage.getItem(`dustCache_${todayStr()}`);
+    const raw=localStorage.getItem(dustCacheKey(startYm,endYm));
     if(!raw) return null;
     return JSON.parse(raw)[id]||null;
   }catch{return null;}
 }
-function setDustCache(id,result){
+function setDustCache(id,result,startYm,endYm){
   try{
-    const key=`dustCache_${todayStr()}`;
+    const key=dustCacheKey(startYm,endYm);
     const cache=JSON.parse(localStorage.getItem(key)||'{}');
     cache[id]=result;
     localStorage.setItem(key,JSON.stringify(cache));
@@ -1100,8 +1105,35 @@ function cleanOldDustCache(){
   const today=todayStr();
   for(let i=localStorage.length-1;i>=0;i--){
     const k=localStorage.key(i);
-    if(k&&k.startsWith('dustCache_')&&k!==`dustCache_${today}`) localStorage.removeItem(k);
+    if(!k||!k.startsWith('dustCache_')) continue;
+    // 오늘 날짜 포함 캐시 중 날짜 다른 것 삭제
+    const dateMatch=k.match(/_(\d{4}-\d{2}-\d{2})$/);
+    if(dateMatch&&dateMatch[1]!==today) localStorage.removeItem(k);
   }
+}
+function initDustMonthPicker(){
+  const startSel=document.getElementById('dustStartMonth');
+  const endSel=document.getElementById('dustEndMonth');
+  if(!startSel||!endSel) return;
+  const curYm=todayStr().slice(0,7);
+  const minDate=new Date(2025,11,1); // 2025-12
+  const opts=[];
+  const d=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+  while(d>=minDate){
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), ym=`${y}-${m}`;
+    opts.push(`<option value="${ym}">${y}년 ${parseInt(m)}월${ym===curYm?' (이번 달)':''}</option>`);
+    d.setMonth(d.getMonth()-1);
+  }
+  const html=opts.join('');
+  startSel.innerHTML=html;
+  endSel.innerHTML=html;
+  startSel.value='2026-04'; // 수집 시작 기본값
+  endSel.value=curYm;
+}
+function onDustStartMonthChange(){
+  const startSel=document.getElementById('dustStartMonth');
+  const endSel=document.getElementById('dustEndMonth');
+  if(startSel.value>endSel.value) endSel.value=startSel.value;
 }
 
 async function startDustSearch(){
@@ -1122,7 +1154,13 @@ async function startDustSearch(){
   dustExtraIds.forEach(id=>{ if(!added.has(id)){added.add(id);ids.push(id);} });
   if(!ids.length){errEl.textContent='⚠ 조회할 영역을 선택해주세요.';return;}
 
-  const dateRange={started_at:'2026-04-01',finished_at:todayStr()};
+  const startYm=document.getElementById('dustStartMonth')?.value||'2026-04';
+  const endYm=document.getElementById('dustEndMonth')?.value||todayStr().slice(0,7);
+  if(startYm>endYm){errEl.textContent='⚠ 시작 월이 종료 월보다 클 수 없습니다.';return;}
+  const curYm=todayStr().slice(0,7);
+  const [eY,eM]=endYm.split('-').map(Number);
+  const lastDay=new Date(eY,eM,0).getDate();
+  const dateRange={started_at:`${startYm}-01`,finished_at:endYm===curYm?todayStr():`${endYm}-${String(lastDay).padStart(2,'0')}`};
   const resultSection=document.getElementById('dustResultSection');
   const progressEl=document.getElementById('dustProgressRow');
   const gridEl=document.getElementById('dustCardsGrid');
@@ -1170,7 +1208,7 @@ async function startDustSearch(){
     const card=document.getElementById('dust-card-'+id);
     const loc=productLocations[id]?`<div class="dust-card-loc">${escHtml(productLocations[id])}</div>`:'';
     try{
-      let dustResult=getDustCache(id);
+      let dustResult=getDustCache(id,startYm,endYm);
       if(!dustResult){
         const rawItems=await fetchAllReports(id,dateRange,token,()=>{});
         const items=rawItems.filter(it=>{
@@ -1178,7 +1216,7 @@ async function startDustSearch(){
           return t>=dateRange.started_at;
         });
         dustResult=calcDust(items);
-        setDustCache(id,dustResult);
+        setDustCache(id,dustResult,startYm,endYm);
       }
       const{total,days,scanCount}=dustResult;
       const activeDays=days.filter(d=>d.inc>0);
@@ -1786,6 +1824,7 @@ async function startInspection(){
 /* ===== 초기화 ===== */
 (function init(){
   cleanOldDustCache();
+  initDustMonthPicker();
   document.getElementById('footerVersion').textContent=APP_VERSION;
   document.getElementById('footerDate').textContent='Updated '+APP_DATE;
   setGlobalLock(false);
