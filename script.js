@@ -1441,17 +1441,21 @@ async function openCardDetailModal(id){
 function _renderCardDetailContent(sorted){
   const loadEl=document.getElementById('cardDetailLoading');
   const tableWrap=document.getElementById('cardDetailTableWrap');
+  if(!sorted.length){
+    loadEl.innerHTML='<div style="padding:40px 0 20px;text-align:center"><div style="font-size:28px;margin-bottom:10px">📭</div><div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:4px">수집 데이터 없음</div><div style="font-size:11px;color:var(--text3)">해당 기간에 수집된 데이터가 없습니다</div></div>';
+    loadEl.style.display='block';
+    tableWrap.style.display='none';
+    return;
+  }
   loadEl.style.display='none';
   tableWrap.style.display='block';
   document.getElementById('cardDetailCount').textContent=`총 ${sorted.length}건`;
-  document.getElementById('cardDetailBody').innerHTML=sorted.length
-    ?sorted.map(item=>`<tr>
-        <td>${escHtml(item.format_created_time||'—')}</td>
-        <td>${item.pm_10??'—'}</td>
-        <td>${item.pm_2_5??'—'}</td>
-        <td>${item.co2??'—'}</td>
-      </tr>`).join('')
-    :'<tr><td colspan="4" class="single-detail-empty" style="text-align:center">조회된 데이터가 없습니다</td></tr>';
+  document.getElementById('cardDetailBody').innerHTML=sorted.map(item=>`<tr>
+      <td>${escHtml(item.format_created_time||'—')}</td>
+      <td>${item.pm_10??'—'}</td>
+      <td>${item.pm_2_5??'—'}</td>
+      <td>${item.co2??'—'}</td>
+    </tr>`).join('');
   _renderCardDetailChart([...sorted].reverse());
 }
 function _renderCardDetailChart(items){
