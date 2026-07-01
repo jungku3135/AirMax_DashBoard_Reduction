@@ -5,7 +5,7 @@ const APP_DATE    = '2026.06.30';
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
 const SUPER_ADMIN_PASSWORD = 'wjdzn';    /* 슈퍼 관리자 비밀번호 */
-const GAS_URL        = 'https://script.google.com/macros/s/AKfycbwlcEh7wNrxgMFHJoWx_JY0aHLPVC7BR8R4soEKbNdBE9tytIYqtyAHgdzkxb_02K5lBQ/exec';
+const GAS_URL        = 'https://script.google.com/macros/s/AKfycbw61auB8x8HFf_lk-rxEnpjAY1e9AoIxs7yRkkttZG_wqoSHKxpy4w0YkFzjSoMc8nyNw/exec';
 const API      = 'https://api-airmax.testonic.co.kr/api/external/reports';
 const LS_EXTRA        = 'airmax_extra_ids';
 const LS_ENDID        = 'airmax_end_id';
