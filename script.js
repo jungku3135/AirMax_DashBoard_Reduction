@@ -922,7 +922,7 @@ function renderList(){
 function copyListToClipboard(){
   const sel=document.getElementById('listFilterSel').value;
   const filtered=filterByListSel(sel);
-  navigator.clipboard.writeText(filtered.map(r=>`${r.id}\t${r.status}`).join('\n')).then(()=>{
+  navigator.clipboard.writeText(filtered.map(r=>`${r.id}\t${getZoneAndLoc(r.id)}\t${r.status}`).join('\n')).then(()=>{
     const msg=document.getElementById('copyMsg');
     msg.style.display='inline';
     setTimeout(()=>{msg.style.display='none';},2000);
