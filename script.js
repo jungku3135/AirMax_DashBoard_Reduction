@@ -1759,7 +1759,7 @@ async function startInspection(){
     const startVal=document.getElementById('singleStartDate').value;
     const endVal=document.getElementById('singleEndDate').value;
     const startMs=startVal?new Date(startVal).getTime():null;
-    const endMs=endVal?new Date(endVal).getTime():null;
+    const endMs=endVal?new Date(endVal).getTime()+59999:null;
     if(startMs&&endMs&&startMs>=endMs){errEl.textContent='⚠ 종료 시간이 시작 시간보다 뒤여야 합니다.';return;}
     const dateRange=getDateRange('single');
     setGlobalLock(true);
