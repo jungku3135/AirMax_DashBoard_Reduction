@@ -1,6 +1,6 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v1.65';
-const APP_DATE    = '2026.06.30';
+const APP_VERSION = 'v1.66';
+const APP_DATE    = '2026.07.07';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
@@ -36,7 +36,7 @@ let isGlobalLocked=false;
 let selectedDustZones=new Set();
 let lastResults = [];
 let lastDateRange=null, cardDetailModalOpen=false;
-let singleAllItems=[], singlePage=0, singleShowAll=false, singleChartDust=null, singleChartCo2=null;
+let singleAllItems=[], singlePage=0, singleShowAll=false, singleChartDust=null, singleChartMotor=null;
 let dustDays=[], dustModalChart=null, dustModalOpen=false;
 const cardDetailCache=new Map();
 let cardDetailChartDust=null, cardDetailChartCo2=null;
@@ -1631,56 +1631,96 @@ function copySingleToClipboard(){
 
 function renderSingleChart(items){
   if(singleChartDust){ singleChartDust.destroy(); singleChartDust=null; }
-  if(singleChartCo2){ singleChartCo2.destroy(); singleChartCo2=null; }
+  if(singleChartMotor){ singleChartMotor.destroy(); singleChartMotor=null; }
   if(!items.length) return;
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
   const tickColor=isDark?'#999':'#888';
+  const tooltipBase={
+    backgroundColor:isDark?'#1e1e1e':'#fff',
+    titleColor:isDark?'#ddd':'#222',
+    bodyColor:isDark?'#ccc':'#444',
+    borderColor:isDark?'#444':'#ddd',
+    borderWidth:1, padding:10,
+  };
   const labels=items.map(d=>fmtTime(d.format_created_time));
   const pt=items.length>15?2:4;
 
-  const makeOpts=(showLegend)=>({
-    responsive:true, maintainAspectRatio:false,
-    interaction:{mode:'index',intersect:false},
-    plugins:{
-      legend:{
-        display:showLegend,
-        labels:{color:isDark?'#ccc':'#444',font:{size:11},boxWidth:12,padding:14}
-      },
-      tooltip:{
-        backgroundColor:isDark?'#1e1e1e':'#fff',
-        titleColor:isDark?'#ddd':'#222',
-        bodyColor:isDark?'#ccc':'#444',
-        borderColor:isDark?'#444':'#ddd',
-        borderWidth:1, padding:10,
-      }
-    },
-    scales:{
-      x:{ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10},grid:{color:gridColor}},
-      y:{ticks:{color:tickColor,font:{size:10},callback:v=>Number.isInteger(v)?v:null},grid:{color:gridColor},beginAtZero:true,min:0}
-    }
-  });
-
+  /* ── Chart 1: PM10 · PM2.5 (좌) + CO₂ (우) ── */
   const canvasDust=document.getElementById('singleChartDust');
   if(canvasDust){
     singleChartDust=new Chart(canvasDust,{type:'line', data:{labels, datasets:[
       {label:'PM10 (㎍/㎥)', data:items.map(d=>d.pm_10!==undefined?Number(d.pm_10):null),
-       borderColor:'#4e8ef7', backgroundColor:'rgba(78,142,247,0.08)',
+       yAxisID:'y', borderColor:'#4e8ef7', backgroundColor:'rgba(78,142,247,0.08)',
        fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false},
       {label:'PM2.5 (㎍/㎥)', data:items.map(d=>d.pm_2_5!==undefined?Number(d.pm_2_5):null),
-       borderColor:'#4ecf8e', backgroundColor:'rgba(78,207,142,0.08)',
+       yAxisID:'y', borderColor:'#4ecf8e', backgroundColor:'rgba(78,207,142,0.08)',
        fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false},
-    ]}, options:makeOpts(true)});
+      {label:'CO₂ (ppm)', data:items.map(d=>d.co2!==undefined?Number(d.co2):null),
+       yAxisID:'y1', borderColor:'#f7a14e', backgroundColor:'rgba(247,161,78,0.12)',
+       fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false},
+    ]}, options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:true, labels:{color:isDark?'#ccc':'#444',font:{size:11},boxWidth:12,padding:14}},
+        tooltip:{...tooltipBase}
+      },
+      scales:{
+        x:{ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10},grid:{color:gridColor}},
+        y:{position:'left', ticks:{color:'#4e8ef7',font:{size:10}},grid:{color:gridColor},beginAtZero:true,min:0, title:{display:true,text:'㎍/㎥',color:'#4e8ef7',font:{size:10}}},
+        y1:{position:'right', ticks:{color:'#f7a14e',font:{size:10}},grid:{drawOnChartArea:false},beginAtZero:true,min:0, title:{display:true,text:'ppm',color:'#f7a14e',font:{size:10}}},
+      }
+    }});
   }
 
-  const canvasCo2=document.getElementById('singleChartCo2');
-  if(canvasCo2){
-    singleChartCo2=new Chart(canvasCo2,{type:'line', data:{labels, datasets:[
-      {label:'CO₂ (ppm)', data:items.map(d=>d.co2!==undefined?Number(d.co2):null),
-       borderColor:'#f7a14e', backgroundColor:'rgba(247,161,78,0.12)',
-       fill:true, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false},
-    ]}, options:makeOpts(false)});
+  /* ── Chart 2: 가동 횟수(좌) + 가동 시간(우) — diff 계산 ── */
+  const countDiffs=items.map((d,i)=>{
+    if(i===0||d.motorRunningCount==null) return null;
+    const prev=items[i-1];
+    if(prev.motorRunningCount==null) return null;
+    const diff=Number(d.motorRunningCount)-Number(prev.motorRunningCount);
+    return diff>=0?diff:null;
+  });
+  const hmsToSec=str=>{
+    if(str==null) return null;
+    const p=String(str).trim().split(':');
+    if(p.length!==3) return null;
+    const [h,m,s]=p.map(Number);
+    return (isNaN(h)||isNaN(m)||isNaN(s))?null:h*3600+m*60+s;
+  };
+  const timeDiffs=items.map((d,i)=>{
+    if(i===0) return null;
+    const cur=hmsToSec(d.motorRunningTime);
+    const prv=hmsToSec(items[i-1].motorRunningTime);
+    if(cur==null||prv==null) return null;
+    const diff=cur-prv;
+    return diff>=0?diff:null;
+  });
+
+  const canvasMotor=document.getElementById('singleChartMotor');
+  if(canvasMotor){
+    singleChartMotor=new Chart(canvasMotor,{type:'line', data:{labels, datasets:[
+      {label:'가동 횟수 (회)', data:countDiffs,
+       yAxisID:'y', borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.10)',
+       fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false},
+      {label:'가동 시간 (초)', data:timeDiffs,
+       yAxisID:'y1', borderColor:'#fb923c', backgroundColor:'rgba(251,146,60,0.10)',
+       fill:false, tension:0.35, pointRadius:pt, pointHoverRadius:6, borderWidth:2, spanGaps:false},
+    ]}, options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:true, labels:{color:isDark?'#ccc':'#444',font:{size:11},boxWidth:12,padding:14}},
+        tooltip:{...tooltipBase}
+      },
+      scales:{
+        x:{ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:10},grid:{color:gridColor}},
+        y:{position:'left', ticks:{color:'#a78bfa',font:{size:10},callback:v=>Number.isInteger(v)?v:null},grid:{color:gridColor},beginAtZero:true,min:0, title:{display:true,text:'회',color:'#a78bfa',font:{size:10}}},
+        y1:{position:'right', ticks:{color:'#fb923c',font:{size:10},callback:v=>Number.isInteger(v)?v:null},grid:{drawOnChartArea:false},beginAtZero:true,min:0, title:{display:true,text:'초',color:'#fb923c',font:{size:10}}},
+      }
+    }});
   }
 }
 
