@@ -1735,10 +1735,10 @@ function renderSingleChart(items){
         x:{ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:12},
            grid:{color:gridColor},border:{display:false}},
         y:{position:'left',
-           ticks:{color:'#4e8ef7',font:{size:10},maxTicksLimit:6},
+           ticks:{color:'#4e8ef7',font:{size:10},maxTicksLimit:6,callback:v=>Number.isInteger(v)?v:null},
            grid:{color:gridColor},border:{display:false},beginAtZero:true,min:0},
         y1:{position:'right',
-            ticks:{color:'#f59e0b',font:{size:10},maxTicksLimit:6},
+            ticks:{color:'#f59e0b',font:{size:10},maxTicksLimit:6,callback:v=>Number.isInteger(v)?v:null},
             grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true,min:0},
       }
     }, plugins:[yLabelPlugin('㎍/㎥','#4e8ef7','ppm','#f59e0b')]});
