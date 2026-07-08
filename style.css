@@ -229,10 +229,9 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   letter-spacing:0.3px;
 }
 [data-theme="dark"] .exclude-reason-badge { background:rgba(234,179,8,0.12); color:#fbbf24; border-color:rgba(251,191,36,0.25); }
-.range-versions-grid { display:flex; flex-wrap:wrap; gap:12px 32px; align-items:flex-start; }
-.range-versions-grid > div { flex-shrink:0; }
-.range-extras-grid { display:flex; flex-wrap:wrap; gap:12px 32px; align-items:flex-start; }
-.range-extras-grid > div { flex-shrink:0; }
+.range-panel-grid { display:grid; grid-template-columns:auto auto; gap:0 32px; justify-content:start; }
+.range-panel-divider { grid-column:1/-1; margin:12px 0; border:none; border-top:1px solid var(--border); }
+@media (max-width:768px) { .range-panel-grid { grid-template-columns:1fr; } .range-panel-divider { grid-column:1; } }
 
 /* ===== 버튼 ===== */
 .btn-primary {
