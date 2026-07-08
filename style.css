@@ -232,7 +232,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .range-versions-grid { display:flex; flex-wrap:wrap; gap:12px 32px; align-items:flex-start; }
 .range-versions-grid > div { flex-shrink:0; }
 .range-extras-grid { display:flex; flex-wrap:wrap; gap:12px 32px; align-items:flex-start; }
-.range-extras-grid > div { flex:1 1 240px; }
+.range-extras-grid > div { flex-shrink:0; }
 
 /* ===== 버튼 ===== */
 .btn-primary {
