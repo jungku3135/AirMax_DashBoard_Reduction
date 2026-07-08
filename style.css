@@ -229,8 +229,10 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   letter-spacing:0.3px;
 }
 [data-theme="dark"] .exclude-reason-badge { background:rgba(234,179,8,0.12); color:#fbbf24; border-color:rgba(251,191,36,0.25); }
-.range-versions-grid { display:grid; grid-template-columns:1fr; gap:0; }
-@media (min-width:769px) { .range-versions-grid { grid-template-columns:1fr 1fr; gap:16px; } }
+.range-versions-grid { display:flex; flex-wrap:wrap; gap:12px 32px; align-items:flex-start; }
+.range-versions-grid > div { flex-shrink:0; }
+.range-extras-grid { display:flex; flex-wrap:wrap; gap:12px 32px; align-items:flex-start; }
+.range-extras-grid > div { flex:1 1 240px; }
 
 /* ===== 버튼 ===== */
 .btn-primary {
