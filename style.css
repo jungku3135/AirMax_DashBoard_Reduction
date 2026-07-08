@@ -221,6 +221,16 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   font-size:15px; line-height:1; padding:0; transition:color 0.1s;
 }
 .extra-id-tag button:hover { color:var(--pm-text); }
+.exclude-tag-reason { font-size:10px; opacity:0.75; font-weight:400; }
+.exclude-reason-badge {
+  display:inline-block; margin-top:3px;
+  padding:1px 7px; border-radius:4px; font-size:10px; font-weight:700;
+  background:rgba(234,179,8,0.15); color:#ca8a04; border:1px solid rgba(234,179,8,0.3);
+  letter-spacing:0.3px;
+}
+[data-theme="dark"] .exclude-reason-badge { background:rgba(234,179,8,0.12); color:#fbbf24; border-color:rgba(251,191,36,0.25); }
+.range-versions-grid { display:grid; grid-template-columns:1fr; gap:0; }
+@media (min-width:769px) { .range-versions-grid { grid-template-columns:1fr 1fr; gap:16px; } }
 
 /* ===== 버튼 ===== */
 .btn-primary {

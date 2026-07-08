@@ -96,26 +96,31 @@
 
   <!-- 범위 검색 -->
   <div id="panelRange">
-    <div class="section-label" style="margin-bottom:6px">국내 버전
-      <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — A001 형식</span>
-    </div>
-    <div class="row">
-      <label>시작 ID</label>
-      <input type="text" class="id-input" id="domStartId" placeholder="A001" maxlength="4" value="A001"/>
-      <span class="dash">—</span>
-      <label>끝 ID</label>
-      <input type="text" class="id-input" id="domEndId" placeholder="A000" maxlength="4"/>
-    </div>
-    <hr class="divider" style="margin:12px 0"/>
-    <div class="section-label" style="margin-bottom:6px">글로벌 버전
-      <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — G001 형식</span>
-    </div>
-    <div class="row">
-      <label>시작 ID</label>
-      <input type="text" class="id-input" id="globalStartId" placeholder="G001" maxlength="4" value="G001"/>
-      <span class="dash">—</span>
-      <label>끝 ID</label>
-      <input type="text" class="id-input" id="globalEndId" placeholder="G000" maxlength="4"/>
+    <div class="range-versions-grid">
+      <div>
+        <div class="section-label" style="margin-bottom:6px">국내 버전
+          <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — A001 형식</span>
+        </div>
+        <div class="row">
+          <label>시작 ID</label>
+          <input type="text" class="id-input" id="domStartId" placeholder="A001" maxlength="4" value="A001"/>
+          <span class="dash">—</span>
+          <label>끝 ID</label>
+          <input type="text" class="id-input" id="domEndId" placeholder="A000" maxlength="4"/>
+        </div>
+      </div>
+      <div>
+        <div class="section-label" style="margin-bottom:6px">글로벌 버전
+          <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — G001 형식</span>
+        </div>
+        <div class="row">
+          <label>시작 ID</label>
+          <input type="text" class="id-input" id="globalStartId" placeholder="G001" maxlength="4" value="G001"/>
+          <span class="dash">—</span>
+          <label>끝 ID</label>
+          <input type="text" class="id-input" id="globalEndId" placeholder="G000" maxlength="4"/>
+        </div>
+      </div>
     </div>
     <hr class="divider" style="margin:12px 0"/>
     <div class="section-label" style="margin-bottom:6px">개별 추가 ID
@@ -125,6 +130,18 @@
     <div class="row" style="margin-top:8px">
       <input type="text" class="extra-id-input" id="extraIdInput" placeholder="예: Demo, Lab0  (쉼표 구분 가능)"/>
       <button class="btn-add" onclick="addExtraId()">+ 추가</button>
+    </div>
+    <hr class="divider" style="margin:12px 0"/>
+    <div class="section-label" style="margin-bottom:6px">개별 제외 ID
+      <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — 점검은 하되 시트에 사유로 저장</span>
+    </div>
+    <div class="extra-ids-row" id="excludeTagsRow"></div>
+    <div class="row" style="margin-top:8px">
+      <input type="text" class="extra-id-input" id="excludeIdInput" placeholder="예: A005, A010  (쉼표 구분 가능)"/>
+      <select class="list-filter-sel" id="excludeReasonSel" style="flex-shrink:0">
+        <option value="유지보수X">유지보수X</option>
+      </select>
+      <button class="btn-add" onclick="addExcludeId()">+ 추가</button>
     </div>
   </div>
 

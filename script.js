@@ -1,6 +1,6 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v1.67';
-const APP_DATE    = '2026.07.07';
+const APP_VERSION = 'v1.68';
+const APP_DATE    = '2026.07.08';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
@@ -8,6 +8,7 @@ const SUPER_ADMIN_PASSWORD = 'wjdzn';    /* 슈퍼 관리자 비밀번호 */
 const GAS_URL        = 'https://script.google.com/macros/s/AKfycbw61auB8x8HFf_lk-rxEnpjAY1e9AoIxs7yRkkttZG_wqoSHKxpy4w0YkFzjSoMc8nyNw/exec';
 const API      = 'https://api-airmax.testonic.co.kr/api/external/reports';
 const LS_EXTRA        = 'airmax_extra_ids';
+const LS_EXCLUDE      = 'airmax_exclude_reasons';
 const LS_ENDID        = 'airmax_end_id';
 const LS_GLOBAL_ENDID = 'airmax_global_end_id';
 const LS_THEME = 'airmax_theme';
@@ -32,6 +33,7 @@ let peOriginals = {};
 
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
 let logVisible=false, logs=[], extraIds=[], dustExtraIds=[];
+let excludeReasons={}; // {id: reason}
 let isGlobalLocked=false;
 let selectedDustZones=new Set();
 let lastResults = [];
@@ -179,7 +181,7 @@ async function saveToSheet(){
     const res=await fetch(GAS_URL,{
       method:'POST',
       headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({results:lastResults, savedAt:new Date().toISOString()})
+      body:JSON.stringify({results:lastResults.map(r=>({id:r.id,status:excludeReasons[r.id]||r.status})), savedAt:new Date().toISOString()})
     });
     const json=await res.json();
     if(json.success){
@@ -421,6 +423,31 @@ function _renderExtraTags(arr,rowId,removeFn){
 function addExtraId(){ _addExtraId(extraIds,LS_EXTRA,'extraIdInput',renderExtraTags); }
 function removeExtraId(id){ extraIds=extraIds.filter(v=>v!==id); lsSet(LS_EXTRA,extraIds); renderExtraTags(); }
 function renderExtraTags(){ _renderExtraTags(extraIds,'extraTagsRow','removeExtraId'); }
+
+function addExcludeId(){
+  const inp=document.getElementById('excludeIdInput');
+  const sel=document.getElementById('excludeReasonSel');
+  if(!inp||!sel) return;
+  const ids=inp.value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
+  const reason=sel.value;
+  if(!ids.length||!reason) return;
+  ids.forEach(id=>{ excludeReasons[id]=reason; });
+  lsSet(LS_EXCLUDE,excludeReasons);
+  inp.value='';
+  renderExcludeTags();
+}
+function removeExcludeId(id){
+  delete excludeReasons[id];
+  lsSet(LS_EXCLUDE,excludeReasons);
+  renderExcludeTags();
+}
+function renderExcludeTags(){
+  const row=document.getElementById('excludeTagsRow');
+  if(!row) return;
+  row.innerHTML=Object.entries(excludeReasons).map(([id,reason])=>
+    `<span class="extra-id-tag">${escHtml(id)}<span class="exclude-tag-reason"> — ${escHtml(reason)}</span><button onclick="removeExcludeId('${escHtml(id)}')" title="삭제">×</button></span>`
+  ).join('');
+}
 function addDustExtraId(){ _addExtraId(dustExtraIds,LS_DUST_EXTRA,'dustExtraIdInput',renderDustExtraTags); }
 function removeDustExtraId(id){ dustExtraIds=dustExtraIds.filter(v=>v!==id); lsSet(LS_DUST_EXTRA,dustExtraIds); renderDustExtraTags(); }
 function renderDustExtraTags(){ _renderExtraTags(dustExtraIds,'dustExtraTagsRow','removeDustExtraId'); }
@@ -557,9 +584,11 @@ function renderGrid(){
     const tip=r.errMsg?escHtml(r.errMsg):r.item
       ?`PM10: ${r.item.pm_10}㎍/㎥<br>PM2.5: ${r.item.pm_2_5}㎍/㎥<br>CO₂: ${r.item.co2}ppm<br><span class="tooltip-time">수집: ${escHtml(r.item.format_created_time)}</span>`
       :'<span style="display:block;text-align:center">데이터 없음</span>';
+    const exReason=excludeReasons[r.id]||'';
     return`<div class="card ${cfg.cls}" data-id="${escHtml(r.id)}" onclick="openCardDetailModal('${escHtml(r.id)}')">
       <div class="card-status" style="color:var(${cfg.textVar})"><span class="card-icon">${cfg.icon}</span>${cfg.label}</div>
       <div class="card-id">${escHtml(r.id)}</div>
+      ${exReason?`<div class="exclude-reason-badge">${escHtml(exReason)}</div>`:''}
       ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
       ${r.item?`<div class="card-meta">${r.item.pm_10}㎍/㎥ | ${r.item.pm_2_5}㎍/㎥ | ${r.item.co2}ppm</div>`:''}
       ${r.status==='ERR'&&r.errMsg?`<div class="card-err-text">${escHtml(r.errMsg.slice(0,50))}</div>`:''}
@@ -883,10 +912,12 @@ function updateGridCard(r){
     :'<span style="display:block;text-align:center">데이터 없음</span>';
   const el=document.querySelector(`#grid .card[data-id="${CSS.escape(r.id)}"]`);
   if(!el) return;
+  const exReason=excludeReasons[r.id]||'';
   el.className=`card ${cfg.cls} card-updated`;
   el.innerHTML=`
     <div class="card-status" style="color:var(${cfg.textVar})"><span class="card-icon">${cfg.icon}</span>${cfg.label}</div>
     <div class="card-id">${escHtml(r.id)}</div>
+    ${exReason?`<div class="exclude-reason-badge">${escHtml(exReason)}</div>`:''}
     ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
     ${r.item?`<div class="card-meta">${r.item.pm_10}㎍/㎥ | ${r.item.pm_2_5}㎍/㎥ | ${r.item.co2}ppm</div>`:''}
     ${r.status==='ERR'&&r.errMsg?`<div class="card-err-text">${escHtml(r.errMsg.slice(0,50))}</div>`:''}
@@ -2005,12 +2036,14 @@ async function startInspection(){
 
   extraIds=lsGet(LS_EXTRA,[]);
   dustExtraIds=lsGet(LS_DUST_EXTRA,[]);
+  excludeReasons=lsGet(LS_EXCLUDE,{});
   renderDustExtraTags();
   const savedDomEnd=lsGet(LS_ENDID,'');
   if(savedDomEnd) document.getElementById('domEndId').value=savedDomEnd;
   const savedGlobalEnd=lsGet(LS_GLOBAL_ENDID,'');
   if(savedGlobalEnd) document.getElementById('globalEndId').value=savedGlobalEnd;
   renderExtraTags();
+  renderExcludeTags();
 
   const savedMode=lsGet(LS_MODE,'range');
   switchMode(savedMode);
