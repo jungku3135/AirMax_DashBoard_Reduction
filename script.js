@@ -1036,13 +1036,21 @@ function calcDust(items){
     if(!dayMap.has(p.date)) dayMap.set(p.date,[]);
     dayMap.get(p.date).push(p);
   });
-  const days=[...dayMap.entries()].map(([date,ps])=>{
+  const dayEntries=[...dayMap.entries()].sort((a,b)=>a[0]<b[0]?-1:1);
+  const days=dayEntries.map(([date,ps],idx)=>{
     let inc=0;
     for(let i=1;i<ps.length;i++){
       const diff=ps[i].grams-ps[i-1].grams;
       if(diff>0) inc+=diff;
     }
-    return{date,count:ps.length,first:ps[0].grams,last:ps[ps.length-1].grams,inc};
+    let displayFirst=ps[0].grams;
+    if(idx>0){
+      const prevPs=dayEntries[idx-1][1];
+      const prevLast=prevPs[prevPs.length-1].grams;
+      const crossDiff=ps[0].grams-prevLast;
+      if(crossDiff>0){ inc+=crossDiff; displayFirst=prevLast; }
+    }
+    return{date,count:ps.length,first:displayFirst,last:ps[ps.length-1].grams,inc};
   });
 
   return{total,days,scanCount:sorted.length};
