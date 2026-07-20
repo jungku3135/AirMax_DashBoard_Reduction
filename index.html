@@ -412,13 +412,15 @@
     <button class="btn-ghost" id="historyRefreshBtn" onclick="loadHistoryGrid(document.getElementById('historyMonthSel').value)" title="최신 데이터로 새로고침">🔄</button>
     <input type="text" id="historySearchInput" class="id-input" placeholder="제품 ID / 영역 / 설치 장소 검색…"
       style="flex:1;max-width:260px;min-width:0" oninput="filterHistoryGrid(this.value)"/>
-    <div class="history-legend">
-      <span class="hist-chip ok">OK</span><span class="hist-chip no">NO</span>
-      <span class="hist-chip em">EM</span><span class="hist-chip pm">PM</span>
-      <span class="hist-chip excl">제외</span>
-    </div>
-    <span style="flex:1"></span>
+    <span class="history-toolbar-spacer"></span>
     <button class="btn-primary" id="weeklyReportBtn" onclick="openWeeklyReportModal()">📋 점검 요청서 생성</button>
+  </div>
+  <div class="history-legend">
+    <span class="hist-chip ok">OK <em>정상</em></span>
+    <span class="hist-chip no">NO <em>데이터 조회 안 됨</em></span>
+    <span class="hist-chip em">EM <em>조회 시 모든 데이터 0</em></span>
+    <span class="hist-chip pm">PM <em>먼지농도 오류(0으로 표시)</em></span>
+    <span class="hist-chip excl">제외 <em>유지보수X·설치X 등 사유 있음</em></span>
   </div>
   <div id="historyEmptyMsg" class="pe-empty" style="display:none">표시할 데이터가 없습니다. 월을 선택하거나 시트 데이터를 새로고침 해주세요.</div>
   <div class="history-grid-scroll" id="historyGridScroll">
