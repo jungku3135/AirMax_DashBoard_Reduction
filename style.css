@@ -73,6 +73,9 @@ body {
   transition:background 0.25s,color 0.25s;
   -webkit-font-smoothing:antialiased;
 }
+/* 히스토리 페이지엔 모바일 고정 버튼(.mobile-fixed-run)이 없어 80px 여유가 불필요 —
+   그리드를 뷰포트에 정확히 맞춰도 이 여유분 때문에 페이지 자체 스크롤이 남는 걸 막음 */
+body.history-page-active { padding-bottom:46px; }
 
 /* ===== 헤더 ===== */
 .header {
@@ -863,9 +866,11 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 }
 
 .history-grid-scroll {
-  /* 헤더(71px) + historyPage 상하 패딩(8+16) + 툴바(37+margin 14) + 푸터(30) + 여유 8px 만큼 빼서
-     뷰포트 높이와 무관하게 항상 푸터 바로 위까지 꽉 채움 (72vh 고정값은 화면이 크면 아래 여백이 남음) */
-  overflow:auto; height:calc(100vh - 184px);
+  /* 헤더(71) + historyPage 상단패딩(8) + 툴바(37+margin 10) + 범례(22+margin 14)
+     + body.history-page-active의 padding-bottom(46) + historyPage 하단패딩 여유분 = 224px.
+     이 값이 실제 렌더 높이와 어긋나면 페이지 자체에도 스크롤이 생기니(더블 스크롤)
+     위 요소 높이가 바뀌면 반드시 같이 맞출 것. */
+  overflow:auto; height:calc(100vh - 224px);
   border:1.5px solid var(--border); border-radius:var(--radius);
   box-shadow:var(--shadow-xs);
 }
@@ -893,18 +898,19 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .hist-blank { color:var(--text4); opacity:0.4; }
 
 /* ===== 히스토리 일자별 통계 (제품 그리드와 같은 table 안의 sticky 헤더 행으로 쌓음) ===== */
+/* 행 높이(28px)는 script.js의 HIST_STAT_ROW_H와 반드시 일치해야 sticky 오프셋이 안 어긋남 */
 .history-grid-table thead tr.hist-stat-row th {
-  box-sizing:border-box; height:26px; padding:2px 12px;
-  font-size:10.5px; font-weight:700; letter-spacing:0.2px;
+  box-sizing:border-box; height:28px; padding:2px 12px;
+  font-size:12px; font-weight:800; letter-spacing:0.2px;
 }
-.history-grid-table thead tr.hist-stat-row th.hist-stat-label-th { text-align:left; color:var(--text3); }
-.hist-stat-th.hist-stat-ok   { color:var(--ok-text); }
-.hist-stat-th.hist-stat-no   { color:var(--no-text); }
-.hist-stat-th.hist-stat-em   { color:var(--em-text); }
-.hist-stat-th.hist-stat-pm   { color:var(--pm-text); }
-.hist-stat-th.hist-stat-excl { color:#ca8a04; }
-[data-theme="dark"] .hist-stat-th.hist-stat-excl { color:#fbbf24; }
-.hist-stat-th.hist-stat-problem { color:var(--pm-text); background:var(--pm-bg); }
+.history-grid-table thead tr.hist-stat-row th.hist-stat-label-th { text-align:left; color:var(--text2); background:var(--input-bg); }
+.hist-stat-th.hist-stat-ok   { color:var(--ok-text); background:var(--ok-bg); }
+.hist-stat-th.hist-stat-no   { color:var(--no-text); background:var(--no-bg); }
+.hist-stat-th.hist-stat-em   { color:var(--em-text); background:var(--em-bg); }
+.hist-stat-th.hist-stat-pm   { color:var(--pm-text); background:var(--pm-bg); }
+.hist-stat-th.hist-stat-excl { color:#ca8a04; background:rgba(234,179,8,0.15); }
+[data-theme="dark"] .hist-stat-th.hist-stat-excl { color:#fbbf24; background:rgba(234,179,8,0.12); }
+.hist-stat-th.hist-stat-problem { color:var(--pm-text); background:var(--pm-bg); font-weight:900; }
 
 /* ===== 주간 점검 요청서 모달 ===== */
 @media (min-width:769px) { #weeklyReportModalBox { max-width:960px; } }

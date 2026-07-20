@@ -2062,6 +2062,9 @@ function switchPage(page){
   document.getElementById('pageTabHistory').classList.toggle('active', page==='history');
   document.getElementById('inspectionPage').style.display = page==='inspection' ? '' : 'none';
   document.getElementById('historyPage').style.display = page==='history' ? '' : 'none';
+  // 히스토리 페이지는 모바일 고정 버튼이 없어 body의 넉넉한 padding-bottom(80px)이 불필요 —
+  // 그대로 두면 그리드 높이를 아무리 정확히 맞춰도 그 여유분만큼 페이지 자체 스크롤(더블 스크롤)이 남음
+  document.body.classList.toggle('history-page-active', page==='history');
   // 히스토리 탭에 들어올 때마다 최신 데이터로 동기화 (당일 점검 후 바로 확인 못했을 수 있으므로 캐시된 월도 강제 재조회)
   if(page==='history') loadHistoryMonths(true);
 }
@@ -2146,7 +2149,7 @@ const HIST_STAT_ROWS=[
   {key:'excl', label:'제외',      cls:'excl'},
   {key:'problem', label:'문제 합(NO+EM+PM)', cls:'problem'}
 ];
-const HIST_STAT_ROW_H=26; // px — 아래 통계 행 top 오프셋 계산과 CSS의 고정 높이가 반드시 일치해야 함
+const HIST_STAT_ROW_H=28; // px — 아래 통계 행 top 오프셋 계산과 CSS의 고정 높이가 반드시 일치해야 함
 
 function computeHistoryStats(rows, colIdxs){
   return colIdxs.map(colIdx=>{
