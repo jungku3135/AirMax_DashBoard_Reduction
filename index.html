@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"/>
 <link rel="stylesheet" href="style.css"/>
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </head>
 <body>
 
@@ -29,11 +30,16 @@
     </div>
     <div class="date-info" id="dateInfo"></div>
   </div>
+  <div class="page-tabs" id="pageTabs" style="display:none">
+    <button class="page-tab active" id="pageTabInspection" onclick="switchPage('inspection')">점검</button>
+    <button class="page-tab" id="pageTabHistory" onclick="switchPage('history')">히스토리</button>
+  </div>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
     <span class="theme-icon" id="themeIcon">🌙</span>
   </button>
 </div>
 
+<div id="inspectionPage">
 <div class="controls">
   <!-- API 토큰 (숨김) -->
   <input type="hidden" id="tokenInput" value="1|WrmwJU8n5mrF0oO0cYlPiGYR40N1txioHrpUXgSM0ab1084c"/>
@@ -391,6 +397,63 @@
   <div class="inner">
     <span style="font-size:12px;color:var(--text3)" id="mobileZoneInfo">영역을 선택하세요</span>
     <button class="btn-primary" id="mobileRunBtn" onclick="startInspection()">점검 시작</button>
+  </div>
+</div>
+</div><!-- /#inspectionPage -->
+
+<!-- ===== 점검 히스토리 페이지 (관리자 전용) ===== -->
+<div id="historyPage" style="display:none; padding:16px 24px;">
+  <div class="history-toolbar">
+    <select id="historyMonthSel" class="list-filter-sel" style="min-width:130px" onchange="loadHistoryGrid(this.value)"></select>
+    <input type="text" id="historySearchInput" class="id-input" placeholder="제품 ID / 영역 / 설치 장소 검색…"
+      style="flex:1;max-width:260px;min-width:0" oninput="filterHistoryGrid(this.value)"/>
+    <div class="history-legend">
+      <span class="hist-chip ok">OK</span><span class="hist-chip no">NO</span>
+      <span class="hist-chip em">EM</span><span class="hist-chip pm">PM</span>
+      <span class="hist-chip excl">제외</span>
+    </div>
+    <span style="flex:1"></span>
+    <button class="btn-primary" id="weeklyReportBtn" onclick="openWeeklyReportModal()">📋 점검 요청서 생성</button>
+  </div>
+  <div id="historyEmptyMsg" class="pe-empty" style="display:none">표시할 데이터가 없습니다. 월을 선택하거나 시트 데이터를 새로고침 해주세요.</div>
+  <div class="history-grid-scroll" id="historyGridScroll">
+    <table class="history-grid-table" id="historyGridTable"></table>
+  </div>
+</div>
+
+<!-- 주간 점검 요청서 생성 모달 -->
+<div id="weeklyReportModal" class="dust-modal-overlay" style="display:none" onclick="weeklyReportOverlayClick(event)">
+  <div class="dust-modal-box" id="weeklyReportModalBox">
+    <div class="modal-drag-handle"></div>
+    <div class="dust-modal-header">
+      <span class="dust-modal-title">주간 점검 요청서 생성</span>
+      <button class="pe-btn" onclick="closeWeeklyReportModal()">✕ 닫기</button>
+    </div>
+    <div class="dust-modal-body">
+      <div class="wr-requester-row">
+        <label style="min-width:60px">요청자</label>
+        <select id="wrRequesterSel" class="list-filter-sel" style="min-width:140px"></select>
+        <input type="text" id="wrRequesterInput" class="extra-id-input" placeholder="이름 입력 후 추가" style="max-width:160px"/>
+        <button class="btn-add" onclick="addRequester()">+ 추가</button>
+        <button class="btn-ghost" onclick="removeSelectedRequester()">선택 삭제</button>
+      </div>
+      <div id="wrLoading" style="text-align:center;padding:32px 0;color:var(--text3);font-size:13px">불러오는 중…</div>
+      <div id="wrContent" style="display:none">
+        <div class="wr-summary" id="wrSummary"></div>
+        <div class="single-detail-scroll">
+          <table class="single-detail-table wr-table" id="wrTable"></table>
+        </div>
+        <div id="wrOverdueSection" style="display:none">
+          <div class="wr-section-title" id="wrOverdueTitle"></div>
+          <div class="single-detail-scroll">
+            <table class="single-detail-table wr-table" id="wrOverdueTable"></table>
+          </div>
+        </div>
+        <div class="wr-actions">
+          <button class="btn-primary" id="wrExportBtn" onclick="exportWeeklyReportXlsx()">⬇️ 다운로드 + 저장</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 

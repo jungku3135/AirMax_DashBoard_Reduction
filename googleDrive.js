@@ -10,45 +10,35 @@ Google Apps Script 코드 — 아래 코드를 복사하여 GAS 프로젝트에 
         - B열  : 제품 ID (9행부터)
 
     제품 리스트 시트 ("제품 리스트")
-        - 3행  : 헤더 (B=제품ID, C=영역명, E=설치장소)
+        - 3행  : 헤더 (B=제품ID, C=영역명, D=설치장소)
         - 4행~ : 데이터
+
+    점검요청이력 시트 ("점검요청이력") — 주간 점검 요청서 생성 시 자동 기록됨.
+    시트가 없으면 아래 헤더로 직접 만들어두세요 (1행에 헤더, 2행부터 데이터):
+        생성일 | 제품ID | 오류코드 | 오류발생일 | 신규여부 | 한달이상여부 | 영역 | 설치장소 | 요청자 | 비고
 ================================================================================
 */
-// GET 요청 — 제품 리스트 시트에서 영역/설치장소 반환
-// 반환 형식: { success, zones:[{name,ids[]}], locations:{id:loc} }
+// GET 요청 — 제품 리스트 시트에서 영역/설치장소 + 월별 점검 시트 목록 반환
+// 반환 형식: { success, zones:[{name,ids[]}], locations:{id:loc}, monthSheets:[name,...] }
 function doGet(e) {
-try {
+  try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName('제품 리스트');
-    if (!sheet) {
-    return buildJson({ success: false, error: '제품 리스트 시트 없음' });
-    }
-    var lastRow = sheet.getLastRow();
-    var locations = {};
-    var zoneMap   = {};   // zoneName -> [id, ...]
-    var zoneOrder = [];   // 등장 순서 유지
-    if (lastRow >= 4) {
-    // B(2)=제품ID, C(3)=영역명, D(4)=설치장소 → getRange(4, 2, n, 3)
-    var rows = sheet.getRange(4, 2, lastRow - 3, 3).getValues();
-    rows.forEach(function(row) {
-        var id   = String(row[0]).trim();
-        var zone = String(row[1]).trim();
-        var loc  = String(row[2]).trim();
-        if (!id) return;
-        if (zone) {
-        if (!zoneMap[zone]) { zoneMap[zone] = []; zoneOrder.push(zone); }
-        zoneMap[zone].push(id);
-        }
-        if (loc) locations[id] = loc;
+    var productMap = getProductList(ss);
+    var zoneMap = {}, zoneOrder = [], locations = {};
+    Object.keys(productMap).forEach(function(id) {
+      var p = productMap[id];
+      if (p.zone) {
+        if (!zoneMap[p.zone]) { zoneMap[p.zone] = []; zoneOrder.push(p.zone); }
+        zoneMap[p.zone].push(id);
+      }
+      if (p.loc) locations[id] = p.loc;
     });
-    }
-    var zones = zoneOrder.map(function(name) {
-    return { name: name, ids: zoneMap[name] };
-    });
-    return buildJson({ success: true, zones: zones, locations: locations });
-} catch(err) {
+    var zones = zoneOrder.map(function(name) { return { name: name, ids: zoneMap[name] }; });
+    var monthSheets = listMonthSheetsAsc(ss).map(function(m) { return m.name; });
+    return buildJson({ success: true, zones: zones, locations: locations, monthSheets: monthSheets });
+  } catch(err) {
     return buildJson({ success: false, error: err.message });
-}
+  }
 }
 
 // POST 요청 — action에 따라 처리
@@ -57,9 +47,12 @@ try {
     var data = JSON.parse(e.postData.contents);
     var action = data.action || 'saveResults';
 
-    if (action === 'addProduct')    return handleAddProduct(data);
-    if (action === 'updateProduct') return handleUpdateProduct(data);
-    if (action === 'deleteProduct') return handleDeleteProduct(data);
+    if (action === 'addProduct')          return handleAddProduct(data);
+    if (action === 'updateProduct')       return handleUpdateProduct(data);
+    if (action === 'deleteProduct')       return handleDeleteProduct(data);
+    if (action === 'getMonthGrid')        return getMonthGrid(data);
+    if (action === 'getWeeklyReportDraft')return getWeeklyReportDraft(data);
+    if (action === 'saveWeeklyReport')    return saveWeeklyReport(data);
 
     // 저장 요청 시각 기준으로 KST 날짜 산출
     var savedDate = data.savedAt ? new Date(data.savedAt) : new Date();
@@ -124,6 +117,22 @@ try {
 }
 }
 
+// 제품 리스트 시트 전체를 {id: {zone, loc}} 형태로 읽어옴 (B=id, C=영역, D=설치장소)
+function getProductList(ss) {
+    var sheet = ss.getSheetByName('제품 리스트');
+    var map = {};
+    if (!sheet) return map;
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 4) return map;
+    var rows = sheet.getRange(4, 2, lastRow - 3, 3).getValues();
+    rows.forEach(function(row) {
+        var id = String(row[0]).trim();
+        if (!id) return;
+        map[id] = { zone: String(row[1]).trim(), loc: String(row[2]).trim() };
+    });
+    return map;
+}
+
 // 제품 리스트 시트에서 ID로 행 번호 찾기 (없으면 -1)
 function findProductRow(sheet, id) {
     var lastRow = sheet.getLastRow();
@@ -165,6 +174,205 @@ function handleDeleteProduct(data) {
     if (row === -1) return buildJson({ success: false, error: 'ID 없음: ' + data.id });
     sheet.deleteRow(row);
     return buildJson({ success: true, id: data.id });
+}
+
+/* ===================================================================
+   점검 히스토리 / 주간 점검 요청서 자동 생성
+   =================================================================== */
+
+// 시트명 "YY년 M월" 파싱 → {name, year, month} (매치 안되면 null)
+function parseMonthSheetName(name) {
+    var m = String(name).trim().match(/^(\d{2})년\s*(\d{1,2})월$/);
+    if (!m) return null;
+    return { name: name, year: 2000 + parseInt(m[1], 10), month: parseInt(m[2], 10) };
+}
+
+// 스프레드시트 내 "YY년 M월" 형식 시트를 연대순(오래된 순)으로 정렬해 반환
+function listMonthSheetsAsc(ss) {
+    return ss.getSheets()
+        .map(function(s) { return parseMonthSheetName(s.getName()); })
+        .filter(function(m) { return m; })
+        .sort(function(a, b) { return (a.year * 100 + a.month) - (b.year * 100 + b.month); });
+}
+
+// 월별 점검 시트 하나를 매트릭스로 읽음: 8행(D열~)=날짜 헤더, 9행~ B열=제품ID, D열~=일별 상태
+function readSheetMatrix(sheet, year) {
+    var lastCol = sheet.getLastColumn();
+    var lastRow = sheet.getLastRow();
+    var headers = [], dates = [];
+    if (lastCol >= 4) {
+        var headerVals = sheet.getRange(8, 4, 1, lastCol - 3).getValues()[0];
+        headerVals.forEach(function(h) {
+            var s = String(h).trim();
+            headers.push(s);
+            var m = s.match(/^(\d{1,2})\.(\d{1,2})/);
+            dates.push(m ? new Date(year, parseInt(m[1], 10) - 1, parseInt(m[2], 10)) : null);
+        });
+    }
+    var rowsById = {};
+    if (lastRow >= 9 && lastCol >= 4) {
+        var idCol = sheet.getRange(9, 2, lastRow - 8, 1).getValues();
+        var body  = sheet.getRange(9, 4, lastRow - 8, lastCol - 3).getValues();
+        for (var i = 0; i < idCol.length; i++) {
+            var id = String(idCol[i][0]).trim();
+            if (!id) continue;
+            rowsById[id] = body[i];
+        }
+    }
+    return { headers: headers, dates: dates, rowsById: rowsById };
+}
+
+// 셀 값 분류 — 'BLANK' | 'PROBLEM:NO'|'PROBLEM:EM'|'PROBLEM:PM' | 'STOP'(OK, 제외사유 등)
+function cellKind(raw) {
+    var v = String(raw == null ? '' : raw).trim();
+    if (!v) return 'BLANK';
+    var up = v.toUpperCase();
+    if (up === 'NO' || up === 'EM' || up === 'PM') return 'PROBLEM:' + up;
+    return 'STOP';
+}
+
+// 특정 월 시트를 히스토리 페이지에 표시할 그리드 형태로 반환
+function getMonthGrid(data) {
+    try {
+        var ss = SpreadsheetApp.getActiveSpreadsheet();
+        var sheet = ss.getSheetByName(data.sheetName);
+        if (!sheet) return buildJson({ success: false, error: '시트 없음: ' + data.sheetName });
+        var meta = parseMonthSheetName(data.sheetName);
+        var year = meta ? meta.year : (new Date()).getFullYear();
+        var mat = readSheetMatrix(sheet, year);
+        var rows = Object.keys(mat.rowsById).map(function(id) {
+            return { id: id, values: mat.rowsById[id] };
+        });
+        return buildJson({ success: true, sheetName: data.sheetName, dates: mat.headers, rows: rows });
+    } catch(err) {
+        return buildJson({ success: false, error: err.message });
+    }
+}
+
+// "점검요청이력" 시트에서 asOfDate(yyyy-MM-dd) 이전 가장 최근 생성일에 포함된 제품ID 목록
+function getPreviousReportIds(ss, asOfStr) {
+    var sheet = ss.getSheetByName('점검요청이력');
+    if (!sheet) return [];
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return [];
+    var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues(); // A=생성일, B=제품ID
+    var toDateStr = function(d) {
+        return (d instanceof Date) ? Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd') : String(d).trim();
+    };
+    var maxDateBefore = null;
+    data.forEach(function(row) {
+        var dStr = toDateStr(row[0]);
+        if (dStr && dStr < asOfStr && (!maxDateBefore || dStr > maxDateBefore)) maxDateBefore = dStr;
+    });
+    if (!maxDateBefore) return [];
+    var ids = [];
+    data.forEach(function(row) {
+        if (toDateStr(row[0]) === maxDateBefore) ids.push(String(row[1]).trim());
+    });
+    return ids;
+}
+
+// 주간 점검 요청서 초안 계산 — 연속 문제 발생 시작일, 신규여부, 30일 이상 여부까지 서버에서 전부 계산
+function getWeeklyReportDraft(data) {
+    try {
+        var ss = SpreadsheetApp.getActiveSpreadsheet();
+        var asOfStr = data.asOfDate;
+        var parts = asOfStr.split('-');
+        var asOfDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        var asOfKey = asOfDate.getFullYear() * 100 + (asOfDate.getMonth() + 1);
+
+        var monthSheetsMeta = listMonthSheetsAsc(ss).filter(function(m) {
+            return (m.year * 100 + m.month) <= asOfKey;
+        });
+        if (!monthSheetsMeta.length) return buildJson({ success: false, error: '대상 월 시트가 없습니다.' });
+
+        // 제품ID별 타임라인(연대순) 구성
+        var timelines = {};
+        monthSheetsMeta.forEach(function(m) {
+            var sheet = ss.getSheetByName(m.name);
+            if (!sheet) return;
+            var mat = readSheetMatrix(sheet, m.year);
+            mat.dates.forEach(function(d, colIdx) {
+                if (!d || d.getTime() > asOfDate.getTime()) return;
+                Object.keys(mat.rowsById).forEach(function(id) {
+                    if (!timelines[id]) timelines[id] = [];
+                    timelines[id].push({ date: d, val: mat.rowsById[id][colIdx] });
+                });
+            });
+        });
+
+        var productList = getProductList(ss);
+        var items = [];
+        Object.keys(timelines).forEach(function(id) {
+            var tl = timelines[id];
+            if (!tl.length) return;
+            var li = tl.length - 1;
+            var latestKind = cellKind(tl[li].val);
+            if (latestKind.indexOf('PROBLEM') !== 0) return; // OK / 빈칸 / 제외사유 → 제외
+            var code = latestKind.split(':')[1];
+            var since = tl[li].date;
+            var i = li - 1;
+            while (i >= 0) {
+                var kind = cellKind(tl[i].val);
+                if (kind === 'BLANK') { i--; continue; }
+                if (kind.indexOf('PROBLEM') === 0) { since = tl[i].date; i--; continue; }
+                break; // OK 또는 제외사유 → 연속 구간 종료
+            }
+            var daysOpen = Math.round((asOfDate.getTime() - since.getTime()) / 86400000);
+            var info = productList[id] || { zone: '', loc: '' };
+            items.push({
+                id: id, zone: info.zone, loc: info.loc,
+                code: code, since: Utilities.formatDate(since, 'Asia/Seoul', 'yy.MM.dd'),
+                daysOpen: daysOpen, isOverdue: daysOpen >= 30
+            });
+        });
+
+        var prevIds = getPreviousReportIds(ss, asOfStr);
+        items.forEach(function(it) { it.isNew = prevIds.indexOf(it.id) === -1; });
+
+        var rank = function(it) { return it.code === 'NO' ? 1 : 0; };
+        items.sort(function(a, b) {
+            var r = rank(a) - rank(b);
+            if (r !== 0) return r;
+            return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+        });
+
+        var overdueItems = items.filter(function(it) { return it.isOverdue; });
+
+        return buildJson({ success: true, asOfDate: asOfStr, items: items, overdueItems: overdueItems });
+    } catch(err) {
+        return buildJson({ success: false, error: err.message });
+    }
+}
+
+// 이번 주 요청서 결과를 "점검요청이력" 시트에 저장 (같은 생성일 행은 먼저 삭제 후 재기록 — 재생성 시 중복 방지)
+function saveWeeklyReport(data) {
+    try {
+        var ss = SpreadsheetApp.getActiveSpreadsheet();
+        var sheet = ss.getSheetByName('점검요청이력');
+        if (!sheet) return buildJson({ success: false, error: "'점검요청이력' 시트가 없습니다. 먼저 생성해주세요." });
+
+        var lastRow = sheet.getLastRow();
+        if (lastRow >= 2) {
+            var dateVals = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+            for (var r = dateVals.length - 1; r >= 0; r--) {
+                var d = dateVals[r][0];
+                var dStr = (d instanceof Date) ? Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd') : String(d).trim();
+                if (dStr === data.date) sheet.deleteRow(r + 2);
+            }
+        }
+
+        var rows = (data.items || []).map(function(it) {
+            return [data.date, it.id, it.code, it.since, it.isNew ? 'Y' : 'N', it.isOverdue ? 'Y' : 'N',
+                    it.zone || '', it.loc || '', data.requester || '', it.remark || ''];
+        });
+        if (rows.length) {
+            sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+        }
+        return buildJson({ success: true, saved: rows.length });
+    } catch(err) {
+        return buildJson({ success: false, error: err.message });
+    }
 }
 
 function buildJson(obj) {

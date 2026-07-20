@@ -814,3 +814,90 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   }
   #cardDetailModalBox { max-width:100%; }
 }
+
+/* ===== 페이지 탭 (점검 / 히스토리) ===== */
+.page-tabs {
+  display:flex; gap:3px; padding:4px;
+  background:var(--input-bg); border:1.5px solid var(--border);
+  border-radius:var(--radius-lg);
+}
+.page-tab {
+  padding:7px 18px; font-size:12px; font-weight:600; cursor:pointer;
+  background:transparent; border:none; color:var(--text3);
+  font-family:inherit; border-radius:var(--radius); transition:all 0.15s;
+}
+.page-tab.active { background:var(--surface); color:var(--accent); font-weight:700; box-shadow:var(--shadow-xs); }
+.page-tab:hover:not(.active) { color:var(--text); background:color-mix(in srgb,var(--accent) 6%, transparent); }
+@media (max-width:768px) { .page-tabs { order:3; width:100%; justify-content:center; } }
+
+/* ===== 점검 히스토리 그리드 ===== */
+.history-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+.history-legend { display:flex; gap:6px; flex-wrap:wrap; }
+.hist-chip {
+  font-size:10px; font-weight:700; letter-spacing:0.4px; padding:3px 8px; border-radius:20px;
+  border:1.5px solid var(--border);
+}
+.hist-chip.ok   { background:var(--ok-chip-bg);  border-color:var(--ok-chip-border);  color:var(--ok-chip-text); }
+.hist-chip.no   { background:var(--no-chip-bg);  border-color:var(--no-chip-border);  color:var(--no-chip-text); }
+.hist-chip.em   { background:var(--em-chip-bg);  border-color:var(--em-chip-border);  color:var(--em-chip-text); }
+.hist-chip.pm   { background:var(--pm-chip-bg);  border-color:var(--pm-chip-border);  color:var(--pm-chip-text); }
+.hist-chip.excl { background:rgba(234,179,8,0.15); border-color:rgba(234,179,8,0.3); color:#ca8a04; }
+[data-theme="dark"] .hist-chip.excl { background:rgba(234,179,8,0.12); color:#fbbf24; border-color:rgba(251,191,36,0.25); }
+
+.history-grid-scroll {
+  overflow:auto; max-height:72vh;
+  border:1.5px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow-xs);
+}
+.history-grid-table { border-collapse:separate; border-spacing:0; font-size:11px; white-space:nowrap; }
+.history-grid-table th, .history-grid-table td { padding:6px 9px; border-bottom:1px solid var(--border2); border-right:1px solid var(--border2); }
+.history-grid-table thead th {
+  position:sticky; top:0; z-index:2; background:var(--input-bg); color:var(--text3);
+  font-weight:700; font-size:10px; letter-spacing:0.3px; text-align:center;
+}
+.history-grid-table .hist-th-id { left:0; z-index:3; text-align:left; min-width:150px; }
+.history-grid-table .hist-td-id {
+  position:sticky; left:0; z-index:1; background:var(--surface);
+  min-width:150px; border-right:1.5px solid var(--border);
+}
+.hist-id { font-weight:700; color:var(--text); }
+.hist-loc { font-size:10px; color:var(--text4); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+.history-grid-table .hist-td { text-align:center; font-weight:700; color:var(--text3); }
+.hist-ok   { background:var(--ok-bg);  color:var(--ok-text); }
+.hist-no   { background:var(--no-bg);  color:var(--no-text); }
+.hist-em   { background:var(--em-bg);  color:var(--em-text); }
+.hist-pm   { background:var(--pm-bg);  color:var(--pm-text); }
+.hist-excl { background:rgba(234,179,8,0.15); color:#ca8a04; font-size:9px; }
+[data-theme="dark"] .hist-excl { background:rgba(234,179,8,0.12); color:#fbbf24; }
+.hist-blank { color:var(--text4); opacity:0.4; }
+
+/* ===== 주간 점검 요청서 모달 ===== */
+#weeklyReportModalBox { max-width:760px; }
+.wr-requester-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.wr-summary { font-size:12px; color:var(--text3); margin-bottom:10px; }
+.wr-summary b { color:var(--text); }
+.wr-section-title { font-size:12px; font-weight:700; color:var(--pm-text); margin:16px 0 8px; }
+.wr-table th { white-space:nowrap; }
+.wr-table td { font-size:11px; }
+.wr-new-row td { background:color-mix(in srgb,var(--em-chip-bg) 70%, transparent); font-weight:700; }
+.wr-new-badge {
+  display:inline-block; font-size:9px; font-weight:800; letter-spacing:0.3px;
+  padding:1px 6px; border-radius:10px; background:var(--em-chip-bg); color:var(--em-chip-text);
+  border:1px solid var(--em-chip-border); margin-right:3px;
+}
+.wr-overdue-badge {
+  display:inline-block; font-size:9px; font-weight:800; letter-spacing:0.3px;
+  padding:1px 6px; border-radius:10px; background:var(--pm-chip-bg); color:var(--pm-chip-text);
+  border:1px solid var(--pm-chip-border); margin-right:3px;
+}
+.wr-code { font-weight:800; letter-spacing:0.4px; }
+.wr-code-em { color:var(--em-text); }
+.wr-code-pm { color:var(--pm-text); }
+.wr-code-no { color:var(--text2); }
+.wr-remark-input {
+  width:100%; min-width:120px; background:var(--input-bg); border:1.5px solid var(--border);
+  border-radius:5px; color:var(--text); padding:4px 7px; font-size:11px; outline:none; font-family:inherit;
+  margin-top:3px;
+}
+.wr-remark-input:focus { border-color:var(--accent); }
+.wr-actions { display:flex; justify-content:flex-end; margin-top:16px; }

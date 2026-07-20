@@ -1,6 +1,6 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v1.68';
-const APP_DATE    = '2026.07.08';
+const APP_VERSION = 'v2.0';
+const APP_DATE    = '2026.07.20';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
@@ -30,6 +30,17 @@ let productLocations    = {};   // {id: loc} — GAS 시트에서 로드
 let productLocEditorOpen = false;
 let peEditMode = false;
 let peOriginals = {};
+
+/* ===== 히스토리 / 주간 점검 요청서 ===== */
+const LS_REQUESTERS = 'airmax_requesters';
+const LS_LAST_REQUESTER = 'airmax_last_requester';
+let currentPage = 'inspection'; // 'inspection' | 'history'
+let historyMonths = [];         // ["26년 7월", ...] — GAS에서 로드
+let historyLoadedMonth = null;
+let historyGridData = null;     // {sheetName, dates, rows}
+let historyFilterQ = '';
+let weeklyDraft = null;         // getWeeklyReportDraft 결과
+let requesterList = [];
 
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
 let logVisible=false, logs=[], extraIds=[], dustExtraIds=[];
@@ -107,7 +118,7 @@ function authenticateAdmin(){
     document.getElementById('deauthBtn').style.display='inline-block';
     document.getElementById('adminActionsRow').style.display='flex';
     _applyDustAuthUI();
-    updateRunBtnText(); updateSheetBtn();
+    updateRunBtnText(); updateSheetBtn(); updatePageTabsVisibility();
   } else if(pw===ADMIN_PASSWORD){
     adminAuthenticated=true;
     superAdminAuthenticated=false;
@@ -116,11 +127,18 @@ function authenticateAdmin(){
     document.getElementById('deauthBtn').style.display='inline-block';
     document.getElementById('adminActionsRow').style.display='flex';
     _applyDustAuthUI();
-    updateRunBtnText(); updateSheetBtn();
+    updateRunBtnText(); updateSheetBtn(); updatePageTabsVisibility();
   } else {
     badge.textContent='✗ 비밀번호 오류'; badge.className='admin-auth-badge fail';
     setTimeout(()=>{ badge.textContent=''; badge.className='admin-auth-badge'; },2500);
   }
+}
+
+function updatePageTabsVisibility(){
+  const tabs=document.getElementById('pageTabs');
+  if(!tabs) return;
+  tabs.style.display=adminAuthenticated?'flex':'none';
+  if(!adminAuthenticated && currentPage==='history') switchPage('inspection');
 }
 
 function _applyDustAuthUI(){
@@ -143,7 +161,7 @@ function deauthAdmin(){
   document.getElementById('productEditorSection').style.display='none';
   productLocEditorOpen=false;
   _applyDustAuthUI();
-  updateRunBtnText(); updateSheetBtn();
+  updateRunBtnText(); updateSheetBtn(); updatePageTabsVisibility();
 }
 
 function updateRunBtnText(){
@@ -210,6 +228,7 @@ async function loadSheetData(force=false){
   if(cached&&cached.zones){
     sheetZones=cached.zones;
     productLocations=Object.assign({},cached.locations||{});
+    historyMonths=cached.monthSheets||[];
     renderZoneGrid();
     renderDustZoneGrid();
   }
@@ -221,7 +240,8 @@ async function loadSheetData(force=false){
       if(json.success){
         sheetZones=json.zones||[];
         productLocations=Object.assign({},json.locations||{});
-        lsSet(LS_SHEET_CACHE,{ts:now,zones:sheetZones,locations:json.locations||{}});
+        historyMonths=json.monthSheets||[];
+        lsSet(LS_SHEET_CACHE,{ts:now,zones:sheetZones,locations:json.locations||{},monthSheets:historyMonths});
         renderZoneGrid();
         renderDustZoneGrid();
         const msg=force?'시트 데이터 새로고침 완료'
@@ -901,7 +921,7 @@ async function addProductToSheet(){
 }
 
 function updateSheetCache(){
-  lsSet(LS_SHEET_CACHE,{ts:Date.now(),zones:sheetZones,locations:productLocations});
+  lsSet(LS_SHEET_CACHE,{ts:Date.now(),zones:sheetZones,locations:productLocations,monthSheets:historyMonths});
 }
 
 function updateGridCard(r){
@@ -2025,6 +2045,305 @@ async function startInspection(){
   await runInspection(allIds);
 }
 
+/* ===== 페이지 전환 (점검 / 히스토리) ===== */
+function switchPage(page){
+  currentPage=page;
+  document.getElementById('pageTabInspection').classList.toggle('active', page==='inspection');
+  document.getElementById('pageTabHistory').classList.toggle('active', page==='history');
+  document.getElementById('inspectionPage').style.display = page==='inspection' ? '' : 'none';
+  document.getElementById('historyPage').style.display = page==='history' ? '' : 'none';
+  if(page==='history') loadHistoryMonths();
+}
+
+/* ===== 점검 히스토리 ===== */
+function loadHistoryMonths(){
+  const sel=document.getElementById('historyMonthSel');
+  if(!historyMonths.length){
+    sel.innerHTML='<option value="">(월 데이터 없음)</option>';
+    document.getElementById('historyEmptyMsg').style.display='block';
+    document.getElementById('historyEmptyMsg').textContent='표시할 데이터가 없습니다. 월을 선택하거나 시트 데이터를 새로고침 해주세요.';
+    document.getElementById('historyGridScroll').style.display='none';
+    return;
+  }
+  const ordered=[...historyMonths].reverse(); // 최신 월 먼저
+  const prevVal=sel.value;
+  sel.innerHTML=ordered.map(m=>`<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
+  const target=ordered.includes(prevVal)?prevVal:ordered[0];
+  sel.value=target;
+  if(historyLoadedMonth!==target) loadHistoryGrid(target);
+}
+
+async function loadHistoryGrid(sheetName){
+  if(!sheetName) return;
+  if(!GAS_URL){ alert('GAS_URL이 설정되지 않았습니다.'); return; }
+  const scrollEl=document.getElementById('historyGridScroll');
+  const emptyEl=document.getElementById('historyEmptyMsg');
+  scrollEl.style.display='none'; emptyEl.style.display='block'; emptyEl.textContent='불러오는 중…';
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'getMonthGrid', sheetName})});
+    const json=await res.json();
+    if(!json.success){ emptyEl.textContent='불러오기 실패: '+(json.error||'오류'); return; }
+    historyGridData=json;
+    historyLoadedMonth=sheetName;
+    historyFilterQ='';
+    document.getElementById('historySearchInput').value='';
+    renderHistoryGrid();
+  }catch(e){
+    emptyEl.textContent='오류: '+e.message;
+  }
+}
+
+function historyCellInfo(raw){
+  const v=String(raw==null?'':raw).trim();
+  if(!v) return {cls:'hist-blank', label:''};
+  const up=v.toUpperCase();
+  if(up==='OK') return {cls:'hist-ok', label:'OK'};
+  if(up==='NO') return {cls:'hist-no', label:'NO'};
+  if(up==='EM') return {cls:'hist-em', label:'EM'};
+  if(up==='PM') return {cls:'hist-pm', label:'PM'};
+  return {cls:'hist-excl', label:v}; // 유지보수X / 설치X 등 제외 사유
+}
+
+function renderHistoryGrid(){
+  const scrollEl=document.getElementById('historyGridScroll');
+  const emptyEl=document.getElementById('historyEmptyMsg');
+  const table=document.getElementById('historyGridTable');
+  if(!historyGridData){ scrollEl.style.display='none'; emptyEl.style.display='block'; return; }
+  const q=historyFilterQ.trim().toLowerCase();
+  const rows=historyGridData.rows.filter(r=>{
+    if(!q) return true;
+    const zone=(sheetZones.find(z=>z.ids.includes(r.id))||{}).name||'';
+    const loc=productLocations[r.id]||'';
+    return r.id.toLowerCase().includes(q)||zone.toLowerCase().includes(q)||loc.toLowerCase().includes(q);
+  }).sort((a,b)=>a.id.localeCompare(b.id));
+  if(!rows.length){
+    scrollEl.style.display='none'; emptyEl.style.display='block'; emptyEl.textContent='표시할 데이터가 없습니다.';
+    return;
+  }
+  emptyEl.style.display='none'; scrollEl.style.display='block';
+  const dates=historyGridData.dates;
+  const thead=`<thead><tr><th class="hist-th-id">제품 ID</th>${dates.map(d=>`<th>${escHtml(d)}</th>`).join('')}</tr></thead>`;
+  const tbody='<tbody>'+rows.map(r=>{
+    const zone=(sheetZones.find(z=>z.ids.includes(r.id))||{}).name||'';
+    const loc=[zone,productLocations[r.id]||''].filter(Boolean).join(' · ');
+    const cells=dates.map((_,i)=>{
+      const info=historyCellInfo(r.values[i]);
+      return `<td class="hist-td ${info.cls}" title="${escHtml(info.label)}">${escHtml(info.label)}</td>`;
+    }).join('');
+    return `<tr><td class="hist-td-id"><div class="hist-id">${escHtml(r.id)}</div><div class="hist-loc">${escHtml(loc)||'—'}</div></td>${cells}</tr>`;
+  }).join('')+'</tbody>';
+  table.innerHTML=thead+tbody;
+}
+
+function filterHistoryGrid(q){
+  historyFilterQ=q||'';
+  renderHistoryGrid();
+}
+
+/* ===== 주간 점검 요청서 ===== */
+function populateRequesterSelect(){
+  requesterList=lsGet(LS_REQUESTERS,[]);
+  const sel=document.getElementById('wrRequesterSel');
+  const last=lsGet(LS_LAST_REQUESTER,'');
+  if(!requesterList.length){
+    sel.innerHTML='<option value="">(등록된 요청자 없음 — 아래에서 추가)</option>';
+    return;
+  }
+  sel.innerHTML=requesterList.map(n=>`<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+  sel.value=requesterList.includes(last)?last:requesterList[0];
+}
+
+function addRequester(){
+  const input=document.getElementById('wrRequesterInput');
+  const name=input.value.trim();
+  if(!name) return;
+  if(!requesterList.includes(name)) requesterList.push(name);
+  lsSet(LS_REQUESTERS, requesterList);
+  input.value='';
+  populateRequesterSelect();
+  document.getElementById('wrRequesterSel').value=name;
+}
+
+function removeSelectedRequester(){
+  const sel=document.getElementById('wrRequesterSel');
+  const name=sel.value;
+  if(!name) return;
+  if(!confirm(`'${name}' 요청자를 목록에서 삭제하시겠습니까?`)) return;
+  requesterList=requesterList.filter(n=>n!==name);
+  lsSet(LS_REQUESTERS, requesterList);
+  populateRequesterSelect();
+}
+
+async function openWeeklyReportModal(){
+  if(!adminAuthenticated){ alert('관리자 인증이 필요합니다.'); return; }
+  if(new Date().getDay()!==1){ alert('점검 요청서는 매주 월요일에만 생성할 수 있습니다.'); return; }
+  if(!GAS_URL){ alert('GAS_URL이 설정되지 않았습니다.'); return; }
+  populateRequesterSelect();
+  document.getElementById('weeklyReportModal').style.display='flex';
+  document.getElementById('wrLoading').style.display='block';
+  document.getElementById('wrContent').style.display='none';
+  weeklyDraft=null;
+  try{
+    const asOfDate=todayStr();
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'getWeeklyReportDraft', asOfDate})});
+    const json=await res.json();
+    if(!json.success){ alert('요청서 초안 조회 실패: '+(json.error||'오류')); closeWeeklyReportModal(); return; }
+    weeklyDraft=json;
+    renderWeeklyReportPreview();
+  }catch(e){
+    alert('오류: '+e.message);
+    closeWeeklyReportModal();
+  }
+}
+
+function closeWeeklyReportModal(){
+  document.getElementById('weeklyReportModal').style.display='none';
+}
+function weeklyReportOverlayClick(e){
+  if(e.target.id==='weeklyReportModal') closeWeeklyReportModal();
+}
+
+function wrLocText(it){
+  return [it.zone, it.loc].filter(Boolean).join(' · ')||'—';
+}
+
+function wrRowHtml(it, idx){
+  return `<tr class="${it.isNew?'wr-new-row':''}">
+    <td>${idx+1}</td>
+    <td>${escHtml(it.since)}</td>
+    <td>${escHtml(it.id)}</td>
+    <td>${escHtml(wrLocText(it))}</td>
+    <td class="wr-code wr-code-${it.code.toLowerCase()}">${it.code}</td>
+    <td>${it.isNew?'<span class="wr-new-badge">신규</span> ':''}${it.isOverdue?'<span class="wr-overdue-badge">30일+</span> ':''}
+      <input type="text" class="wr-remark-input" data-id="${escHtml(it.id)}" placeholder="비고"/></td>
+  </tr>`;
+}
+
+function renderWeeklyReportPreview(){
+  document.getElementById('wrLoading').style.display='none';
+  document.getElementById('wrContent').style.display='block';
+  const items=weeklyDraft.items||[];
+  const overdue=weeklyDraft.overdueItems||[];
+  const newCount=items.filter(i=>i.isNew).length;
+  document.getElementById('wrSummary').innerHTML=
+    `<b>${escHtml(weeklyDraft.asOfDate)}</b> 기준 · 총 <b>${items.length}</b>건 (신규 <b>${newCount}</b>건, 30일 이상 <b>${overdue.length}</b>건)`;
+  document.getElementById('wrTable').innerHTML=
+    `<thead><tr><th>순번</th><th>오류 발생 시점</th><th>제품 ID</th><th>설치 장소</th><th>오류 코드</th><th>비고</th></tr></thead>
+     <tbody>${items.length?items.map((it,i)=>wrRowHtml(it,i)).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text4)">현재 문제 상태인 제품이 없습니다.</td></tr>'}</tbody>`;
+  const overdueSection=document.getElementById('wrOverdueSection');
+  if(overdue.length){
+    overdueSection.style.display='block';
+    document.getElementById('wrOverdueTitle').textContent=`${weeklyDraft.asOfDate} 기준 한달 이상된 항목 리스트`;
+    document.getElementById('wrOverdueTable').innerHTML=
+      `<thead><tr><th>순번</th><th>오류 발생 시점</th><th>제품 ID</th><th>설치 장소</th><th>오류 코드</th></tr></thead>
+       <tbody>${overdue.map((it,i)=>`<tr><td>${i+1}</td><td>${escHtml(it.since)}</td><td>${escHtml(it.id)}</td><td>${escHtml(wrLocText(it))}</td><td class="wr-code wr-code-${it.code.toLowerCase()}">${it.code}</td></tr>`).join('')}</tbody>`;
+  } else {
+    overdueSection.style.display='none';
+  }
+}
+
+async function exportWeeklyReportXlsx(){
+  if(!weeklyDraft) return;
+  const requester=document.getElementById('wrRequesterSel').value;
+  if(!requester){ alert('요청자를 선택하거나 추가해주세요.'); return; }
+  if(typeof ExcelJS==='undefined'){ alert('ExcelJS 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.'); return; }
+  lsSet(LS_LAST_REQUESTER, requester);
+
+  const remarkMap={};
+  document.querySelectorAll('.wr-remark-input').forEach(inp=>{ remarkMap[inp.dataset.id]=inp.value.trim(); });
+  const items=(weeklyDraft.items||[]).map(it=>({...it, remark: remarkMap[it.id]||''}));
+  const overdue=(weeklyDraft.overdueItems||[]).map(it=>({...it, remark: remarkMap[it.id]||''}));
+  const CODE_COLOR={EM:'FF0070C0', PM:'FFFF0000'};
+  const HILITE={type:'pattern', pattern:'solid', fgColor:{argb:'FFFFFFCC'}};
+
+  const btn=document.getElementById('wrExportBtn');
+  btn.disabled=true; btn.textContent='생성 중…';
+  try{
+    const wb=new ExcelJS.Workbook();
+    const ws=wb.addWorksheet('점검 요청서');
+    ws.columns=[{width:3},{width:7},{width:12},{width:10},{width:36},{width:9},{width:30}];
+
+    const r1=ws.addRow(['','집진기 점검 요청서']);
+    ws.mergeCells(`B${r1.number}:G${r1.number}`);
+    r1.getCell('B').font={bold:true,size:16};
+    r1.getCell('B').alignment={horizontal:'center'};
+    ws.addRow([]);
+
+    const r2=ws.addRow(['', `요청일 : ${weeklyDraft.asOfDate}\n요청자 : ${requester}`, '', '',
+      'NO - 통신 오류 or 전원 꺼짐\nEM - 먼지 센서 오류\nPM - 먼지 농도 오류']);
+    ws.mergeCells(`B${r2.number}:D${r2.number}`);
+    ws.mergeCells(`E${r2.number}:G${r2.number}`);
+    r2.getCell('B').font={bold:true}; r2.getCell('B').alignment={wrapText:true,vertical:'top'};
+    r2.getCell('E').font={bold:true}; r2.getCell('E').alignment={wrapText:true,vertical:'top'};
+    r2.getCell('E').fill=HILITE;
+    r2.height=44;
+    ws.addRow([]);
+
+    const r3=ws.addRow(['', '점검   제품   목록', '', '', '', '점검 제품 합', items.length]);
+    ws.mergeCells(`B${r3.number}:E${r3.number}`);
+    r3.getCell('B').font={bold:true};
+    r3.getCell('F').font={bold:true};
+    r3.getCell('G').font={bold:true};
+
+    const r4=ws.addRow(['', '순번','오류 발생 시점','제품 ID','설치 장소','오류 코드','비고']);
+    ['B','C','D','E','F','G'].forEach(col=>{ r4.getCell(col).font={bold:true}; });
+
+    items.forEach(it=>{
+      const idx=items.indexOf(it);
+      const row=ws.addRow(['', idx+1, it.since, it.id, wrLocText(it), it.code, (it.isNew?'[신규] ':'')+it.remark]);
+      row.getCell('B').font={bold:true};
+      const codeFont={bold:true};
+      if(CODE_COLOR[it.code]) codeFont.color={argb:CODE_COLOR[it.code]};
+      row.getCell('F').font=codeFont;
+      if(it.isNew){
+        ['B','C','D','E','F','G'].forEach(col=>{
+          row.getCell(col).fill=HILITE;
+          row.getCell(col).font={...row.getCell(col).font, bold:true};
+        });
+      }
+    });
+
+    if(overdue.length){
+      ws.addRow([]);
+      const rt=ws.addRow(['', `${weeklyDraft.asOfDate} 기준 한달 이상된 항목 리스트`]);
+      rt.getCell('B').font={bold:true};
+      overdue.forEach((it,i)=>{
+        const row=ws.addRow(['', i+1, it.since, it.id, wrLocText(it), it.code, it.remark]);
+        row.getCell('B').font={bold:true};
+        const codeFont={bold:true};
+        if(CODE_COLOR[it.code]) codeFont.color={argb:CODE_COLOR[it.code]};
+        row.getCell('F').font=codeFont;
+      });
+      const rs=ws.addRow(['','','','','','한달 이상 합',overdue.length]);
+      rs.getCell('F').font={bold:true};
+      rs.getCell('G').font={bold:true};
+    }
+
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=`집진기_점검요청서_${weeklyDraft.asOfDate.replace(/-/g,'.')}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+
+    const saveRes=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'saveWeeklyReport', date:weeklyDraft.asOfDate, requester, items})});
+    const saveJson=await saveRes.json();
+    if(saveJson.success){
+      addLog(`주간 점검 요청서 생성 및 이력 저장 완료 (${saveJson.saved}건)`,'ok');
+    } else {
+      addLog('요청서는 다운로드됐지만 이력 저장에 실패했습니다: '+(saveJson.error||'오류'),'warn');
+    }
+    closeWeeklyReportModal();
+  }catch(e){
+    alert('요청서 생성 중 오류: '+e.message);
+  }
+  btn.disabled=false; btn.textContent='⬇️ 다운로드 + 저장';
+}
+
 /* ===== 초기화 ===== */
 (function init(){
   cleanOldDustCache();
@@ -2076,6 +2395,10 @@ async function startInspection(){
   document.getElementById('dustZoneSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';filterDustZones();}});
   document.getElementById('adminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateAdmin();});
   document.getElementById('peNewId').addEventListener('keydown',e=>{if(e.key==='Enter')addProductToSheet();});
+  document.getElementById('wrRequesterInput').addEventListener('keydown',e=>{if(e.key==='Enter')addRequester();});
+  document.getElementById('historySearchInput').addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';filterHistoryGrid('');}});
+
+  requesterList=lsGet(LS_REQUESTERS,[]);
 
   // 단일 검색 날짜 변경 시 dateInfo 업데이트
   document.getElementById('singleStartDate').addEventListener('change',updateDateInfo);
