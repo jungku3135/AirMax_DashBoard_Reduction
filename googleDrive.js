@@ -196,13 +196,28 @@ function listMonthSheetsAsc(ss) {
         .sort(function(a, b) { return (a.year * 100 + a.month) - (b.year * 100 + b.month); });
 }
 
-// 월별 점검 시트 하나를 매트릭스로 읽음: 8행(D열~)=날짜 헤더, 9행~ B열=제품ID, D열~=일별 상태
+// 월별 점검 시트에서 "제품 ID" 헤더가 있는 행을 찾음 — 시트마다 상단 요약 행 개수가 달라
+// 헤더 행 번호가 고정돼 있지 않으므로, B열 값이 "제품 ID"인 행을 직접 탐색한다.
+// 못 찾으면 기존 관례값(8행)으로 폴백.
+function findHeaderRow(sheet) {
+    var searchRows = Math.min(sheet.getLastRow(), 20);
+    if (searchRows < 1) return 8;
+    var colB = sheet.getRange(1, 2, searchRows, 1).getValues();
+    for (var i = 0; i < colB.length; i++) {
+        if (String(colB[i][0]).trim() === '제품 ID') return i + 1;
+    }
+    return 8;
+}
+
+// 월별 점검 시트 하나를 매트릭스로 읽음: 헤더 행(D열~)=날짜 헤더, 다음 행부터 B열=제품ID, D열~=일별 상태
 function readSheetMatrix(sheet, year) {
+    var headerRow = findHeaderRow(sheet);
+    var dataStartRow = headerRow + 1;
     var lastCol = sheet.getLastColumn();
     var lastRow = sheet.getLastRow();
     var headers = [], dates = [];
     if (lastCol >= 4) {
-        var headerRange = sheet.getRange(8, 4, 1, lastCol - 3);
+        var headerRange = sheet.getRange(headerRow, 4, 1, lastCol - 3);
         var headerVals    = headerRange.getValues()[0];        // 실제 값 — 셀 서식이 날짜면 Date 객체로 옴
         var headerDisplay = headerRange.getDisplayValues()[0]; // 시트에 표시되는 문자열 그대로 ("07.13(월)")
         headerVals.forEach(function(h, idx) {
@@ -217,9 +232,9 @@ function readSheetMatrix(sheet, year) {
         });
     }
     var rowsById = {};
-    if (lastRow >= 9 && lastCol >= 4) {
-        var idCol = sheet.getRange(9, 2, lastRow - 8, 1).getValues();
-        var body  = sheet.getRange(9, 4, lastRow - 8, lastCol - 3).getValues();
+    if (lastRow >= dataStartRow && lastCol >= 4) {
+        var idCol = sheet.getRange(dataStartRow, 2, lastRow - dataStartRow + 1, 1).getValues();
+        var body  = sheet.getRange(dataStartRow, 4, lastRow - dataStartRow + 1, lastCol - 3).getValues();
         for (var i = 0; i < idCol.length; i++) {
             var id = String(idCol[i][0]).trim();
             if (!id) continue;

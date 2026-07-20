@@ -408,6 +408,7 @@
     <select id="historyDaySel" class="list-filter-sel" style="min-width:120px" onchange="filterHistoryDay(this.value)">
       <option value="">전체 일자</option>
     </select>
+    <button class="btn-ghost" id="historyRefreshBtn" onclick="loadHistoryGrid(document.getElementById('historyMonthSel').value)" title="최신 데이터로 새로고침">🔄</button>
     <input type="text" id="historySearchInput" class="id-input" placeholder="제품 ID / 영역 / 설치 장소 검색…"
       style="flex:1;max-width:260px;min-width:0" oninput="filterHistoryGrid(this.value)"/>
     <div class="history-legend">

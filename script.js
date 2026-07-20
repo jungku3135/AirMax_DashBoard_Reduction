@@ -2053,11 +2053,12 @@ function switchPage(page){
   document.getElementById('pageTabHistory').classList.toggle('active', page==='history');
   document.getElementById('inspectionPage').style.display = page==='inspection' ? '' : 'none';
   document.getElementById('historyPage').style.display = page==='history' ? '' : 'none';
-  if(page==='history') loadHistoryMonths();
+  // 히스토리 탭에 들어올 때마다 최신 데이터로 동기화 (당일 점검 후 바로 확인 못했을 수 있으므로 캐시된 월도 강제 재조회)
+  if(page==='history') loadHistoryMonths(true);
 }
 
 /* ===== 점검 히스토리 ===== */
-function loadHistoryMonths(){
+function loadHistoryMonths(forceReload){
   const sel=document.getElementById('historyMonthSel');
   if(!historyMonths.length){
     sel.innerHTML='<option value="">(월 데이터 없음)</option>';
@@ -2071,7 +2072,7 @@ function loadHistoryMonths(){
   sel.innerHTML=ordered.map(m=>`<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
   const target=ordered.includes(prevVal)?prevVal:ordered[0];
   sel.value=target;
-  if(historyLoadedMonth!==target) loadHistoryGrid(target);
+  if(forceReload || historyLoadedMonth!==target) loadHistoryGrid(target);
 }
 
 async function loadHistoryGrid(sheetName){
