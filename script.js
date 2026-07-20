@@ -1524,13 +1524,14 @@ function aggregateHourlyReadings(items){
     b.co2Sum +=Number(item.co2)||0;
   });
   const p2=n=>String(n).padStart(2,'0');
+  const round1=n=>Math.round(n*10)/10; // 소수점 한 자리까지 반올림
   return [...buckets.values()]
     .sort((a,b)=>b.date-a.date) // 최신 시간대 먼저 — 기존 정렬 방향과 동일
     .map(b=>({
       format_created_time:`${b.date.getFullYear()}.${p2(b.date.getMonth()+1)}.${p2(b.date.getDate())} ${p2(b.date.getHours())}시`,
-      pm_10:Math.round(b.pm10Sum/b.count),
-      pm_2_5:Math.round(b.pm25Sum/b.count),
-      co2:Math.round(b.co2Sum/b.count),
+      pm_10:round1(b.pm10Sum/b.count),
+      pm_2_5:round1(b.pm25Sum/b.count),
+      co2:round1(b.co2Sum/b.count),
       sampleCount:b.count
     }));
 }
