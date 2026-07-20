@@ -872,6 +872,35 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 [data-theme="dark"] .hist-excl { background:rgba(234,179,8,0.12); color:#fbbf24; }
 .hist-blank { color:var(--text4); opacity:0.4; }
 
+/* ===== 히스토리 일자별 통계 ===== */
+.history-stats-wrap { margin-bottom:14px; }
+.history-stats-title { font-size:12px; font-weight:700; color:var(--text3); margin-bottom:6px; }
+.history-stats-title span { font-weight:400; color:var(--text4); }
+.history-stats-scroll {
+  overflow-x:auto; max-height:220px; overflow-y:auto;
+  border:1.5px solid var(--border); border-radius:var(--radius);
+  box-shadow:var(--shadow-xs);
+}
+.history-stats-table { border-collapse:separate; border-spacing:0; font-size:12.5px; white-space:nowrap; width:100%; }
+.history-stats-table th, .history-stats-table td { padding:6px 12px; border-bottom:1px solid var(--border2); border-right:1px solid var(--border2); text-align:center; }
+.history-stats-table thead th {
+  position:sticky; top:0; z-index:2; background:var(--input-bg); color:var(--text2);
+  font-weight:700; font-size:11.5px;
+}
+.history-stats-table .hist-th-id { left:0; z-index:3; min-width:150px; text-align:left; }
+.hist-stat-label {
+  position:sticky; left:0; z-index:1; background:var(--surface);
+  text-align:left; font-weight:700; color:var(--text2); border-right:1.5px solid var(--border);
+}
+.hist-stat-td { font-weight:700; color:var(--text3); }
+.hist-stat-ok   { color:var(--ok-text); }
+.hist-stat-no   { color:var(--no-text); }
+.hist-stat-em   { color:var(--em-text); }
+.hist-stat-pm   { color:var(--pm-text); }
+.hist-stat-excl { color:#ca8a04; }
+[data-theme="dark"] .hist-stat-excl { color:#fbbf24; }
+.hist-stat-problem { color:var(--pm-text); background:var(--pm-bg); }
+
 /* ===== 주간 점검 요청서 모달 ===== */
 #weeklyReportModalBox { max-width:760px; }
 .wr-requester-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }

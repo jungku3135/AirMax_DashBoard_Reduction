@@ -271,31 +271,9 @@ function getMonthGrid(data) {
     }
 }
 
-// "점검요청이력" 시트에서 asOfDate(yyyy-MM-dd) 이전 가장 최근 생성일에 포함된 제품ID 목록
-// 시트 레이아웃: 1행 공백, 2행 헤더, 3행부터 데이터, B열부터 시작 (A열/1행은 항상 비움)
-function getPreviousReportIds(ss, asOfStr) {
-    var sheet = ss.getSheetByName('점검요청이력');
-    if (!sheet) return [];
-    var lastRow = sheet.getLastRow();
-    if (lastRow < 3) return [];
-    var data = sheet.getRange(3, 2, lastRow - 2, 2).getValues(); // B=생성일, C=제품ID
-    var toDateStr = function(d) {
-        return (d instanceof Date) ? Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd') : String(d).trim();
-    };
-    var maxDateBefore = null;
-    data.forEach(function(row) {
-        var dStr = toDateStr(row[0]);
-        if (dStr && dStr < asOfStr && (!maxDateBefore || dStr > maxDateBefore)) maxDateBefore = dStr;
-    });
-    if (!maxDateBefore) return [];
-    var ids = [];
-    data.forEach(function(row) {
-        if (toDateStr(row[0]) === maxDateBefore) ids.push(String(row[1]).trim());
-    });
-    return ids;
-}
-
 // 주간 점검 요청서 초안 계산 — 연속 문제 발생 시작일, 신규여부, 30일 이상 여부까지 서버에서 전부 계산
+// 신규 = 오류 발생 시점이 요청서 생성일(asOfDate) 당일인 항목. 한달 이상(30일+) 항목은 메인 목록에서 빼고
+// 하단 섹션에만 담아 중복 표시하지 않는다.
 function getWeeklyReportDraft(data) {
     try {
         var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -346,23 +324,22 @@ function getWeeklyReportDraft(data) {
             items.push({
                 id: id, zone: info.zone, loc: info.loc,
                 code: code, since: Utilities.formatDate(since, 'Asia/Seoul', 'yy.MM.dd'),
-                daysOpen: daysOpen, isOverdue: daysOpen >= 30
+                daysOpen: daysOpen, isOverdue: daysOpen >= 30,
+                isNew: since.getTime() === asOfDate.getTime()
             });
         });
 
-        var prevIds = getPreviousReportIds(ss, asOfStr);
-        items.forEach(function(it) { it.isNew = prevIds.indexOf(it.id) === -1; });
-
         var rank = function(it) { return it.code === 'NO' ? 1 : 0; };
-        items.sort(function(a, b) {
+        var byCodeThenId = function(a, b) {
             var r = rank(a) - rank(b);
             if (r !== 0) return r;
             return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
-        });
+        };
 
-        var overdueItems = items.filter(function(it) { return it.isOverdue; });
+        var overdueItems = items.filter(function(it) { return it.isOverdue; }).sort(byCodeThenId);
+        var mainItems = items.filter(function(it) { return !it.isOverdue; }).sort(byCodeThenId);
 
-        return buildJson({ success: true, asOfDate: asOfStr, items: items, overdueItems: overdueItems });
+        return buildJson({ success: true, asOfDate: asOfStr, items: mainItems, overdueItems: overdueItems });
     } catch(err) {
         return buildJson({ success: false, error: err.message });
     }

@@ -2132,7 +2132,8 @@ function renderHistoryGrid(){
   const scrollEl=document.getElementById('historyGridScroll');
   const emptyEl=document.getElementById('historyEmptyMsg');
   const table=document.getElementById('historyGridTable');
-  if(!historyGridData){ scrollEl.style.display='none'; emptyEl.style.display='block'; return; }
+  const statsWrap=document.getElementById('historyStatsWrap');
+  if(!historyGridData){ scrollEl.style.display='none'; emptyEl.style.display='block'; statsWrap.style.display='none'; return; }
   const q=historyFilterQ.trim().toLowerCase();
   const rows=historyGridData.rows.filter(r=>{
     if(!q) return true;
@@ -2141,7 +2142,7 @@ function renderHistoryGrid(){
     return r.id.toLowerCase().includes(q)||zone.toLowerCase().includes(q)||loc.toLowerCase().includes(q);
   }).sort((a,b)=>a.id.localeCompare(b.id));
   if(!rows.length){
-    scrollEl.style.display='none'; emptyEl.style.display='block'; emptyEl.textContent='표시할 데이터가 없습니다.';
+    scrollEl.style.display='none'; emptyEl.style.display='block'; emptyEl.textContent='표시할 데이터가 없습니다.'; statsWrap.style.display='none';
     return;
   }
   emptyEl.style.display='none'; scrollEl.style.display='block';
@@ -2159,11 +2160,52 @@ function renderHistoryGrid(){
     return `<tr><td class="hist-td-id"><div class="hist-id">${escHtml(r.id)}</div><div class="hist-loc">${escHtml(loc)||'—'}</div></td>${cells}</tr>`;
   }).join('')+'</tbody>';
   table.innerHTML=thead+tbody;
+  renderHistoryStats(rows, colIdxs, allDates);
 }
 
 function filterHistoryGrid(q){
   historyFilterQ=q||'';
   renderHistoryGrid();
+}
+
+// 일자별 OK/NO/EM/PM/제외 개수 통계 — 현재 검색/일자 필터가 적용된 행·열 기준으로 집계
+const HIST_STAT_ROWS=[
+  {key:'ok',   label:'정상(OK)',  cls:'ok'},
+  {key:'no',   label:'통신오류(NO)', cls:'no'},
+  {key:'em',   label:'센서오류(EM)', cls:'em'},
+  {key:'pm',   label:'먼지오류(PM)', cls:'pm'},
+  {key:'excl', label:'제외',      cls:'excl'},
+  {key:'problem', label:'문제 합(NO+EM+PM)', cls:'problem'}
+];
+function computeHistoryStats(rows, colIdxs){
+  return colIdxs.map(colIdx=>{
+    const c={ok:0,no:0,em:0,pm:0,excl:0};
+    rows.forEach(r=>{
+      const info=historyCellInfo(r.values[colIdx]);
+      if(info.cls==='hist-ok') c.ok++;
+      else if(info.cls==='hist-no') c.no++;
+      else if(info.cls==='hist-em') c.em++;
+      else if(info.cls==='hist-pm') c.pm++;
+      else if(info.cls==='hist-excl') c.excl++;
+    });
+    c.problem=c.no+c.em+c.pm;
+    return c;
+  });
+}
+
+function renderHistoryStats(rows, colIdxs, allDates){
+  const wrap=document.getElementById('historyStatsWrap');
+  const table=document.getElementById('historyStatsTable');
+  const sub=document.getElementById('historyStatsSub');
+  const stats=computeHistoryStats(rows, colIdxs);
+  sub.textContent=`— 현재 필터 기준 제품 ${rows.length}개`;
+  const thead=`<thead><tr><th class="hist-th-id">항목</th>${colIdxs.map(i=>`<th>${escHtml(formatHistHeader(allDates[i]))}</th>`).join('')}</tr></thead>`;
+  const tbody='<tbody>'+HIST_STAT_ROWS.map(sr=>{
+    const cells=stats.map(s=>`<td class="hist-stat-td hist-stat-${sr.cls}">${s[sr.key]}</td>`).join('');
+    return `<tr><td class="hist-th-id hist-stat-label">${escHtml(sr.label)}</td>${cells}</tr>`;
+  }).join('')+'</tbody>';
+  table.innerHTML=thead+tbody;
+  wrap.style.display='block';
 }
 
 /* ===== 주간 점검 요청서 ===== */
@@ -2241,7 +2283,7 @@ function wrRowHtml(it, idx){
     <td>${escHtml(it.id)}</td>
     <td>${escHtml(wrLocText(it))}</td>
     <td class="wr-code wr-code-${it.code.toLowerCase()}">${it.code}</td>
-    <td>${it.isNew?'<span class="wr-new-badge">신규</span> ':''}${it.isOverdue?'<span class="wr-overdue-badge">30일+</span> ':''}
+    <td>${it.isNew?'<span class="wr-new-badge">신규</span> ':''}
       <input type="text" class="wr-remark-input" data-id="${escHtml(it.id)}" placeholder="비고"/></td>
   </tr>`;
 }
@@ -2253,7 +2295,7 @@ function renderWeeklyReportPreview(){
   const overdue=weeklyDraft.overdueItems||[];
   const newCount=items.filter(i=>i.isNew).length;
   document.getElementById('wrSummary').innerHTML=
-    `<b>${escHtml(weeklyDraft.asOfDate)}</b> 기준 · 총 <b>${items.length}</b>건 (신규 <b>${newCount}</b>건, 30일 이상 <b>${overdue.length}</b>건)`;
+    `<b>${escHtml(weeklyDraft.asOfDate)}</b> 기준 · 총 <b>${items.length}</b>건 (오늘 신규 <b>${newCount}</b>건) — 30일 이상 지속 <b>${overdue.length}</b>건은 하단에 별도 표시`;
   document.getElementById('wrTable').innerHTML=
     `<thead><tr><th>순번</th><th>오류 발생 시점</th><th>제품 ID</th><th>설치 장소</th><th>오류 코드</th><th>비고</th></tr></thead>
      <tbody>${items.length?items.map((it,i)=>wrRowHtml(it,i)).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text4)">현재 문제 상태인 제품이 없습니다.</td></tr>'}</tbody>`;
@@ -2269,6 +2311,7 @@ function renderWeeklyReportPreview(){
   }
 }
 
+// ex.xlsx 샘플 서식(글꼴/테두리/열너비/행높이/병합)을 최대한 그대로 재현
 async function exportWeeklyReportXlsx(){
   if(!weeklyDraft) return;
   const requester=document.getElementById('wrRequesterSel').value;
@@ -2282,68 +2325,114 @@ async function exportWeeklyReportXlsx(){
   const overdue=(weeklyDraft.overdueItems||[]).map(it=>({...it, remark: remarkMap[it.id]||''}));
   const CODE_COLOR={EM:'FF0070C0', PM:'FFFF0000'};
   const HILITE={type:'pattern', pattern:'solid', fgColor:{argb:'FFFFFFCC'}};
+  const FONT='함초롬돋움';
+  const center={horizontal:'center',vertical:'middle'};
+  const border=(cell,t,b,l,r)=>{ cell.border={
+    top:t?{style:t}:undefined, bottom:b?{style:b}:undefined,
+    left:l?{style:l}:undefined, right:r?{style:r}:undefined
+  };};
+  const dataRow=(ws,vals,isLastInBox)=>{
+    const row=ws.addRow(vals);
+    const bStyle=isLastInBox?'medium':'thin';
+    const cB=row.getCell('B'); cB.font={name:FONT,bold:true,size:12}; cB.alignment=center;
+    border(cB,'thin',bStyle,'medium','thin');
+    const cC=row.getCell('C'); cC.font={name:FONT,size:11}; cC.alignment=center;
+    border(cC,'thin',bStyle,'thin','thin');
+    const cD=row.getCell('D'); cD.font={name:FONT,size:12}; cD.alignment=center;
+    border(cD,'thin',bStyle,'thin','thin');
+    const cE=row.getCell('E'); cE.font={name:FONT,size:12}; cE.alignment=center;
+    border(cE,'thin',bStyle,'thin','thin');
+    const cF=row.getCell('F');
+    const codeFont={name:FONT,bold:true,size:12};
+    if(CODE_COLOR[vals[5]]) codeFont.color={argb:CODE_COLOR[vals[5]]};
+    cF.font=codeFont; cF.alignment=center;
+    border(cF,'thin',bStyle,'thin','thin');
+    const cG=row.getCell('G'); cG.font={name:FONT,size:12}; cG.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+    border(cG,'thin',bStyle,'thin','medium');
+    row.height=30;
+    return row;
+  };
 
   const btn=document.getElementById('wrExportBtn');
   btn.disabled=true; btn.textContent='생성 중…';
   try{
     const wb=new ExcelJS.Workbook();
     const ws=wb.addWorksheet('점검 요청서');
-    ws.columns=[{width:3},{width:7},{width:12},{width:10},{width:36},{width:9},{width:30}];
+    ws.columns=[{width:1.6},{width:5.6},{width:15.6},{width:8.6},{width:45.6},{width:10.6},{width:25.6}];
+
+    const r0=ws.addRow([]); r0.height=10; // 최상단 여백
 
     const r1=ws.addRow(['','집진기 점검 요청서']);
-    ws.mergeCells(`B${r1.number}:G${r1.number}`);
-    r1.getCell('B').font={bold:true,size:16};
-    r1.getCell('B').alignment={horizontal:'center'};
-    ws.addRow([]);
+    r1.getCell('B').font={name:FONT,bold:true,size:24};
+    r1.getCell('B').alignment=center;
+    r1.height=20;
+    const r1b=ws.addRow([]); r1b.height=40;
+    ws.mergeCells(`B${r1.number}:G${r1b.number}`);
 
-    const r2=ws.addRow(['', `요청일 : ${weeklyDraft.asOfDate}\n요청자 : ${requester}`, '', '',
-      'NO - 통신 오류 or 전원 꺼짐\nEM - 먼지 센서 오류\nPM - 먼지 농도 오류']);
+    const r2=ws.addRow(['', `요청일 : ${weeklyDraft.asOfDate}\n요청자 : ${requester}`]);
     ws.mergeCells(`B${r2.number}:D${r2.number}`);
-    ws.mergeCells(`E${r2.number}:G${r2.number}`);
-    r2.getCell('B').font={bold:true}; r2.getCell('B').alignment={wrapText:true,vertical:'top'};
-    r2.getCell('E').font={bold:true}; r2.getCell('E').alignment={wrapText:true,vertical:'top'};
-    r2.getCell('E').fill=HILITE;
-    r2.height=44;
-    ws.addRow([]);
+    const infoCell=r2.getCell('B');
+    infoCell.font={name:FONT,bold:true,size:12};
+    infoCell.alignment={horizontal:'left',vertical:'middle',wrapText:true};
+    const legendCell=r2.getCell('E');
+    legendCell.value='NO - 통신 오류 or 전원 꺼짐\nEM - 먼지 센서 오류\nPM - 먼지 농도 오류';
+    legendCell.font={name:FONT,bold:true,size:11};
+    legendCell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+    legendCell.fill=HILITE;
+    border(legendCell,'thin','thin','thin','thin');
+    r2.height=50;
 
     const r3=ws.addRow(['', '점검   제품   목록', '', '', '', '점검 제품 합', items.length]);
     ws.mergeCells(`B${r3.number}:E${r3.number}`);
-    r3.getCell('B').font={bold:true};
-    r3.getCell('F').font={bold:true};
-    r3.getCell('G').font={bold:true};
+    const labelCell=r3.getCell('B');
+    labelCell.font={name:FONT,bold:true,size:14}; labelCell.alignment=center;
+    border(labelCell,'medium','thin','medium','thin');
+    const sumLabelCell=r3.getCell('F');
+    sumLabelCell.font={name:FONT,bold:true,size:10}; sumLabelCell.alignment=center;
+    border(sumLabelCell,'medium','thin','thin','thin');
+    const sumValCell=r3.getCell('G');
+    sumValCell.font={name:FONT,bold:true,size:12}; sumValCell.alignment=center;
+    border(sumValCell,'medium','thin','thin','medium');
+    r3.height=30;
 
     const r4=ws.addRow(['', '순번','오류 발생 시점','제품 ID','설치 장소','오류 코드','비고']);
-    ['B','C','D','E','F','G'].forEach(col=>{ r4.getCell(col).font={bold:true}; });
-
-    items.forEach(it=>{
-      const idx=items.indexOf(it);
-      const row=ws.addRow(['', idx+1, it.since, it.id, wrLocText(it), it.code, (it.isNew?'[신규] ':'')+it.remark]);
-      row.getCell('B').font={bold:true};
-      const codeFont={bold:true};
-      if(CODE_COLOR[it.code]) codeFont.color={argb:CODE_COLOR[it.code]};
-      row.getCell('F').font=codeFont;
-      if(it.isNew){
-        ['B','C','D','E','F','G'].forEach(col=>{
-          row.getCell(col).fill=HILITE;
-          row.getCell(col).font={...row.getCell(col).font, bold:true};
-        });
-      }
+    ['B','C','D','E','F','G'].forEach(col=>{
+      const c=r4.getCell(col);
+      c.font={name:FONT,bold:true,size:12}; c.alignment=center;
+      border(c,null,'thin', col==='B'?'medium':'thin', col==='G'?'medium':'thin');
     });
+    r4.height=25;
+
+    if(items.length){
+      items.forEach((it,idx)=>{
+        const row=dataRow(ws, ['', idx+1, it.since, it.id, wrLocText(it), it.code, (it.isNew?'[신규] ':'')+it.remark], idx===items.length-1);
+        if(it.isNew){
+          ['B','C','D','E','F','G'].forEach(col=>{ row.getCell(col).fill=HILITE; });
+        }
+      });
+    } else {
+      const row=ws.addRow(['','','','현재 문제 상태인 제품이 없습니다.']);
+      ws.mergeCells(`B${row.number}:G${row.number}`);
+      row.getCell('B').font={name:FONT,size:11}; row.getCell('B').alignment=center;
+      border(row.getCell('B'),'thin','medium','medium','medium');
+    }
 
     if(overdue.length){
-      ws.addRow([]);
+      const spacer=ws.addRow([]); spacer.height=10;
       const rt=ws.addRow(['', `${weeklyDraft.asOfDate} 기준 한달 이상된 항목 리스트`]);
-      rt.getCell('B').font={bold:true};
-      overdue.forEach((it,i)=>{
-        const row=ws.addRow(['', i+1, it.since, it.id, wrLocText(it), it.code, it.remark]);
-        row.getCell('B').font={bold:true};
-        const codeFont={bold:true};
-        if(CODE_COLOR[it.code]) codeFont.color={argb:CODE_COLOR[it.code]};
-        row.getCell('F').font=codeFont;
+      ws.mergeCells(`B${rt.number}:G${rt.number}`);
+      const titleCell=rt.getCell('B');
+      titleCell.font={name:FONT,size:12}; titleCell.alignment=center;
+      border(titleCell,'medium','medium','medium','medium');
+      rt.height=30;
+
+      overdue.forEach((it,idx)=>{
+        dataRow(ws, ['', idx+1, it.since, it.id, wrLocText(it), it.code, it.remark], idx===overdue.length-1);
       });
+
       const rs=ws.addRow(['','','','','','한달 이상 합',overdue.length]);
-      rs.getCell('F').font={bold:true};
-      rs.getCell('G').font={bold:true};
+      rs.getCell('F').font={name:FONT,bold:true,size:10}; rs.getCell('F').alignment=center;
+      rs.getCell('G').font={name:FONT,bold:true,size:12}; rs.getCell('G').alignment=center;
     }
 
     const buf=await wb.xlsx.writeBuffer();
@@ -2355,7 +2444,7 @@ async function exportWeeklyReportXlsx(){
     URL.revokeObjectURL(url);
 
     const saveRes=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({action:'saveWeeklyReport', date:weeklyDraft.asOfDate, requester, items})});
+      body:JSON.stringify({action:'saveWeeklyReport', date:weeklyDraft.asOfDate, requester, items:[...items,...overdue]})});
     const saveJson=await saveRes.json();
     if(saveJson.success){
       addLog(`주간 점검 요청서 생성 및 이력 저장 완료 (${saveJson.saved}건)`,'ok');

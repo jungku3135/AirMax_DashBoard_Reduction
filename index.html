@@ -420,6 +420,12 @@
     <button class="btn-primary" id="weeklyReportBtn" onclick="openWeeklyReportModal()">📋 점검 요청서 생성</button>
   </div>
   <div id="historyEmptyMsg" class="pe-empty" style="display:none">표시할 데이터가 없습니다. 월을 선택하거나 시트 데이터를 새로고침 해주세요.</div>
+  <div class="history-stats-wrap" id="historyStatsWrap" style="display:none">
+    <div class="history-stats-title">일자별 통계 <span id="historyStatsSub"></span></div>
+    <div class="history-stats-scroll" id="historyStatsScroll">
+      <table class="history-stats-table" id="historyStatsTable"></table>
+    </div>
+  </div>
   <div class="history-grid-scroll" id="historyGridScroll">
     <table class="history-grid-table" id="historyGridTable"></table>
   </div>
