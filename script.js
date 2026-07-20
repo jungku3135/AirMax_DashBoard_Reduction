@@ -2128,46 +2128,6 @@ function historyCellInfo(raw){
   return {cls:'hist-excl', label:v}; // 유지보수X / 설치X 등 제외 사유
 }
 
-function renderHistoryGrid(){
-  const scrollEl=document.getElementById('historyGridScroll');
-  const emptyEl=document.getElementById('historyEmptyMsg');
-  const table=document.getElementById('historyGridTable');
-  const statsWrap=document.getElementById('historyStatsWrap');
-  if(!historyGridData){ scrollEl.style.display='none'; emptyEl.style.display='block'; statsWrap.style.display='none'; return; }
-  const q=historyFilterQ.trim().toLowerCase();
-  const rows=historyGridData.rows.filter(r=>{
-    if(!q) return true;
-    const zone=(sheetZones.find(z=>z.ids.includes(r.id))||{}).name||'';
-    const loc=productLocations[r.id]||'';
-    return r.id.toLowerCase().includes(q)||zone.toLowerCase().includes(q)||loc.toLowerCase().includes(q);
-  }).sort((a,b)=>a.id.localeCompare(b.id));
-  if(!rows.length){
-    scrollEl.style.display='none'; emptyEl.style.display='block'; emptyEl.textContent='표시할 데이터가 없습니다.'; statsWrap.style.display='none';
-    return;
-  }
-  emptyEl.style.display='none'; scrollEl.style.display='block';
-  const allDates=historyGridData.dates;
-  const colIdxs=historyDayFilterIdx>=0 && historyDayFilterIdx<allDates.length
-    ? [historyDayFilterIdx] : allDates.map((_,i)=>i);
-  const thead=`<thead><tr><th class="hist-th-id">제품 ID</th>${colIdxs.map(i=>`<th>${escHtml(formatHistHeader(allDates[i]))}</th>`).join('')}</tr></thead>`;
-  const tbody='<tbody>'+rows.map(r=>{
-    const zone=(sheetZones.find(z=>z.ids.includes(r.id))||{}).name||'';
-    const loc=[zone,productLocations[r.id]||''].filter(Boolean).join(' · ');
-    const cells=colIdxs.map(i=>{
-      const info=historyCellInfo(r.values[i]);
-      return `<td class="hist-td ${info.cls}" title="${escHtml(info.label)}">${escHtml(info.label)}</td>`;
-    }).join('');
-    return `<tr><td class="hist-td-id"><div class="hist-id">${escHtml(r.id)}</div><div class="hist-loc">${escHtml(loc)||'—'}</div></td>${cells}</tr>`;
-  }).join('')+'</tbody>';
-  table.innerHTML=thead+tbody;
-  renderHistoryStats(rows, colIdxs, allDates);
-}
-
-function filterHistoryGrid(q){
-  historyFilterQ=q||'';
-  renderHistoryGrid();
-}
-
 // 일자별 OK/NO/EM/PM/제외 개수 통계 — 현재 검색/일자 필터가 적용된 행·열 기준으로 집계
 const HIST_STAT_ROWS=[
   {key:'ok',   label:'정상(OK)',  cls:'ok'},
@@ -2177,6 +2137,8 @@ const HIST_STAT_ROWS=[
   {key:'excl', label:'제외',      cls:'excl'},
   {key:'problem', label:'문제 합(NO+EM+PM)', cls:'problem'}
 ];
+const HIST_STAT_ROW_H=26; // px — 아래 통계 행 top 오프셋 계산과 CSS의 고정 높이가 반드시 일치해야 함
+
 function computeHistoryStats(rows, colIdxs){
   return colIdxs.map(colIdx=>{
     const c={ok:0,no:0,em:0,pm:0,excl:0};
@@ -2193,19 +2155,55 @@ function computeHistoryStats(rows, colIdxs){
   });
 }
 
-function renderHistoryStats(rows, colIdxs, allDates){
-  const wrap=document.getElementById('historyStatsWrap');
-  const table=document.getElementById('historyStatsTable');
-  const sub=document.getElementById('historyStatsSub');
+function renderHistoryGrid(){
+  const scrollEl=document.getElementById('historyGridScroll');
+  const emptyEl=document.getElementById('historyEmptyMsg');
+  const table=document.getElementById('historyGridTable');
+  if(!historyGridData){ scrollEl.style.display='none'; emptyEl.style.display='block'; return; }
+  const q=historyFilterQ.trim().toLowerCase();
+  const rows=historyGridData.rows.filter(r=>{
+    if(!q) return true;
+    const zone=(sheetZones.find(z=>z.ids.includes(r.id))||{}).name||'';
+    const loc=productLocations[r.id]||'';
+    return r.id.toLowerCase().includes(q)||zone.toLowerCase().includes(q)||loc.toLowerCase().includes(q);
+  }).sort((a,b)=>a.id.localeCompare(b.id));
+  if(!rows.length){
+    scrollEl.style.display='none'; emptyEl.style.display='block'; emptyEl.textContent='표시할 데이터가 없습니다.';
+    return;
+  }
+  emptyEl.style.display='none'; scrollEl.style.display='block';
+  const allDates=historyGridData.dates;
+  const colIdxs=historyDayFilterIdx>=0 && historyDayFilterIdx<allDates.length
+    ? [historyDayFilterIdx] : allDates.map((_,i)=>i);
+
+  // 통계 행(일자별 OK/NO/EM/PM/제외/문제합) — 아래 제품 그리드와 열이 정확히 같은 폭으로 시작하도록
+  // 같은 table 안에 sticky 헤더 행으로 쌓는다. 각 행이 HIST_STAT_ROW_H(px) 고정 높이이므로
+  // top 오프셋을 행 인덱스 × 높이로 직접 계산해 인라인으로 지정한다.
   const stats=computeHistoryStats(rows, colIdxs);
-  sub.textContent=`— 현재 필터 기준 제품 ${rows.length}개`;
-  const thead=`<thead><tr><th class="hist-th-id">항목</th>${colIdxs.map(i=>`<th>${escHtml(formatHistHeader(allDates[i]))}</th>`).join('')}</tr></thead>`;
-  const tbody='<tbody>'+HIST_STAT_ROWS.map(sr=>{
-    const cells=stats.map(s=>`<td class="hist-stat-td hist-stat-${sr.cls}">${s[sr.key]}</td>`).join('');
-    return `<tr><td class="hist-th-id hist-stat-label">${escHtml(sr.label)}</td>${cells}</tr>`;
+  const statRowsHtml=HIST_STAT_ROWS.map((sr,ri)=>{
+    const top=ri*HIST_STAT_ROW_H;
+    const cells=stats.map(s=>`<th class="hist-stat-th hist-stat-${sr.cls}" style="top:${top}px">${s[sr.key]}</th>`).join('');
+    return `<tr class="hist-stat-row"><th class="hist-th-id hist-stat-label-th" style="top:${top}px">${escHtml(sr.label)}</th>${cells}</tr>`;
+  }).join('');
+  const headerTop=HIST_STAT_ROWS.length*HIST_STAT_ROW_H;
+  const dateHeaderHtml=`<tr><th class="hist-th-id" style="top:${headerTop}px">제품 ID</th>${colIdxs.map(i=>`<th style="top:${headerTop}px">${escHtml(formatHistHeader(allDates[i]))}</th>`).join('')}</tr>`;
+  const thead=`<thead>${statRowsHtml}${dateHeaderHtml}</thead>`;
+
+  const tbody='<tbody>'+rows.map(r=>{
+    const zone=(sheetZones.find(z=>z.ids.includes(r.id))||{}).name||'';
+    const loc=[zone,productLocations[r.id]||''].filter(Boolean).join(' · ');
+    const cells=colIdxs.map(i=>{
+      const info=historyCellInfo(r.values[i]);
+      return `<td class="hist-td ${info.cls}" title="${escHtml(info.label)}">${escHtml(info.label)}</td>`;
+    }).join('');
+    return `<tr><td class="hist-td-id"><div class="hist-id">${escHtml(r.id)}</div><div class="hist-loc">${escHtml(loc)||'—'}</div></td>${cells}</tr>`;
   }).join('')+'</tbody>';
   table.innerHTML=thead+tbody;
-  wrap.style.display='block';
+}
+
+function filterHistoryGrid(q){
+  historyFilterQ=q||'';
+  renderHistoryGrid();
 }
 
 /* ===== 주간 점검 요청서 ===== */
