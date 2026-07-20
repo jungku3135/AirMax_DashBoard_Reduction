@@ -849,25 +849,26 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   border:1.5px solid var(--border); border-radius:var(--radius);
   box-shadow:var(--shadow-xs);
 }
-.history-grid-table { border-collapse:separate; border-spacing:0; font-size:11px; white-space:nowrap; }
-.history-grid-table th, .history-grid-table td { padding:6px 9px; border-bottom:1px solid var(--border2); border-right:1px solid var(--border2); }
+.history-grid-table { border-collapse:separate; border-spacing:0; font-size:13px; white-space:nowrap; }
+.history-grid-table th, .history-grid-table td { padding:9px 14px; border-bottom:1px solid var(--border2); border-right:1px solid var(--border2); }
 .history-grid-table thead th {
-  position:sticky; top:0; z-index:2; background:var(--input-bg); color:var(--text3);
-  font-weight:700; font-size:10px; letter-spacing:0.3px; text-align:center;
+  position:sticky; top:0; z-index:2; background:var(--input-bg); color:var(--text2);
+  font-weight:700; font-size:12px; letter-spacing:0.2px; text-align:center;
 }
-.history-grid-table .hist-th-id { left:0; z-index:3; text-align:left; min-width:150px; }
+.history-grid-table .hist-th-id { left:0; z-index:3; text-align:left; min-width:170px; }
 .history-grid-table .hist-td-id {
   position:sticky; left:0; z-index:1; background:var(--surface);
-  min-width:150px; border-right:1.5px solid var(--border);
+  min-width:170px; border-right:1.5px solid var(--border);
 }
-.hist-id { font-weight:700; color:var(--text); }
-.hist-loc { font-size:10px; color:var(--text4); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
-.history-grid-table .hist-td { text-align:center; font-weight:700; color:var(--text3); }
+.history-grid-table tbody tr:nth-child(even) .hist-td-id { background:var(--surface2); }
+.hist-id { font-size:13.5px; font-weight:700; color:var(--text); }
+.hist-loc { font-size:11.5px; color:var(--text3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:230px; margin-top:1px; }
+.history-grid-table .hist-td { text-align:center; font-weight:700; font-size:12.5px; letter-spacing:0.3px; color:var(--text3); }
 .hist-ok   { background:var(--ok-bg);  color:var(--ok-text); }
 .hist-no   { background:var(--no-bg);  color:var(--no-text); }
 .hist-em   { background:var(--em-bg);  color:var(--em-text); }
 .hist-pm   { background:var(--pm-bg);  color:var(--pm-text); }
-.hist-excl { background:rgba(234,179,8,0.15); color:#ca8a04; font-size:9px; }
+.hist-excl { background:rgba(234,179,8,0.15); color:#ca8a04; font-size:10.5px; }
 [data-theme="dark"] .hist-excl { background:rgba(234,179,8,0.12); color:#fbbf24; }
 .hist-blank { color:var(--text4); opacity:0.4; }
 
