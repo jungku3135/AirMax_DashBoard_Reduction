@@ -405,6 +405,9 @@
 <div id="historyPage" style="display:none; padding:16px 24px;">
   <div class="history-toolbar">
     <select id="historyMonthSel" class="list-filter-sel" style="min-width:130px" onchange="loadHistoryGrid(this.value)"></select>
+    <select id="historyDaySel" class="list-filter-sel" style="min-width:120px" onchange="filterHistoryDay(this.value)">
+      <option value="">전체 일자</option>
+    </select>
     <input type="text" id="historySearchInput" class="id-input" placeholder="제품 ID / 영역 / 설치 장소 검색…"
       style="flex:1;max-width:260px;min-width:0" oninput="filterHistoryGrid(this.value)"/>
     <div class="history-legend">

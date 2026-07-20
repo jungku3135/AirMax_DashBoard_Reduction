@@ -39,6 +39,7 @@ let historyMonths = [];         // ["26년 7월", ...] — GAS에서 로드
 let historyLoadedMonth = null;
 let historyGridData = null;     // {sheetName, dates, rows}
 let historyFilterQ = '';
+let historyDayFilterIdx = -1;   // -1 = 전체 일자, 그 외엔 dates 배열 인덱스
 let weeklyDraft = null;         // getWeeklyReportDraft 결과
 let requesterList = [];
 
@@ -2087,11 +2088,32 @@ async function loadHistoryGrid(sheetName){
     historyGridData=json;
     historyLoadedMonth=sheetName;
     historyFilterQ='';
+    historyDayFilterIdx=-1;
     document.getElementById('historySearchInput').value='';
+    populateHistoryDaySelect();
     renderHistoryGrid();
   }catch(e){
     emptyEl.textContent='오류: '+e.message;
   }
+}
+
+// "07.13(월)" 형식의 시트 원본 헤더를 "07/13(월)" 표기로 변환
+function formatHistHeader(raw){
+  return String(raw==null?'':raw).replace(/^(\d{1,2})\.(\d{1,2})/, '$1/$2');
+}
+
+function populateHistoryDaySelect(){
+  const sel=document.getElementById('historyDaySel');
+  if(!sel) return;
+  const dates=historyGridData?historyGridData.dates:[];
+  sel.innerHTML='<option value="">전체 일자</option>'+
+    dates.map((d,i)=>`<option value="${i}">${escHtml(formatHistHeader(d))}</option>`).join('');
+  sel.value='';
+}
+
+function filterHistoryDay(val){
+  historyDayFilterIdx=(val===''||val==null)?-1:parseInt(val,10);
+  renderHistoryGrid();
 }
 
 function historyCellInfo(raw){
@@ -2122,12 +2144,14 @@ function renderHistoryGrid(){
     return;
   }
   emptyEl.style.display='none'; scrollEl.style.display='block';
-  const dates=historyGridData.dates;
-  const thead=`<thead><tr><th class="hist-th-id">제품 ID</th>${dates.map(d=>`<th>${escHtml(d)}</th>`).join('')}</tr></thead>`;
+  const allDates=historyGridData.dates;
+  const colIdxs=historyDayFilterIdx>=0 && historyDayFilterIdx<allDates.length
+    ? [historyDayFilterIdx] : allDates.map((_,i)=>i);
+  const thead=`<thead><tr><th class="hist-th-id">제품 ID</th>${colIdxs.map(i=>`<th>${escHtml(formatHistHeader(allDates[i]))}</th>`).join('')}</tr></thead>`;
   const tbody='<tbody>'+rows.map(r=>{
     const zone=(sheetZones.find(z=>z.ids.includes(r.id))||{}).name||'';
     const loc=[zone,productLocations[r.id]||''].filter(Boolean).join(' · ');
-    const cells=dates.map((_,i)=>{
+    const cells=colIdxs.map(i=>{
       const info=historyCellInfo(r.values[i]);
       return `<td class="hist-td ${info.cls}" title="${escHtml(info.label)}">${escHtml(info.label)}</td>`;
     }).join('');
