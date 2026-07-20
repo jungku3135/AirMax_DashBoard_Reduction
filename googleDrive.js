@@ -202,12 +202,18 @@ function readSheetMatrix(sheet, year) {
     var lastRow = sheet.getLastRow();
     var headers = [], dates = [];
     if (lastCol >= 4) {
-        var headerVals = sheet.getRange(8, 4, 1, lastCol - 3).getValues()[0];
-        headerVals.forEach(function(h) {
-            var s = String(h).trim();
-            headers.push(s);
-            var m = s.match(/^(\d{1,2})\.(\d{1,2})/);
-            dates.push(m ? new Date(year, parseInt(m[1], 10) - 1, parseInt(m[2], 10)) : null);
+        var headerRange = sheet.getRange(8, 4, 1, lastCol - 3);
+        var headerVals    = headerRange.getValues()[0];        // 실제 값 — 셀 서식이 날짜면 Date 객체로 옴
+        var headerDisplay = headerRange.getDisplayValues()[0]; // 시트에 표시되는 문자열 그대로 ("07.13(월)")
+        headerVals.forEach(function(h, idx) {
+            var disp = String(headerDisplay[idx]).trim();
+            headers.push(disp);
+            if (Object.prototype.toString.call(h) === '[object Date]') {
+                dates.push(h);
+            } else {
+                var m = disp.match(/^(\d{1,2})\.(\d{1,2})/);
+                dates.push(m ? new Date(year, parseInt(m[1], 10) - 1, parseInt(m[2], 10)) : null);
+            }
         });
     }
     var rowsById = {};
