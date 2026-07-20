@@ -14,8 +14,9 @@ Google Apps Script 코드 — 아래 코드를 복사하여 GAS 프로젝트에 
         - 4행~ : 데이터
 
     점검요청이력 시트 ("점검요청이력") — 주간 점검 요청서 생성 시 자동 기록됨.
-    시트가 없으면 아래 헤더로 직접 만들어두세요 (1행에 헤더, 2행부터 데이터):
-        생성일 | 제품ID | 오류코드 | 오류발생일 | 신규여부 | 한달이상여부 | 영역 | 설치장소 | 요청자 | 비고
+    시트가 없으면 직접 만들어두세요 — 1행 공백, 2행에 헤더(B열부터), 3행부터 데이터:
+        B          C     D      E       F      G         H    I      J     K
+        생성일     제품ID 오류코드 오류발생일 신규여부 한달이상여부 영역 설치장소 요청자 비고
 ================================================================================
 */
 // GET 요청 — 제품 리스트 시트에서 영역/설치장소 + 월별 점검 시트 목록 반환
@@ -250,12 +251,13 @@ function getMonthGrid(data) {
 }
 
 // "점검요청이력" 시트에서 asOfDate(yyyy-MM-dd) 이전 가장 최근 생성일에 포함된 제품ID 목록
+// 시트 레이아웃: 1행 공백, 2행 헤더, 3행부터 데이터, B열부터 시작 (A열/1행은 항상 비움)
 function getPreviousReportIds(ss, asOfStr) {
     var sheet = ss.getSheetByName('점검요청이력');
     if (!sheet) return [];
     var lastRow = sheet.getLastRow();
-    if (lastRow < 2) return [];
-    var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues(); // A=생성일, B=제품ID
+    if (lastRow < 3) return [];
+    var data = sheet.getRange(3, 2, lastRow - 2, 2).getValues(); // B=생성일, C=제품ID
     var toDateStr = function(d) {
         return (d instanceof Date) ? Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd') : String(d).trim();
     };
@@ -346,6 +348,7 @@ function getWeeklyReportDraft(data) {
 }
 
 // 이번 주 요청서 결과를 "점검요청이력" 시트에 저장 (같은 생성일 행은 먼저 삭제 후 재기록 — 재생성 시 중복 방지)
+// 시트 레이아웃: 1행 공백, 2행 헤더, 3행부터 데이터, B열부터 시작 (A열/1행은 항상 비움)
 function saveWeeklyReport(data) {
     try {
         var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -353,12 +356,12 @@ function saveWeeklyReport(data) {
         if (!sheet) return buildJson({ success: false, error: "'점검요청이력' 시트가 없습니다. 먼저 생성해주세요." });
 
         var lastRow = sheet.getLastRow();
-        if (lastRow >= 2) {
-            var dateVals = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+        if (lastRow >= 3) {
+            var dateVals = sheet.getRange(3, 2, lastRow - 2, 1).getValues(); // B열=생성일
             for (var r = dateVals.length - 1; r >= 0; r--) {
                 var d = dateVals[r][0];
                 var dStr = (d instanceof Date) ? Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd') : String(d).trim();
-                if (dStr === data.date) sheet.deleteRow(r + 2);
+                if (dStr === data.date) sheet.deleteRow(r + 3);
             }
         }
 
@@ -367,7 +370,8 @@ function saveWeeklyReport(data) {
                     it.zone || '', it.loc || '', data.requester || '', it.remark || ''];
         });
         if (rows.length) {
-            sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
+            var startRow = Math.max(sheet.getLastRow() + 1, 3); // 최소 3행부터 (1행 공백, 2행 헤더 보호)
+            sheet.getRange(startRow, 2, rows.length, rows[0].length).setValues(rows);
         }
         return buildJson({ success: true, saved: rows.length });
     } catch(err) {
