@@ -1001,7 +1001,7 @@ function setFilter(f){currentFilter=f;renderSummary();renderGrid();}
 /* ===== 단일 검색 결과 렌더 ===== */
 function fmtTime(str){
   if(!str) return '—';
-  const m=str.match(/\d{4}[.\-](\d{2})[.\-](\d{2})\s+(\d{2}:\d{2})/);
+  const m=str.match(/\d{4}[.\-](\d{2})[.\-](\d{2})\s+(\d{2}:\d{2}|\d{2}시)/);
   return m?`${m[1]}.${m[2]} ${m[3]}`:str.slice(5,16);
 }
 
@@ -1507,6 +1507,34 @@ async function openCardDetailModal(id){
     loadEl.textContent='⚠ 오류: '+e.message;
   }
 }
+// 분단위 원본 수집 데이터를 정시(시간대) 단위로 묶어 PM10/PM2.5/CO2 평균을 냄
+// — 예: 09:09~09:59 사이 6건이 있으면 "09시" 한 행으로 합쳐 평균값을 보여줌
+function aggregateHourlyReadings(items){
+  const buckets=new Map(); // 시간대(getTime) -> {date, count, pm10Sum, pm25Sum, co2Sum}
+  items.forEach(item=>{
+    const d=new Date(item.format_created_time);
+    if(isNaN(d.getTime())) return;
+    const hourDate=new Date(d.getFullYear(),d.getMonth(),d.getDate(),d.getHours());
+    const key=hourDate.getTime();
+    if(!buckets.has(key)) buckets.set(key,{date:hourDate,count:0,pm10Sum:0,pm25Sum:0,co2Sum:0});
+    const b=buckets.get(key);
+    b.count++;
+    b.pm10Sum+=Number(item.pm_10)||0;
+    b.pm25Sum+=Number(item.pm_2_5)||0;
+    b.co2Sum +=Number(item.co2)||0;
+  });
+  const p2=n=>String(n).padStart(2,'0');
+  return [...buckets.values()]
+    .sort((a,b)=>b.date-a.date) // 최신 시간대 먼저 — 기존 정렬 방향과 동일
+    .map(b=>({
+      format_created_time:`${b.date.getFullYear()}.${p2(b.date.getMonth()+1)}.${p2(b.date.getDate())} ${p2(b.date.getHours())}시`,
+      pm_10:Math.round(b.pm10Sum/b.count),
+      pm_2_5:Math.round(b.pm25Sum/b.count),
+      co2:Math.round(b.co2Sum/b.count),
+      sampleCount:b.count
+    }));
+}
+
 function _renderCardDetailContent(sorted){
   const loadEl=document.getElementById('cardDetailLoading');
   const tableWrap=document.getElementById('cardDetailTableWrap');
@@ -1518,14 +1546,15 @@ function _renderCardDetailContent(sorted){
   }
   loadEl.style.display='none';
   tableWrap.style.display='block';
-  document.getElementById('cardDetailCount').textContent=`총 ${sorted.length}건`;
-  document.getElementById('cardDetailBody').innerHTML=sorted.map(item=>`<tr>
-      <td>${escHtml(item.format_created_time||'—')}</td>
+  const hourly=aggregateHourlyReadings(sorted);
+  document.getElementById('cardDetailCount').textContent=`시간대 ${hourly.length}개 (원본 ${sorted.length}건 평균)`;
+  document.getElementById('cardDetailBody').innerHTML=hourly.map(item=>`<tr>
+      <td title="${item.sampleCount}건 평균">${escHtml(item.format_created_time||'—')}</td>
       <td>${item.pm_10??'—'}</td>
       <td>${item.pm_2_5??'—'}</td>
       <td>${item.co2??'—'}</td>
     </tr>`).join('');
-  _renderCardDetailChart([...sorted].reverse());
+  _renderCardDetailChart([...hourly].reverse());
 }
 function _renderCardDetailChart(items){
   if(cardDetailChartDust){cardDetailChartDust.destroy();cardDetailChartDust=null;}
