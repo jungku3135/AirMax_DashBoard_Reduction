@@ -845,7 +845,9 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 [data-theme="dark"] .hist-chip.excl { background:rgba(234,179,8,0.12); color:#fbbf24; border-color:rgba(251,191,36,0.25); }
 
 .history-grid-scroll {
-  overflow:auto; height:72vh;
+  /* 헤더(71px) + historyPage 상하 패딩(8+16) + 툴바(37+margin 14) + 푸터(30) + 여유 8px 만큼 빼서
+     뷰포트 높이와 무관하게 항상 푸터 바로 위까지 꽉 채움 (72vh 고정값은 화면이 크면 아래 여백이 남음) */
+  overflow:auto; height:calc(100vh - 184px);
   border:1.5px solid var(--border); border-radius:var(--radius);
   box-shadow:var(--shadow-xs);
 }
