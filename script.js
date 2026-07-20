@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.0';
+const APP_VERSION = 'v2.1';
 const APP_DATE    = '2026.07.20';
 
 /* ===== 설정 ===== */
@@ -11,6 +11,7 @@ const LS_EXTRA        = 'airmax_extra_ids';
 const LS_EXCLUDE      = 'airmax_exclude_reasons';
 const LS_ENDID        = 'airmax_end_id';
 const LS_GLOBAL_ENDID = 'airmax_global_end_id';
+const LS_ADMIN_AUTH = 'airmax_admin_auth'; // 'super' | 'admin' — 한번 인증하면 만료 없이 유지
 const LS_THEME = 'airmax_theme';
 const LS_MODE  = 'airmax_mode';
 const LS_PROD_LOCS    = 'airmax_product_locations';
@@ -109,30 +110,37 @@ function toggleTheme(){
 function authenticateAdmin(){
   const pw=document.getElementById('adminPwInput').value;
   const badge=document.getElementById('adminAuthBadge');
-  const inp=document.getElementById('adminPwInput');
 
   if(pw===SUPER_ADMIN_PASSWORD){
     adminAuthenticated=true;
     superAdminAuthenticated=true;
-    badge.textContent='✓ 슈퍼 관리자'; badge.className='admin-auth-badge super';
-    inp.value=''; inp.disabled=true;
-    document.getElementById('deauthBtn').style.display='inline-block';
-    document.getElementById('adminActionsRow').style.display='flex';
-    _applyDustAuthUI();
-    updateRunBtnText(); updateSheetBtn(); updatePageTabsVisibility();
+    lsSet(LS_ADMIN_AUTH,'super');
+    _applyAdminAuthedUI('super');
   } else if(pw===ADMIN_PASSWORD){
     adminAuthenticated=true;
     superAdminAuthenticated=false;
-    badge.textContent='✓ 일반 관리자'; badge.className='admin-auth-badge ok';
-    inp.value=''; inp.disabled=true;
-    document.getElementById('deauthBtn').style.display='inline-block';
-    document.getElementById('adminActionsRow').style.display='flex';
-    _applyDustAuthUI();
-    updateRunBtnText(); updateSheetBtn(); updatePageTabsVisibility();
+    lsSet(LS_ADMIN_AUTH,'admin');
+    _applyAdminAuthedUI('admin');
   } else {
     badge.textContent='✗ 비밀번호 오류'; badge.className='admin-auth-badge fail';
     setTimeout(()=>{ badge.textContent=''; badge.className='admin-auth-badge'; },2500);
   }
+}
+
+// 인증 성공 시(또는 새로고침 후 저장된 인증 복원 시) UI 반영 — 비밀번호는 한 번만 입력하면 만료 없이 유지됨
+function _applyAdminAuthedUI(level){
+  const badge=document.getElementById('adminAuthBadge');
+  const inp=document.getElementById('adminPwInput');
+  if(level==='super'){
+    badge.textContent='✓ 슈퍼 관리자'; badge.className='admin-auth-badge super';
+  } else {
+    badge.textContent='✓ 일반 관리자'; badge.className='admin-auth-badge ok';
+  }
+  inp.value=''; inp.disabled=true;
+  document.getElementById('deauthBtn').style.display='inline-block';
+  document.getElementById('adminActionsRow').style.display='flex';
+  _applyDustAuthUI();
+  updateRunBtnText(); updateSheetBtn(); updatePageTabsVisibility();
 }
 
 function updatePageTabsVisibility(){
@@ -154,6 +162,7 @@ function _applyDustAuthUI(){
 function deauthAdmin(){
   adminAuthenticated=false;
   superAdminAuthenticated=false;
+  lsSet(LS_ADMIN_AUTH,null);
   const badge=document.getElementById('adminAuthBadge');
   badge.textContent=''; badge.className='admin-auth-badge';
   document.getElementById('adminPwInput').disabled=false;
@@ -2466,6 +2475,13 @@ async function exportWeeklyReportXlsx(){
   const savedTheme=lsGet(LS_THEME,'light');
   document.documentElement.setAttribute('data-theme',savedTheme);
   document.getElementById('themeIcon').textContent=savedTheme==='dark'?'☀️':'🌙';
+
+  const savedAuthLevel=lsGet(LS_ADMIN_AUTH,null);
+  if(savedAuthLevel==='super'||savedAuthLevel==='admin'){
+    adminAuthenticated=true;
+    superAdminAuthenticated=(savedAuthLevel==='super');
+    _applyAdminAuthedUI(savedAuthLevel);
+  }
 
   productLocations=lsGet(LS_PROD_LOCS,{});
 
