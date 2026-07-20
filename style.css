@@ -846,12 +846,12 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .history-toolbar-spacer { flex:1; }
 .history-legend { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
 .hist-chip {
-  font-size:10px; font-weight:700; letter-spacing:0.4px; padding:4px 9px; border-radius:20px;
-  border:1.5px solid var(--border); display:inline-flex; align-items:center; gap:5px;
+  font-size:11.5px; font-weight:800; letter-spacing:0.4px; padding:5px 10px; border-radius:20px;
+  border:1.5px solid var(--border); display:inline-flex; align-items:center; gap:6px;
 }
 .hist-chip em {
-  font-style:normal; font-weight:500; font-size:10px; letter-spacing:0;
-  color:var(--text3); opacity:0.85;
+  font-style:normal; font-weight:600; font-size:10.5px; letter-spacing:0;
+  color:var(--text2);
 }
 .hist-chip.ok   { background:var(--ok-chip-bg);  border-color:var(--ok-chip-border);  color:var(--ok-chip-text); }
 .hist-chip.no   { background:var(--no-chip-bg);  border-color:var(--no-chip-border);  color:var(--no-chip-text); }
@@ -861,16 +861,16 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 [data-theme="dark"] .hist-chip.excl { background:rgba(234,179,8,0.12); color:#fbbf24; border-color:rgba(251,191,36,0.25); }
 @media (max-width:768px) {
   .history-legend { gap:5px; }
-  .hist-chip { font-size:10px; padding:4px 8px; white-space:nowrap; }
-  .hist-chip em { font-size:9.5px; }
+  .hist-chip { font-size:11px; padding:5px 9px; white-space:nowrap; }
+  .hist-chip em { font-size:10.5px; }
 }
 
 .history-grid-scroll {
-  /* 헤더(71) + historyPage 상단패딩(8) + 툴바(37+margin 10) + 범례(22+margin 14)
-     + body.history-page-active의 padding-bottom(46) + historyPage 하단패딩 여유분 = 224px.
+  /* 헤더(71) + historyPage 상단패딩(8) + 툴바(37+margin 10) + 범례(26+margin 14)
+     + body.history-page-active의 padding-bottom(46) + historyPage 하단패딩 여유분 = 228px.
      이 값이 실제 렌더 높이와 어긋나면 페이지 자체에도 스크롤이 생기니(더블 스크롤)
-     위 요소 높이가 바뀌면 반드시 같이 맞출 것. */
-  overflow:auto; height:calc(100vh - 224px);
+     위 요소(특히 .history-legend/.hist-chip) 높이가 바뀌면 반드시 같이 맞출 것. */
+  overflow:auto; height:calc(100vh - 228px);
   border:1.5px solid var(--border); border-radius:var(--radius);
   box-shadow:var(--shadow-xs);
 }
