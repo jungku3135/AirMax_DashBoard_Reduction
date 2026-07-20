@@ -845,7 +845,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 [data-theme="dark"] .hist-chip.excl { background:rgba(234,179,8,0.12); color:#fbbf24; border-color:rgba(251,191,36,0.25); }
 
 .history-grid-scroll {
-  overflow:auto; max-height:72vh;
+  overflow:auto; height:72vh;
   border:1.5px solid var(--border); border-radius:var(--radius);
   box-shadow:var(--shadow-xs);
 }
