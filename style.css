@@ -857,8 +857,8 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .hist-chip.no   { background:var(--no-chip-bg);  border-color:var(--no-chip-border);  color:var(--no-chip-text); }
 .hist-chip.em   { background:var(--em-chip-bg);  border-color:var(--em-chip-border);  color:var(--em-chip-text); }
 .hist-chip.pm   { background:var(--pm-chip-bg);  border-color:var(--pm-chip-border);  color:var(--pm-chip-text); }
-.hist-chip.excl { background:rgba(234,179,8,0.15); border-color:rgba(234,179,8,0.3); color:#ca8a04; }
-[data-theme="dark"] .hist-chip.excl { background:rgba(234,179,8,0.12); color:#fbbf24; border-color:rgba(251,191,36,0.25); }
+.hist-chip.excl { background:#fef3c7; border-color:#eab308; color:#92640a; }
+[data-theme="dark"] .hist-chip.excl { background:#3a2e08; color:#fbbf24; border-color:#7c5e12; }
 @media (max-width:768px) {
   .history-legend { gap:5px; }
   .hist-chip { font-size:11px; padding:5px 9px; white-space:nowrap; }
@@ -893,8 +893,8 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .hist-no   { background:var(--no-bg);  color:var(--no-text); }
 .hist-em   { background:var(--em-bg);  color:var(--em-text); }
 .hist-pm   { background:var(--pm-bg);  color:var(--pm-text); }
-.hist-excl { background:rgba(234,179,8,0.15); color:#ca8a04; font-size:10.5px; }
-[data-theme="dark"] .hist-excl { background:rgba(234,179,8,0.12); color:#fbbf24; }
+.hist-excl { background:#fef3c7; color:#92640a; font-size:10.5px; }
+[data-theme="dark"] .hist-excl { background:#3a2e08; color:#fbbf24; }
 .hist-blank { color:var(--text4); opacity:0.4; }
 
 /* ===== 히스토리 일자별 통계 (제품 그리드와 같은 table 안의 sticky 헤더 행으로 쌓음) ===== */
@@ -908,8 +908,8 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .hist-stat-th.hist-stat-no   { color:var(--no-text); background:var(--no-bg); }
 .hist-stat-th.hist-stat-em   { color:var(--em-text); background:var(--em-bg); }
 .hist-stat-th.hist-stat-pm   { color:var(--pm-text); background:var(--pm-bg); }
-.hist-stat-th.hist-stat-excl { color:#ca8a04; background:rgba(234,179,8,0.15); }
-[data-theme="dark"] .hist-stat-th.hist-stat-excl { color:#fbbf24; background:rgba(234,179,8,0.12); }
+.hist-stat-th.hist-stat-excl { color:#92640a; background:#fef3c7; }
+[data-theme="dark"] .hist-stat-th.hist-stat-excl { color:#fbbf24; background:#3a2e08; }
 .hist-stat-th.hist-stat-problem { color:var(--pm-text); background:var(--pm-bg); font-weight:900; }
 
 /* ===== 주간 점검 요청서 모달 ===== */
