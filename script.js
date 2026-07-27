@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.2.1';
+const APP_VERSION = 'v2.2.2';
 const APP_DATE    = '2026.07.20';
 
 /* ===== 설정 ===== */
@@ -1509,19 +1509,21 @@ async function openCardDetailModal(id){
 }
 // 분단위 원본 수집 데이터를 정시(시간대) 단위로 묶어 PM10/PM2.5/CO2 평균을 냄
 // — 예: 09:09~09:59 사이 6건이 있으면 "09시" 한 행으로 합쳐 평균값을 보여줌
+// rawItems엔 그 시간대에 실제 수집된 원본 항목들을 시간순으로 담아둠 (행 클릭 시 상세 표시용)
 function aggregateHourlyReadings(items){
-  const buckets=new Map(); // 시간대(getTime) -> {date, count, pm10Sum, pm25Sum, co2Sum}
+  const buckets=new Map(); // 시간대(getTime) -> {date, count, pm10Sum, pm25Sum, co2Sum, rawItems}
   items.forEach(item=>{
     const d=new Date(item.format_created_time);
     if(isNaN(d.getTime())) return;
     const hourDate=new Date(d.getFullYear(),d.getMonth(),d.getDate(),d.getHours());
     const key=hourDate.getTime();
-    if(!buckets.has(key)) buckets.set(key,{date:hourDate,count:0,pm10Sum:0,pm25Sum:0,co2Sum:0});
+    if(!buckets.has(key)) buckets.set(key,{date:hourDate,count:0,pm10Sum:0,pm25Sum:0,co2Sum:0,rawItems:[]});
     const b=buckets.get(key);
     b.count++;
     b.pm10Sum+=Number(item.pm_10)||0;
     b.pm25Sum+=Number(item.pm_2_5)||0;
     b.co2Sum +=Number(item.co2)||0;
+    b.rawItems.push(item);
   });
   const p2=n=>String(n).padStart(2,'0');
   const round1=n=>Math.round(n*10)/10; // 소수점 한 자리까지 반올림
@@ -1532,9 +1534,12 @@ function aggregateHourlyReadings(items){
       pm_10:round1(b.pm10Sum/b.count),
       pm_2_5:round1(b.pm25Sum/b.count),
       co2:round1(b.co2Sum/b.count),
-      sampleCount:b.count
+      sampleCount:b.count,
+      rawItems:[...b.rawItems].sort((x,y)=>new Date(x.format_created_time)-new Date(y.format_created_time))
     }));
 }
+
+let cardDetailHourlyData=[]; // 현재 열린 카드 상세 모달의 시간대별 집계 결과 (행 클릭 시 원본 breakdown 조회용)
 
 function _renderCardDetailContent(sorted){
   const loadEl=document.getElementById('cardDetailLoading');
@@ -1548,14 +1553,50 @@ function _renderCardDetailContent(sorted){
   loadEl.style.display='none';
   tableWrap.style.display='block';
   const hourly=aggregateHourlyReadings(sorted);
-  document.getElementById('cardDetailCount').textContent=`시간대 ${hourly.length}개 (원본 ${sorted.length}건 평균)`;
-  document.getElementById('cardDetailBody').innerHTML=hourly.map(item=>`<tr>
-      <td title="${item.sampleCount}건 평균">${escHtml(item.format_created_time||'—')}</td>
+  cardDetailHourlyData=hourly;
+  document.getElementById('cardDetailCount').textContent=`시간대 ${hourly.length}개 (원본 ${sorted.length}건 평균) — 행을 누르면 원본 상세가 펼쳐집니다`;
+  document.getElementById('cardDetailBody').innerHTML=hourly.map((item,idx)=>`<tr class="card-detail-hour-row" onclick="toggleCardDetailHourRow(${idx})">
+      <td title="${item.sampleCount}건 평균 — 눌러서 원본 보기">${escHtml(item.format_created_time||'—')}</td>
       <td>${item.pm_10??'—'}</td>
       <td>${item.pm_2_5??'—'}</td>
       <td>${item.co2??'—'}</td>
     </tr>`).join('');
   _renderCardDetailChart([...hourly].reverse());
+}
+
+// 시간대별 평균 행을 클릭하면 그 시간대에 실제 수집된 원본 데이터를 작은 표로 펼쳐 보여줌 (아코디언)
+function toggleCardDetailHourRow(idx){
+  const body=document.getElementById('cardDetailBody');
+  const row=body.querySelectorAll('tr.card-detail-hour-row')[idx];
+  if(!row) return;
+  const next=row.nextElementSibling;
+  if(next&&next.classList.contains('card-detail-hour-expand')){
+    next.remove();
+    row.classList.remove('expanded');
+    return;
+  }
+  body.querySelectorAll('tr.card-detail-hour-expand').forEach(el=>el.remove());
+  body.querySelectorAll('tr.card-detail-hour-row.expanded').forEach(el=>el.classList.remove('expanded'));
+
+  const item=cardDetailHourlyData[idx];
+  if(!item||!item.rawItems.length) return;
+  row.classList.add('expanded');
+  const expandRow=document.createElement('tr');
+  expandRow.className='card-detail-hour-expand';
+  expandRow.innerHTML=`<td colspan="4">
+    <div class="card-detail-hour-raw-wrap">
+      <table class="card-detail-hour-raw-table">
+        <thead><tr><th>수집 시간</th><th>PM10</th><th>PM2.5</th><th>CO₂</th></tr></thead>
+        <tbody>${item.rawItems.map(r=>`<tr>
+          <td>${escHtml(r.format_created_time||'—')}</td>
+          <td>${r.pm_10??'—'}</td>
+          <td>${r.pm_2_5??'—'}</td>
+          <td>${r.co2??'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </td>`;
+  row.after(expandRow);
 }
 function _renderCardDetailChart(items){
   if(cardDetailChartDust){cardDetailChartDust.destroy();cardDetailChartDust=null;}

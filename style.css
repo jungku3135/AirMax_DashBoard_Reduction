@@ -512,6 +512,26 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .single-detail-table td:first-child { text-align:left; font-size:11px; color:var(--text3); }
 .single-detail-table tr:last-child td { border-bottom:none; }
 .single-detail-table tr:hover td { background:var(--input-bg); }
+
+/* ===== 카드 상세 — 시간대별 평균 행 클릭 시 원본 데이터 펼침 ===== */
+.card-detail-hour-row { cursor:pointer; }
+.card-detail-hour-row td:first-child { position:relative; padding-left:18px; }
+.card-detail-hour-row td:first-child::before {
+  content:'▸'; position:absolute; left:2px; top:50%; transform:translateY(-50%);
+  font-size:9px; color:var(--text4); transition:transform 0.15s;
+}
+.card-detail-hour-row.expanded td:first-child::before { transform:translateY(-50%) rotate(90deg); color:var(--accent); }
+.card-detail-hour-expand td { padding:0; border-bottom:1px solid var(--border2); }
+.card-detail-hour-raw-wrap { background:var(--input-bg); padding:8px 10px 8px 26px; }
+.card-detail-hour-raw-table { width:100%; border-collapse:collapse; font-size:10.5px; }
+.card-detail-hour-raw-table th {
+  color:var(--text4); font-weight:700; text-align:center; padding:3px 6px;
+  border-bottom:1px solid var(--border2); font-size:9.5px;
+}
+.card-detail-hour-raw-table th:first-child { text-align:left; }
+.card-detail-hour-raw-table td { color:var(--text3); text-align:center; padding:3px 6px; }
+.card-detail-hour-raw-table td:first-child { text-align:left; }
+.card-detail-hour-raw-table tr:not(:last-child) td { border-bottom:1px dashed var(--border2); }
 .single-detail-empty { font-size:13px; color:var(--text4); padding:16px 0; }
 
 /* ===== 영역 지정 ===== */
