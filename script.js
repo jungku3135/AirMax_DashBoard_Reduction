@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.2.2';
+const APP_VERSION = 'v2.2.3';
 const APP_DATE    = '2026.07.20';
 
 /* ===== 설정 ===== */
@@ -1535,7 +1535,7 @@ function aggregateHourlyReadings(items){
       pm_2_5:round1(b.pm25Sum/b.count),
       co2:round1(b.co2Sum/b.count),
       sampleCount:b.count,
-      rawItems:[...b.rawItems].sort((x,y)=>new Date(x.format_created_time)-new Date(y.format_created_time))
+      rawItems:[...b.rawItems].sort((x,y)=>new Date(y.format_created_time)-new Date(x.format_created_time)) // 최신 먼저 — 바깥 표와 정렬 방향 통일
     }));
 }
 
