@@ -9,6 +9,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"/>
+<!-- Factory 디자인 시스템 폰트 — 라틴/숫자 "계기판" 라벨(버전, OK/NO/EM/PM 코드, 날짜 등)에만 사용.
+     한글 본문은 Pretendard 유지 (Geist엔 한글 글리프가 없음) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&display=swap"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"/>
 <link rel="stylesheet" href="style.css"/>
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
@@ -35,7 +38,7 @@
     <button class="page-tab" id="pageTabHistory" onclick="switchPage('history')">히스토리</button>
   </div>
   <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
-    <span class="theme-icon" id="themeIcon">🌙</span>
+    <span class="material-icons-round theme-icon" id="themeIcon">dark_mode</span>
   </button>
 </div>
 
@@ -47,14 +50,18 @@
   <!-- 관리자 비밀번호 -->
   <div class="admin-row">
     <label style="min-width:80px">관리자 PW</label>
-    <input type="password" class="admin-pw-input" id="adminPwInput" placeholder="관리자 비밀번호 입력"/>
+    <span class="pw-input-wrap">
+      <input type="password" class="admin-pw-input" id="adminPwInput" placeholder="관리자 비밀번호 입력"/>
+      <button type="button" class="pw-toggle-btn" id="adminPwToggleBtn" onclick="toggleAdminPwVisibility()" title="비밀번호 표시/숨김" tabindex="-1"><span class="material-icons-round ico-solo" style="font-size:15px">visibility</span></button>
+    </span>
     <button class="btn-ghost" onclick="authenticateAdmin()">인증</button>
     <button class="btn-ghost" id="deauthBtn" style="display:none" onclick="deauthAdmin()">해제</button>
     <span class="admin-auth-badge" id="adminAuthBadge"></span>
   </div>
   <!-- 관리자 액션 버튼 (인증 후 표시) -->
   <div class="admin-actions-row" id="adminActionsRow" style="display:none">
-    <button class="btn-admin-action" onclick="toggleProductEditor()">📋 제품 편집</button>
+    <button class="btn-admin-action" onclick="toggleProductEditor()"><span class="material-icons-round ico">inventory_2</span>제품 편집</button>
+    <span class="overdue-badge" id="overdueBadge" style="display:none"></span>
   </div>
 
   <!-- 제품 편집 (관리자 전용) — 시트 연동 -->
@@ -65,11 +72,11 @@
         <option value="">전체 영역</option>
       </select>
       <input type="text" id="peSearch" placeholder="ID 또는 장소 검색…" oninput="renderProductEditor()"/>
-      <button class="pe-btn" id="peEditModeBtn" onclick="toggleEditMode()" style="white-space:nowrap">✏️ 전체 편집</button>
+      <button class="pe-btn" id="peEditModeBtn" onclick="toggleEditMode()" style="white-space:nowrap"><span class="material-icons-round ico">edit</span>전체 편집</button>
     </div>
     <div class="pe-bulk-bar" id="peBulkBar" style="display:none">
       <span id="peBulkStatus" style="font-size:11px;color:var(--text3)">편집 모드 — 수정 후 일괄 저장</span>
-      <button class="pe-btn save" onclick="bulkSaveProducts()">💾 일괄 저장</button>
+      <button class="pe-btn save" onclick="bulkSaveProducts()"><span class="material-icons-round ico">save</span>일괄 저장</button>
       <button class="pe-btn" onclick="exitEditMode()">취소</button>
     </div>
     <div class="pe-list" id="peList"></div>
@@ -176,14 +183,17 @@
       <div class="section-label" style="margin-bottom:0">영역 선택
         <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — 복수 선택 가능</span>
       </div>
-      <input type="text" class="zone-search-input" id="zoneSearchInput"
-        placeholder="🔍  영역명 검색 (예: 시청역)"
-        oninput="filterZones(this.value)"/>
+      <span class="zone-search-wrap">
+        <span class="material-icons-round zone-search-icon">search</span>
+        <input type="text" class="zone-search-input" id="zoneSearchInput"
+          placeholder="영역명 검색 (예: 시청역)"
+          oninput="filterZones(this.value)"/>
+      </span>
       <button class="btn-zone-toggle" id="zoneToggleBtn" onclick="toggleZoneGrid()">
         <span>펼치기</span>
         <span class="zone-toggle-arrow" id="zoneArrow">▼</span>
       </button>
-      <button class="btn-zone-toggle" id="zoneRefreshBtn" onclick="refreshSheetData()" title="시트에서 영역 목록 새로고침" style="padding:6px 10px">🔄 영역 새로고침</button>
+      <button class="btn-zone-toggle" id="zoneRefreshBtn" onclick="refreshSheetData()" title="시트에서 영역 목록 새로고침" style="padding:6px 10px"><span class="material-icons-round ico">refresh</span>영역 새로고침</button>
     </div>
 
     <div class="zone-grid-wrap" id="zoneGridWrap">
@@ -204,7 +214,7 @@
     </div>
     <div id="dustSearchArea" style="display:none">
       <div class="row" style="margin-bottom:10px;align-items:center;gap:6px;flex-wrap:wrap">
-        <label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:700;color:var(--text3)">조회 기간</label>
+        <label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:500;color:var(--text3)">조회 기간</label>
         <select id="dustStartMonth" class="list-filter-sel" style="min-width:130px;" onchange="onDustStartMonthChange()"></select>
         <span style="font-size:12px;color:var(--text3);font-weight:500">~</span>
         <select id="dustEndMonth" class="list-filter-sel" style="min-width:130px;"></select>
@@ -214,14 +224,17 @@
         <div class="section-label" style="margin-bottom:0">영역 선택
           <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — 복수 선택 가능</span>
         </div>
-        <input type="text" class="zone-search-input" id="dustZoneSearchInput"
-          placeholder="🔍  영역명 검색 (예: 시청역)"
-          oninput="filterDustZones()"/>
+        <span class="zone-search-wrap">
+          <span class="material-icons-round zone-search-icon">search</span>
+          <input type="text" class="zone-search-input" id="dustZoneSearchInput"
+            placeholder="영역명 검색 (예: 시청역)"
+            oninput="filterDustZones()"/>
+        </span>
         <button class="btn-zone-toggle" id="dustZoneToggleBtn" onclick="toggleDustZoneGrid()">
           <span>펼치기</span>
           <span class="zone-toggle-arrow" id="dustZoneArrow">▼</span>
         </button>
-        <button class="btn-zone-toggle" onclick="refreshSheetData()" title="시트에서 영역 목록 새로고침" style="padding:6px 10px">🔄 영역 새로고침</button>
+        <button class="btn-zone-toggle" onclick="refreshSheetData()" title="시트에서 영역 목록 새로고침" style="padding:6px 10px"><span class="material-icons-round ico">refresh</span>영역 새로고침</button>
       </div>
       <div class="zone-grid-wrap" id="dustZoneGridWrap">
         <div style="display:flex;gap:6px;margin-bottom:8px;">
@@ -265,7 +278,7 @@
     <div class="single-detail-title" id="singleDetailTitle"></div>
     <div style="display:flex;align-items:center;gap:10px">
       <div class="pg-info" id="singlePageInfo"></div>
-      <button class="btn-copy" id="singleCopyBtn" onclick="copySingleToClipboard()" style="display:none">📋 전체 복사</button>
+      <button class="btn-copy" id="singleCopyBtn" onclick="copySingleToClipboard()" style="display:none"><span class="material-icons-round ico">content_copy</span>전체 복사</button>
     </div>
   </div>
   <!-- 차트 -->
@@ -302,7 +315,7 @@
   </div>
   <div id="dustMonthCopyBar" style="display:none;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
     <select id="dustMonthSelect" class="list-filter-sel" style="min-width:130px;max-width:180px;"></select>
-    <button id="dustMonthCopyBtn" class="pe-btn" onclick="copyDustByMonth()">📋 월별 복사</button>
+    <button id="dustMonthCopyBtn" class="pe-btn" onclick="copyDustByMonth()"><span class="material-icons-round ico">content_copy</span>월별 복사</button>
   </div>
   <div class="dust-cards-grid" id="dustCardsGrid"></div>
 </div>
@@ -313,7 +326,7 @@
     <div class="modal-drag-handle" id="modalDragHandle"></div>
     <div class="dust-modal-header">
       <span class="dust-modal-title" id="dustModalTitle"></span>
-      <button class="pe-btn" onclick="closeDustModal()">✕ 닫기</button>
+      <button class="pe-btn" onclick="closeDustModal()"><span class="material-icons-round ico">close</span>닫기</button>
     </div>
     <div class="dust-modal-body">
       <div class="dust-modal-summary" id="dustModalSummary"></div>
@@ -339,7 +352,7 @@
         <div class="dust-modal-title" id="cardDetailTitle"></div>
         <div id="cardDetailSubtitle" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
       </div>
-      <button class="pe-btn" onclick="closeCardDetailModal()">✕ 닫기</button>
+      <button class="pe-btn" onclick="closeCardDetailModal()"><span class="material-icons-round ico">close</span>닫기</button>
     </div>
     <div class="card-detail-id-tabs" id="cardDetailIdTabs"></div>
     <div class="dust-modal-body">
@@ -378,12 +391,12 @@
     <option value="EM_PM">EM + PM</option>
     <option value="ERR">ERR</option>
   </select>
-  <button class="btn-copy" onclick="copyListToClipboard()">📋 클립보드 복사</button>
-  <span id="copyMsg" style="font-size:11px;color:var(--ok-text);display:none">✓ 복사됨</span>
+  <button class="btn-copy" onclick="copyListToClipboard()"><span class="material-icons-round ico">content_copy</span>클립보드 복사</button>
+  <span id="copyMsg" style="font-size:11px;color:var(--ok-text);display:none"><span class="material-icons-round ico-solo" style="font-size:13px;vertical-align:-2px">check</span> 복사됨</span>
 </div>
 
 <div id="preSearchHint" class="pre-search-hint">
-  <div class="psh-icon">📡</div>
+  <div class="psh-icon material-icons-round">sensors</div>
   <div class="psh-title">점검을 시작하세요</div>
   <div class="psh-desc">검색 조건을 입력한 후 점검 버튼을 눌러주세요</div>
 </div>
@@ -409,11 +422,11 @@
     <select id="historyDaySel" class="list-filter-sel" style="min-width:120px" onchange="filterHistoryDay(this.value)">
       <option value="">전체 일자</option>
     </select>
-    <button class="btn-ghost" id="historyRefreshBtn" onclick="loadHistoryGrid(document.getElementById('historyMonthSel').value)" title="최신 데이터로 새로고침">🔄</button>
+    <button class="btn-ghost" id="historyRefreshBtn" onclick="loadHistoryGrid(document.getElementById('historyMonthSel').value)" title="최신 데이터로 새로고침"><span class="material-icons-round ico-solo">refresh</span></button>
     <input type="text" id="historySearchInput" class="id-input" placeholder="제품 ID / 영역 / 설치 장소 검색…"
       style="flex:1;max-width:260px;min-width:0" oninput="filterHistoryGrid(this.value)"/>
     <span class="history-toolbar-spacer"></span>
-    <button class="btn-primary" id="weeklyReportBtn" onclick="openWeeklyReportModal()">📋 점검 요청서 생성</button>
+    <button class="btn-primary" id="weeklyReportBtn" onclick="openWeeklyReportModal()" title="PC 환경에서만 사용 가능합니다"><span class="material-icons-round ico">post_add</span>점검 요청서 생성</button>
   </div>
   <div class="history-legend">
     <span class="hist-chip ok">OK <em>정상</em></span>
@@ -434,7 +447,7 @@
     <div class="modal-drag-handle"></div>
     <div class="dust-modal-header">
       <span class="dust-modal-title">주간 점검 요청서 생성</span>
-      <button class="pe-btn" onclick="closeWeeklyReportModal()">✕ 닫기</button>
+      <button class="pe-btn" onclick="closeWeeklyReportModal()"><span class="material-icons-round ico">close</span>닫기</button>
     </div>
     <div class="dust-modal-body">
       <div class="wr-requester-row">
@@ -457,7 +470,7 @@
           </div>
         </div>
         <div class="wr-actions">
-          <button class="btn-primary" id="wrExportBtn" onclick="exportWeeklyReportXlsx()">⬇️ 다운로드 + 저장</button>
+          <button class="btn-primary" id="wrExportBtn" onclick="exportWeeklyReportXlsx()"><span class="material-icons-round ico">file_download</span>다운로드 + 저장</button>
         </div>
       </div>
     </div>

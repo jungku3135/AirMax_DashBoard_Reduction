@@ -1,6 +1,6 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.2.4';
-const APP_DATE    = '2026.07.27';
+const APP_VERSION = 'v2.3.0';
+const APP_DATE    = '2026.07.28';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
@@ -59,12 +59,12 @@ const dustResultMap=new Map();
 const SINGLE_PAGE_SIZE=30;
 
 const STATUS = {
-  OK:   {label:'OK',  icon:'✓', cls:'card-ok',   textVar:'--ok-text',  chipBgVar:'--ok-chip-bg',  chipBdVar:'--ok-chip-border',  chipTxVar:'--ok-chip-text'  },
-  NO:   {label:'NO',  icon:'✗', cls:'card-no',   textVar:'--no-text',  chipBgVar:'--no-chip-bg',  chipBdVar:'--no-chip-border',  chipTxVar:'--no-chip-text'  },
-  EM:   {label:'EM',  icon:'⚡', cls:'card-em',   textVar:'--em-text',  chipBgVar:'--em-chip-bg',  chipBdVar:'--em-chip-border',  chipTxVar:'--em-chip-text'  },
-  PM:   {label:'PM',  icon:'🔧', cls:'card-pm',   textVar:'--pm-text',  chipBgVar:'--pm-chip-bg',  chipBdVar:'--pm-chip-border',  chipTxVar:'--pm-chip-text'  },
-  ERR:  {label:'ERR', icon:'⚠', cls:'card-err',  textVar:'--err-text', chipBgVar:'--err-chip-bg', chipBdVar:'--err-chip-border', chipTxVar:'--err-chip-text' },
-  LOAD: {label:'···', icon:'',  cls:'card-load', textVar:'--text4',    chipBgVar:'--input-bg',    chipBdVar:'--border',          chipTxVar:'--text4'         },
+  OK:   {label:'OK',  icon:'check_circle', cls:'card-ok',   textVar:'--ok-text',  chipBgVar:'--ok-chip-bg',  chipBdVar:'--ok-chip-border',  chipTxVar:'--ok-chip-text'  },
+  NO:   {label:'NO',  icon:'cancel',       cls:'card-no',   textVar:'--no-text',  chipBgVar:'--no-chip-bg',  chipBdVar:'--no-chip-border',  chipTxVar:'--no-chip-text'  },
+  EM:   {label:'EM',  icon:'bolt',         cls:'card-em',   textVar:'--em-text',  chipBgVar:'--em-chip-bg',  chipBdVar:'--em-chip-border',  chipTxVar:'--em-chip-text'  },
+  PM:   {label:'PM',  icon:'build',        cls:'card-pm',   textVar:'--pm-text',  chipBgVar:'--pm-chip-bg',  chipBdVar:'--pm-chip-border',  chipTxVar:'--pm-chip-text'  },
+  ERR:  {label:'ERR', icon:'warning',      cls:'card-err',  textVar:'--err-text', chipBgVar:'--err-chip-bg', chipBdVar:'--err-chip-border', chipTxVar:'--err-chip-text' },
+  LOAD: {label:'···', icon:'',             cls:'card-load', textVar:'--text4',    chipBgVar:'--input-bg',    chipBdVar:'--border',          chipTxVar:'--text4'         },
 };
 
 /* ===== 유틸 ===== */
@@ -77,7 +77,10 @@ function renderSummaryDonut(counts){
   const el=document.getElementById('summaryDonut');
   if(!el) return;
   const order=['OK','NO','EM','PM','ERR'];
-  const hexColors={OK:'#22c55e',NO:'#9ca3af',EM:'#3b82f6',PM:'#f43f5e',ERR:'#f59e0b'};
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const hexColors=isDark
+    ?{OK:'#a0ca92',NO:'#b8b3b0',EM:'#8ab4d6',PM:'#e08d7c',ERR:'#e0b458'}
+    :{OK:'#7fa870',NO:'#a39d97',EM:'#5f8fb3',PM:'#c17262',ERR:'#c19752'};
   const total=order.reduce((s,k)=>s+(counts[k]||0),0);
   if(!total){el.innerHTML='';return;}
   const r=18,C=2*Math.PI*r;
@@ -98,12 +101,21 @@ function toggleTheme(){
   const html=document.documentElement;
   const next=html.getAttribute('data-theme')==='dark'?'light':'dark';
   html.setAttribute('data-theme',next); lsSet(LS_THEME,next);
-  document.getElementById('themeIcon').textContent=next==='dark'?'☀️':'🌙';
+  document.getElementById('themeIcon').textContent=next==='dark'?'light_mode':'dark_mode';
+  if(results && results.length && document.getElementById('summary').style.display!=='none') renderSummary();
   if(singleAllItems.length){
     const start=singlePage*SINGLE_PAGE_SIZE;
     renderSingleChart([...singleAllItems.slice(start,start+SINGLE_PAGE_SIZE)].reverse());
   }
   if(dustModalOpen && dustDays.length) renderDustChart(dustDays, next==='dark', 'dustModalCanvas');
+}
+
+function toggleAdminPwVisibility(){
+  const input=document.getElementById('adminPwInput');
+  const icon=document.querySelector('#adminPwToggleBtn .material-icons-round');
+  const show=input.type==='password';
+  input.type=show?'text':'password';
+  icon.textContent=show?'visibility_off':'visibility';
 }
 
 /* ===== 관리자 인증 ===== */
@@ -141,6 +153,26 @@ function _applyAdminAuthedUI(level){
   document.getElementById('adminActionsRow').style.display='flex';
   _applyDustAuthUI();
   updateRunBtnText(); updateSheetBtn(); updatePageTabsVisibility();
+  fetchOverdueBadge();
+}
+
+/* 30일 이상 지속된 오류 건수를 관리자 로그인 시 백그라운드로 조회해 배지로 표시.
+   실패해도 조용히 무시 — 부가 정보일 뿐 기존 흐름에 영향 없음 */
+async function fetchOverdueBadge(){
+  const badge=document.getElementById('overdueBadge');
+  if(!badge||!GAS_URL) return;
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'getWeeklyReportDraft', asOfDate:todayStr()})});
+    const json=await res.json();
+    if(json.success && Array.isArray(json.overdueItems) && json.overdueItems.length){
+      badge.innerHTML=`<span class="material-icons-round" style="font-size:13px;vertical-align:-2px;margin-right:3px">history_toggle_off</span>30일 이상 지속 ${json.overdueItems.length}건`;
+      badge.title=json.overdueItems.map(it=>`${it.id} (${it.since})`).join(', ');
+      badge.style.display='inline-flex';
+    } else {
+      badge.style.display='none';
+    }
+  }catch(e){ badge.style.display='none'; }
 }
 
 function updatePageTabsVisibility(){
@@ -406,10 +438,10 @@ function clearZones(){
 /* ===== 시트 데이터 강제 새로고침 (관리자) ===== */
 function refreshSheetData(){
   const btn=document.getElementById('zoneRefreshBtn');
-  if(btn){ btn.disabled=true; btn.textContent='⏳ 불러오는 중…'; }
+  if(btn){ btn.disabled=true; btn.innerHTML='<span class="material-icons-round ico">hourglass_empty</span>불러오는 중…'; }
   addLog('시트 데이터 새로고침 중…','muted');
   loadSheetData(true).finally(()=>{
-    if(btn){ btn.disabled=false; btn.textContent='🔄 영역 새로고침'; }
+    if(btn){ btn.disabled=false; btn.innerHTML='<span class="material-icons-round ico">refresh</span>영역 새로고침'; }
   });
 }
 
@@ -605,7 +637,7 @@ function renderGrid(){
   const filtered=currentFilter==='ALL'?results:results.filter(r=>r.status===currentFilter);
   if(!filtered.length){
     const msg=currentFilter==='ALL'?'검색 결과가 없습니다':'해당 상태의 결과가 없습니다';
-    document.getElementById('grid').innerHTML=`<div class="empty-inline"><span class="empty-inline-icon">🔍</span><span>${msg}</span></div>`;
+    document.getElementById('grid').innerHTML=`<div class="empty-inline"><span class="material-icons-round empty-inline-icon">search_off</span><span>${msg}</span></div>`;
     return;
   }
   document.getElementById('grid').innerHTML=filtered.map(r=>{
@@ -616,7 +648,7 @@ function renderGrid(){
       :'<span style="display:block;text-align:center">데이터 없음</span>';
     const exReason=excludeReasons[r.id]||'';
     return`<div class="card ${cfg.cls}" data-id="${escHtml(r.id)}" onclick="openCardDetailModal('${escHtml(r.id)}')">
-      <div class="card-status" style="color:var(${cfg.textVar})"><span class="card-icon">${cfg.icon}</span>${cfg.label}</div>
+      <div class="card-status" style="color:var(${cfg.textVar})">${cfg.icon?`<span class="material-icons-round card-icon">${cfg.icon}</span>`:''}${cfg.label}</div>
       <div class="card-id">${escHtml(r.id)}</div>
       ${exReason?`<div class="exclude-reason-badge">${escHtml(exReason)}</div>`:''}
       ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
@@ -813,14 +845,14 @@ function markChanged(input, id){
 
 function toggleEditMode(){
   peEditMode=!peEditMode;
-  document.getElementById('peEditModeBtn').textContent=peEditMode?'👁 보기 모드':'✏️ 전체 편집';
+  document.getElementById('peEditModeBtn').innerHTML=peEditMode?'<span class="material-icons-round ico">visibility</span>보기 모드':'<span class="material-icons-round ico">edit</span>전체 편집';
   document.getElementById('peBulkBar').style.display=peEditMode?'flex':'none';
   renderProductEditor();
 }
 
 function exitEditMode(){
   peEditMode=false;
-  document.getElementById('peEditModeBtn').textContent='✏️ 전체 편집';
+  document.getElementById('peEditModeBtn').innerHTML='<span class="material-icons-round ico">edit</span>전체 편집';
   document.getElementById('peBulkBar').style.display='none';
   renderProductEditor();
 }
@@ -867,7 +899,7 @@ async function bulkSaveProducts(){
   }catch(e){
     alert('저장 중 오류: '+e.message);
   }
-  if(saveBtn){ saveBtn.disabled=false; saveBtn.textContent='💾 일괄 저장'; }
+  if(saveBtn){ saveBtn.disabled=false; saveBtn.innerHTML='<span class="material-icons-round ico">save</span>일괄 저장'; }
 }
 
 async function deleteProductFromSheet(id){
@@ -945,7 +977,7 @@ function updateGridCard(r){
   const exReason=excludeReasons[r.id]||'';
   el.className=`card ${cfg.cls} card-updated`;
   el.innerHTML=`
-    <div class="card-status" style="color:var(${cfg.textVar})"><span class="card-icon">${cfg.icon}</span>${cfg.label}</div>
+    <div class="card-status" style="color:var(${cfg.textVar})">${cfg.icon?`<span class="material-icons-round card-icon">${cfg.icon}</span>`:''}${cfg.label}</div>
     <div class="card-id">${escHtml(r.id)}</div>
     ${exReason?`<div class="exclude-reason-badge">${escHtml(exReason)}</div>`:''}
     ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
@@ -975,7 +1007,7 @@ function renderList(){
     return`<div class="list-row" onclick="openCardDetailModal('${escHtml(r.id)}')">
       <div class="list-id-cell">${escHtml(r.id)}</div>
       <div class="list-loc-cell">${escHtml(loc)}</div>
-      <div class="list-status-cell" style="color:var(${cfg.textVar})">${cfg.icon} ${cfg.label}</div>
+      <div class="list-status-cell" style="color:var(${cfg.textVar})">${cfg.icon?`<span class="material-icons-round" style="font-size:13px;vertical-align:-2px;margin-right:2px">${cfg.icon}</span>`:''}${cfg.label}</div>
       <div class="list-time-cell">${escHtml(time||'—')}</div>
     </div>`;
   }).join('');
@@ -1091,7 +1123,7 @@ function renderDustChart(days,isDark,canvasId){
   const canvas=document.getElementById(canvasId||'dustModalCanvas');
   if(!canvas||!days.length) return;
   const grid=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
-  const tick=isDark?'#999':'#888';
+  const tick=isDark?'#8a8380':'#6b6560';
   dustModalChart=new Chart(canvas,{
     type:'bar',
     data:{
@@ -1099,8 +1131,8 @@ function renderDustChart(days,isDark,canvasId){
       datasets:[{
         label:'회별 포집량 (g)',
         data:days.map(d=>d.inc),
-        backgroundColor:isDark?'rgba(78,142,247,0.65)':'rgba(78,142,247,0.55)',
-        borderColor:'#4e8ef7',borderWidth:1,borderRadius:4,
+        backgroundColor:isDark?'rgba(95,143,179,0.65)':'rgba(95,143,179,0.55)',
+        borderColor:'#5f8fb3',borderWidth:1,borderRadius:4,
       }]
     },
     options:{
@@ -1113,9 +1145,9 @@ function renderDustChart(days,isDark,canvasId){
       plugins:{
         legend:{display:false},
         tooltip:{
-          backgroundColor:isDark?'#1e1e1e':'#fff',
-          titleColor:isDark?'#ddd':'#222',bodyColor:isDark?'#ccc':'#444',
-          borderColor:isDark?'#444':'#ddd',borderWidth:1,padding:10,
+          backgroundColor:isDark?'#1d1a18':'#ffffff',
+          titleColor:isDark?'#eeeeee':'#171514',bodyColor:isDark?'#b8b3b0':'#433f3d',
+          borderColor:isDark?'#3d3a39':'#ddd9d5',borderWidth:1,padding:10,
           callbacks:{label:ctx=>`${ctx.parsed.y.toLocaleString()}g`}
         }
       },
@@ -1354,7 +1386,7 @@ function copyDustByMonth(){
   });
   const btn=document.getElementById('dustMonthCopyBtn');
   navigator.clipboard.writeText(lines.join('\n'))
-    .then(()=>{btn.textContent='✓ 복사됨';setTimeout(()=>{btn.textContent='📋 월별 복사';},2000);})
+    .then(()=>{btn.innerHTML='<span class="material-icons-round ico">check</span>복사됨';setTimeout(()=>{btn.innerHTML='<span class="material-icons-round ico">content_copy</span>월별 복사';},2000);})
     .catch(()=>{alert('클립보드 복사에 실패했습니다.');});
 }
 
@@ -1383,7 +1415,7 @@ function openDustModal(id){
     bodyEl.innerHTML=activeDays.map(d=>`<tr>
       <td>${escHtml(d.date)}</td>
       <td>${d.first.toLocaleString()}</td><td>${d.last.toLocaleString()}</td>
-      <td style="font-weight:700;color:var(--ok-text)">+${d.inc.toLocaleString()}</td>
+      <td style="font-weight:500;color:var(--ok-text)">+${d.inc.toLocaleString()}</td>
     </tr>`).join('');
     chartWrap.style.display='block';
   } else {
@@ -1465,7 +1497,7 @@ async function openCardDetailModal(id){
   document.getElementById('cardDetailSummary').innerHTML=cfg?`
     <div class="dust-stat">
       <span class="dust-stat-label">최근 상태</span>
-      <span class="dust-stat-value" style="font-size:18px;color:var(${cfg.textVar})">${cfg.icon} ${cfg.label}</span>
+      <span class="dust-stat-value" style="font-size:18px;color:var(${cfg.textVar})">${cfg.icon?`<span class="material-icons-round" style="font-size:18px;vertical-align:-3px;margin-right:2px">${cfg.icon}</span>`:''}${cfg.label}</span>
     </div>
     ${r.item?`<div class="dust-stat">
       <span class="dust-stat-label">PM10</span>
@@ -1545,7 +1577,7 @@ function _renderCardDetailContent(sorted){
   const loadEl=document.getElementById('cardDetailLoading');
   const tableWrap=document.getElementById('cardDetailTableWrap');
   if(!sorted.length){
-    loadEl.innerHTML='<div style="padding:40px 0 20px;text-align:center"><div style="font-size:28px;margin-bottom:10px">📭</div><div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:4px">수집 데이터 없음</div><div style="font-size:11px;color:var(--text3)">해당 기간에 수집된 데이터가 없습니다</div></div>';
+    loadEl.innerHTML='<div style="padding:40px 0 20px;text-align:center"><span class="material-icons-round" style="font-size:28px;line-height:1;color:var(--text4);margin-bottom:10px;display:inline-block">inbox</span><div style="font-size:13px;font-weight:500;color:var(--text2);margin-bottom:4px">수집 데이터 없음</div><div style="font-size:11px;color:var(--text3)">해당 기간에 수집된 데이터가 없습니다</div></div>';
     loadEl.style.display='block';
     tableWrap.style.display='none';
     return;
@@ -1609,7 +1641,7 @@ function _renderCardDetailChart(items){
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
-  const tickColor=isDark?'#999':'#888';
+  const tickColor=isDark?'#8a8380':'#6b6560';
   const labels=items.map(d=>fmtTime(d.format_created_time));
   const pt=items.length>15?2:4;
 
@@ -1631,12 +1663,12 @@ function _renderCardDetailChart(items){
       hr:vals.map((_,i)=>(i===lastMax||i===lastMin)?9:6),
     };
   };
-  const p10=ptStyle(pm10Vals,minPm10,maxPm10,'#4e8ef7');
-  const p25=ptStyle(pm25Vals,minPm25,maxPm25,'#4ecf8e');
-  const pc2=ptStyle(co2Vals,minCo2,maxCo2,'#f7a14e');
+  const p10=ptStyle(pm10Vals,minPm10,maxPm10,'#5f8fb3');
+  const p25=ptStyle(pm25Vals,minPm25,maxPm25,'#a0ca92');
+  const pc2=ptStyle(co2Vals,minCo2,maxCo2,'#ee6018');
 
   const minMaxRow=(items2)=>items2.filter(([,mn])=>mn!==null).map(([label,mn,mx,unit])=>
-    `<span>${label} <b style="color:#4ecf8e">${mn}${unit}</b> · <b style="color:#e05252">${mx}${unit}</b></span>`
+    `<span>${label} <b style="color:#a0ca92">${mn}${unit}</b> · <b style="color:#c17262">${mx}${unit}</b></span>`
   ).join('<span style="color:var(--border2)">|</span>');
 
   const rowStyle='display:flex;gap:10px;align-items:center;font-size:11px;color:var(--text3);padding:4px 0 10px;flex-wrap:wrap';
@@ -1647,9 +1679,9 @@ function _renderCardDetailChart(items){
     responsive:true, maintainAspectRatio:false,
     interaction:{mode:'index',intersect:false},
     plugins:{
-      legend:{display:showLegend,labels:{color:isDark?'#ccc':'#444',font:{size:10},boxWidth:10,padding:10}},
-      tooltip:{backgroundColor:isDark?'#1e1e1e':'#fff',titleColor:isDark?'#ddd':'#222',
-        bodyColor:isDark?'#ccc':'#444',borderColor:isDark?'#444':'#ddd',borderWidth:1,padding:8}
+      legend:{display:showLegend,labels:{color:isDark?'#b8b3b0':'#433f3d',font:{size:10},boxWidth:10,padding:10}},
+      tooltip:{backgroundColor:isDark?'#1d1a18':'#ffffff',titleColor:isDark?'#eeeeee':'#171514',
+        bodyColor:isDark?'#b8b3b0':'#433f3d',borderColor:isDark?'#3d3a39':'#ddd9d5',borderWidth:1,padding:8}
     },
     scales:{
       x:{ticks:{color:tickColor,font:{size:9},maxRotation:45,autoSkip:true,maxTicksLimit:8},grid:{color:gridColor}},
@@ -1660,16 +1692,16 @@ function _renderCardDetailChart(items){
     const c1=document.getElementById('cardDetailChartDust');
     if(c1) cardDetailChartDust=new Chart(c1,{type:'line',data:{labels,datasets:[
       {label:'PM10 (㎍/㎥)',data:pm10Vals,
-       borderColor:'#4e8ef7',backgroundColor:'rgba(78,142,247,0.08)',
+       borderColor:'#5f8fb3',backgroundColor:'rgba(95,143,179,0.08)',
        fill:false,tension:0.35,pointBackgroundColor:p10.bg,pointRadius:p10.r,pointHoverRadius:p10.hr,borderWidth:2,spanGaps:false},
       {label:'PM2.5 (㎍/㎥)',data:pm25Vals,
-       borderColor:'#4ecf8e',backgroundColor:'rgba(78,207,142,0.08)',
+       borderColor:'#a0ca92',backgroundColor:'rgba(160,202,146,0.08)',
        fill:false,tension:0.35,pointBackgroundColor:p25.bg,pointRadius:p25.r,pointHoverRadius:p25.hr,borderWidth:2,spanGaps:false},
     ]},options:makeOpts(true)});
     const c2=document.getElementById('cardDetailChartCo2');
     if(c2) cardDetailChartCo2=new Chart(c2,{type:'line',data:{labels,datasets:[
       {label:'CO₂ (ppm)',data:co2Vals,
-       borderColor:'#f7a14e',backgroundColor:'rgba(247,161,78,0.12)',
+       borderColor:'#ee6018',backgroundColor:'rgba(238,96,24,0.12)',
        fill:true,tension:0.35,pointBackgroundColor:pc2.bg,pointRadius:pc2.r,pointHoverRadius:pc2.hr,borderWidth:2,spanGaps:false},
     ]},options:makeOpts(false)});
   },50));
@@ -1764,8 +1796,8 @@ function copySingleToClipboard(){
   const text=[header,...rows].join('\n');
   navigator.clipboard.writeText(text).then(()=>{
     const btn=document.getElementById('singleCopyBtn');
-    btn.textContent='✓ 복사됨';
-    setTimeout(()=>{ btn.textContent='📋 전체 복사'; }, 2000);
+    btn.innerHTML='<span class="material-icons-round ico">check</span>복사됨';
+    setTimeout(()=>{ btn.innerHTML='<span class="material-icons-round ico">content_copy</span>전체 복사'; }, 2000);
   }).catch(()=>{ alert('클립보드 복사에 실패했습니다.'); });
 }
 
@@ -1792,12 +1824,12 @@ function renderSingleChart(items){
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
-  const tickColor=isDark?'#999':'#888';
+  const tickColor=isDark?'#8a8380':'#6b6560';
   const tooltipBase={
-    backgroundColor:isDark?'#1e1e1e':'#fff',
-    titleColor:isDark?'#ddd':'#222',
-    bodyColor:isDark?'#ccc':'#444',
-    borderColor:isDark?'#444':'#ddd',
+    backgroundColor:isDark?'#1d1a18':'#ffffff',
+    titleColor:isDark?'#eeeeee':'#171514',
+    bodyColor:isDark?'#b8b3b0':'#433f3d',
+    borderColor:isDark?'#3d3a39':'#ddd9d5',
     borderWidth:1, padding:10,
   };
   const labels=items.map(d=>fmtTime(d.format_created_time));
@@ -1841,17 +1873,17 @@ function renderSingleChart(items){
   if(canvasDust){
     singleChartDust=new Chart(canvasDust,{type:'line', data:{labels, datasets:[
       {label:'PM10 (㎍/㎥)', data:items.map(d=>d.pm_10!==undefined?Number(d.pm_10):null),
-       yAxisID:'y', borderColor:'#4e8ef7', backgroundColor:'rgba(78,142,247,0.12)',
+       yAxisID:'y', borderColor:'#5f8fb3', backgroundColor:'rgba(95,143,179,0.12)',
        fill:true, tension:0.4, pointRadius:pt, pointHoverRadius:7,
-       pointBackgroundColor:'#4e8ef7', borderWidth:2.5, spanGaps:false},
+       pointBackgroundColor:'#5f8fb3', borderWidth:2.5, spanGaps:false},
       {label:'PM2.5 (㎍/㎥)', data:items.map(d=>d.pm_2_5!==undefined?Number(d.pm_2_5):null),
-       yAxisID:'y', borderColor:'#34d399', backgroundColor:'rgba(52,211,153,0.07)',
+       yAxisID:'y', borderColor:'#a0ca92', backgroundColor:'rgba(160,202,146,0.07)',
        fill:true, tension:0.4, pointRadius:pt, pointHoverRadius:7,
-       pointBackgroundColor:'#34d399', borderWidth:2.5, spanGaps:false},
+       pointBackgroundColor:'#a0ca92', borderWidth:2.5, spanGaps:false},
       {label:'CO₂ (ppm)', data:items.map(d=>d.co2!==undefined?Number(d.co2):null),
-       yAxisID:'y1', borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.10)',
+       yAxisID:'y1', borderColor:'#ee6018', backgroundColor:'rgba(238,96,24,0.10)',
        fill:true, tension:0.4, pointRadius:pt, pointHoverRadius:7,
-       pointBackgroundColor:'#f59e0b', borderWidth:2.5, spanGaps:false},
+       pointBackgroundColor:'#ee6018', borderWidth:2.5, spanGaps:false},
     ]}, options:{
       responsive:true, maintainAspectRatio:false,
       animation:{duration:400},
@@ -1875,17 +1907,17 @@ function renderSingleChart(items){
         x:{ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:12},
            grid:{color:gridColor},border:{display:false}},
         y:{position:'left',
-           ticks:{color:'#4e8ef7',font:{size:10},maxTicksLimit:6,callback:v=>Number.isInteger(v)?v:null},
+           ticks:{color:'#5f8fb3',font:{size:10},maxTicksLimit:6,callback:v=>Number.isInteger(v)?v:null},
            grid:{color:gridColor},border:{display:false},beginAtZero:true,min:0},
         y1:{position:'right',
-            ticks:{color:'#f59e0b',font:{size:10},maxTicksLimit:6,callback:v=>Number.isInteger(v)?v:null},
+            ticks:{color:'#ee6018',font:{size:10},maxTicksLimit:6,callback:v=>Number.isInteger(v)?v:null},
             grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true,min:0},
       }
-    }, plugins:[yLabelPlugin('㎍/㎥','#4e8ef7','ppm','#f59e0b')]});
+    }, plugins:[yLabelPlugin('㎍/㎥','#5f8fb3','ppm','#ee6018')]});
     injectChartLegend(canvasDust,[
-      {borderColor:'#4e8ef7', label:'PM10 (㎍/㎥)'},
-      {borderColor:'#34d399', label:'PM2.5 (㎍/㎥)'},
-      {borderColor:'#f59e0b', label:'CO₂ (ppm)'},
+      {borderColor:'#5f8fb3', label:'PM10 (㎍/㎥)'},
+      {borderColor:'#a0ca92', label:'PM2.5 (㎍/㎥)'},
+      {borderColor:'#ee6018', label:'CO₂ (ppm)'},
     ]);
   }
 
@@ -1912,12 +1944,12 @@ function renderSingleChart(items){
   if(canvasMotor){
     singleChartMotor=new Chart(canvasMotor,{type:'bar', data:{labels:motorLabels, datasets:[
       {label:'가동 횟수 (회)', data:countDiffs,
-       yAxisID:'y', backgroundColor:'rgba(139,92,246,0.55)', borderColor:'#8b5cf6',
+       yAxisID:'y', backgroundColor:'rgba(193,114,98,0.55)', borderColor:'#c17262',
        borderWidth:1.5, borderRadius:3, type:'bar'},
       {label:'가동 시간 (초)', data:timeDiffs,
-       yAxisID:'y1', borderColor:'#f97316', backgroundColor:'rgba(249,115,22,0.15)',
+       yAxisID:'y1', borderColor:'#ee6018', backgroundColor:'rgba(238,96,24,0.15)',
        fill:true, tension:0.4, pointRadius:motorPt, pointHoverRadius:7,
-       pointBackgroundColor:'#f97316', borderWidth:2.5, type:'line', spanGaps:false},
+       pointBackgroundColor:'#ee6018', borderWidth:2.5, type:'line', spanGaps:false},
     ]}, options:{
       responsive:true, maintainAspectRatio:false,
       animation:{duration:400},
@@ -1941,13 +1973,13 @@ function renderSingleChart(items){
         x:{ticks:{color:tickColor,font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:12},
            grid:{color:gridColor},border:{display:false}},
         y:{position:'left',
-           ticks:{color:'#8b5cf6',font:{size:10},callback:v=>Number.isInteger(v)?v:null,maxTicksLimit:6},
+           ticks:{color:'#c17262',font:{size:10},callback:v=>Number.isInteger(v)?v:null,maxTicksLimit:6},
            grid:{color:gridColor},border:{display:false},beginAtZero:true,min:0},
         y1:{position:'right',
-            ticks:{color:'#f97316',font:{size:10},callback:v=>Number.isInteger(v)?v:null,maxTicksLimit:6},
+            ticks:{color:'#ee6018',font:{size:10},callback:v=>Number.isInteger(v)?v:null,maxTicksLimit:6},
             grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true,min:0},
       }
-    }, plugins:[yLabelPlugin('회','#8b5cf6','초','#f97316')]});
+    }, plugins:[yLabelPlugin('회','#c17262','초','#ee6018')]});
     /* 총 가동 횟수 / 시간 — 기간 내 총량 = 마지막 - 첫번째 */
     const firstItem=items[0], lastItem=items[items.length-1];
     const rawFirst=firstItem?.report_data?.motorRunningCount;
@@ -1958,8 +1990,8 @@ function renderSingleChart(items){
     const totalTimeSec=(firstTimeSec!=null&&lastTimeSec!=null)?Math.max(0,lastTimeSec-firstTimeSec):null;
 
     injectChartLegend(canvasMotor,[
-      {type:'bar', borderColor:'#8b5cf6', label:'가동 횟수 (회)'},
-      {borderColor:'#f97316', label:'가동 시간 (초)'},
+      {type:'bar', borderColor:'#c17262', label:'가동 횟수 (회)'},
+      {borderColor:'#ee6018', label:'가동 시간 (초)'},
     ]);
 
     /* 합산 칩을 범례 바 오른쪽에 추가 */
@@ -1969,8 +2001,8 @@ function renderSingleChart(items){
       const statWrap=document.createElement('span');
       statWrap.style.cssText='display:inline-flex;gap:5px;margin-left:auto;flex-shrink:0;';
       statWrap.innerHTML=
-        `<span class="chart-legend-chip motor-stat-chip" style="color:#8b5cf6;border-color:rgba(139,92,246,0.4)"><span class="clc-bar" style="background:#8b5cf6"></span>${totalCount!=null?Number(totalCount).toLocaleString()+'회':'—'}</span>`+
-        `<span class="chart-legend-chip motor-stat-chip" style="color:#f97316;border-color:rgba(249,115,22,0.4)"><span class="clc-dot" style="background:#f97316"></span>${secToHms(totalTimeSec)}</span>`;
+        `<span class="chart-legend-chip motor-stat-chip" style="color:#c17262;border-color:rgba(193,114,98,0.4)"><span class="clc-bar" style="background:#c17262"></span>${totalCount!=null?Number(totalCount).toLocaleString()+'회':'—'}</span>`+
+        `<span class="chart-legend-chip motor-stat-chip" style="color:#ee6018;border-color:rgba(238,96,24,0.4)"><span class="clc-dot" style="background:#ee6018"></span>${secToHms(totalTimeSec)}</span>`;
       legendBar.appendChild(statWrap);
     }
   }
@@ -2263,9 +2295,14 @@ function renderHistoryGrid(){
   // 같은 table 안에 sticky 헤더 행으로 쌓는다. 각 행이 HIST_STAT_ROW_H(px) 고정 높이이므로
   // top 오프셋을 행 인덱스 × 높이로 직접 계산해 인라인으로 지정한다.
   const stats=computeHistoryStats(rows, colIdxs);
+  // "문제 합" 열 중 최댓값(1건 이상)이 있는 날짜를 한눈에 짚을 수 있게 강조 — 행 높이는 그대로 유지
+  const maxProblem=Math.max(0,...stats.map(s=>s.problem));
   const statRowsHtml=HIST_STAT_ROWS.map((sr,ri)=>{
     const top=ri*HIST_STAT_ROW_H;
-    const cells=stats.map(s=>`<th class="hist-stat-th hist-stat-${sr.cls}" style="top:${top}px">${s[sr.key]}</th>`).join('');
+    const cells=stats.map(s=>{
+      const isPeak=sr.key==='problem'&&maxProblem>0&&s[sr.key]===maxProblem;
+      return `<th class="hist-stat-th hist-stat-${sr.cls}${isPeak?' hist-stat-peak':''}" style="top:${top}px">${s[sr.key]}</th>`;
+    }).join('');
     return `<tr class="hist-stat-row"><th class="hist-th-id hist-stat-label-th" style="top:${top}px">${escHtml(sr.label)}</th>${cells}</tr>`;
   }).join('');
   const headerTop=HIST_STAT_ROWS.length*HIST_STAT_ROW_H;
@@ -2324,6 +2361,7 @@ function removeSelectedRequester(){
 }
 
 async function openWeeklyReportModal(){
+  if(window.innerWidth<=768){ alert('점검 요청서 생성은 PC 환경에서만 지원됩니다.'); return; }
   if(!adminAuthenticated){ alert('관리자 인증이 필요합니다.'); return; }
   if(new Date().getDay()!==1){ alert('점검 요청서는 매주 월요일에만 생성할 수 있습니다.'); return; }
   if(!GAS_URL){ alert('GAS_URL이 설정되지 않았습니다.'); return; }
@@ -2536,7 +2574,7 @@ async function exportWeeklyReportXlsx(){
   }catch(e){
     alert('요청서 생성 중 오류: '+e.message);
   }
-  btn.disabled=false; btn.textContent='⬇️ 다운로드 + 저장';
+  btn.disabled=false; btn.innerHTML='<span class="material-icons-round ico">file_download</span>다운로드 + 저장';
 }
 
 /* ===== 초기화 ===== */
@@ -2546,9 +2584,11 @@ async function exportWeeklyReportXlsx(){
   document.getElementById('footerVersion').textContent=APP_VERSION;
   document.getElementById('footerDate').textContent='Updated '+APP_DATE;
   setGlobalLock(false);
-  const savedTheme=lsGet(LS_THEME,'light');
+  const storedTheme=lsGet(LS_THEME,null);
+  const systemPrefersDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const savedTheme=storedTheme||(systemPrefersDark?'dark':'light');
   document.documentElement.setAttribute('data-theme',savedTheme);
-  document.getElementById('themeIcon').textContent=savedTheme==='dark'?'☀️':'🌙';
+  document.getElementById('themeIcon').textContent=savedTheme==='dark'?'light_mode':'dark_mode';
 
   const savedAuthLevel=lsGet(LS_ADMIN_AUTH,null);
   if(savedAuthLevel==='super'||savedAuthLevel==='admin'){
