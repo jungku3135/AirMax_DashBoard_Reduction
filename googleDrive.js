@@ -308,8 +308,12 @@ function getWeeklyReportDraft(data) {
             var tl = timelines[id];
             if (!tl.length) return;
             var li = tl.length - 1;
+            // asOfDate 당일 점검이 아직 안 돼 마지막 칸이 빈칸인 경우, 실제로 기록된
+            // 가장 최근 값까지 건너뛰어 "현재 상태"를 판단 (월요일이 아니어도 매일 정상 조회되게)
+            while (li >= 0 && cellKind(tl[li].val) === 'BLANK') li--;
+            if (li < 0) return;
             var latestKind = cellKind(tl[li].val);
-            if (latestKind.indexOf('PROBLEM') !== 0) return; // OK / 빈칸 / 제외사유 → 제외
+            if (latestKind.indexOf('PROBLEM') !== 0) return; // OK / 제외사유 → 제외
             var code = latestKind.split(':')[1];
             var since = tl[li].date;
             var i = li - 1;

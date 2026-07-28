@@ -61,7 +61,7 @@
   <!-- 관리자 액션 버튼 (인증 후 표시) -->
   <div class="admin-actions-row" id="adminActionsRow" style="display:none">
     <button class="btn-admin-action" onclick="toggleProductEditor()"><span class="material-icons-round ico">inventory_2</span>제품 편집</button>
-    <span class="overdue-badge" id="overdueBadge" style="display:none"></span>
+    <button type="button" class="overdue-badge" id="overdueBadge" style="display:none" onclick="openOverdueBadgeModal()"></button>
   </div>
 
   <!-- 제품 편집 (관리자 전용) — 시트 연동 -->
@@ -338,6 +338,22 @@
           <thead><tr id="dustModalHead"></tr></thead>
           <tbody id="dustModalBody"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 30일 이상 지속오류 상세 모달 -->
+<div id="overdueBadgeModal" class="dust-modal-overlay" style="display:none" onclick="overdueBadgeOverlayClick(event)">
+  <div class="dust-modal-box" id="overdueBadgeModalBox" style="max-width:820px">
+    <div class="modal-drag-handle"></div>
+    <div class="dust-modal-header">
+      <span class="dust-modal-title">30일 이상 지속오류</span>
+      <button class="pe-btn" onclick="closeOverdueBadgeModal()"><span class="material-icons-round ico">close</span>닫기</button>
+    </div>
+    <div class="dust-modal-body">
+      <div class="single-detail-scroll">
+        <table class="single-detail-table wr-table" id="overdueBadgeTable"></table>
       </div>
     </div>
   </div>

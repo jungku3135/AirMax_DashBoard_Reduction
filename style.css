@@ -337,8 +337,10 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .overdue-badge {
   font-size:11px; font-weight:500; padding:5px 11px; border-radius:20px;
   background:var(--pm-bg); color:var(--pm-text); border:1px solid var(--pm-border);
-  align-items:center; cursor:default;
+  align-items:center; cursor:pointer; font-family:inherit;
+  transition:filter 0.15s cubic-bezier(0.4,0,0.2,1);
 }
+.overdue-badge:hover { filter:brightness(1.15); }
 
 /* ===== 로딩 ===== */
 .loading-overlay {
@@ -993,7 +995,11 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .wr-table th:nth-child(6), .wr-table td:nth-child(6) {
   width:31%; white-space:normal; overflow:visible; text-overflow:clip; text-align:left;
 }
-#wrOverdueTable th:nth-child(4), #wrOverdueTable td:nth-child(4) { width:41%; }
+/* 6열(비고)이 없는 5열짜리 "한달 이상" 표는 폭 배분을 다시 100%로 맞춤 (5번째 열이 좁아 헤더 잘림 방지) */
+#wrOverdueTable th:nth-child(4), #wrOverdueTable td:nth-child(4),
+#overdueBadgeTable th:nth-child(4), #overdueBadgeTable td:nth-child(4) { width:41%; }
+#wrOverdueTable th:nth-child(5), #wrOverdueTable td:nth-child(5),
+#overdueBadgeTable th:nth-child(5), #overdueBadgeTable td:nth-child(5) { width:31%; }
 .wr-new-row td { background:color-mix(in srgb,var(--em-chip-bg) 70%, transparent); font-weight:500; }
 .wr-new-badge {
   display:inline-block; font-size:9px; font-weight:500; letter-spacing:0.3px;

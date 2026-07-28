@@ -42,6 +42,7 @@ let historyGridData = null;     // {sheetName, dates, rows}
 let historyFilterQ = '';
 let historyDayFilterIdx = -1;   // -1 = 전체 일자, 그 외엔 dates 배열 인덱스
 let weeklyDraft = null;         // getWeeklyReportDraft 결과
+let overdueBadgeItems = [];     // 30일 이상 지속오류 배지 상세 목록
 let requesterList = [];
 
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
@@ -166,13 +167,29 @@ async function fetchOverdueBadge(){
       body:JSON.stringify({action:'getWeeklyReportDraft', asOfDate:todayStr()})});
     const json=await res.json();
     if(json.success && Array.isArray(json.overdueItems) && json.overdueItems.length){
+      overdueBadgeItems=json.overdueItems;
       badge.innerHTML=`<span class="material-icons-round" style="font-size:13px;vertical-align:-2px;margin-right:3px">history_toggle_off</span>30일 이상 지속 ${json.overdueItems.length}건`;
-      badge.title=json.overdueItems.map(it=>`${it.id} (${it.since})`).join(', ');
+      badge.title='클릭하면 상세 목록을 볼 수 있습니다';
       badge.style.display='inline-flex';
     } else {
+      overdueBadgeItems=[];
       badge.style.display='none';
     }
-  }catch(e){ badge.style.display='none'; }
+  }catch(e){ overdueBadgeItems=[]; badge.style.display='none'; }
+}
+
+function openOverdueBadgeModal(){
+  if(!overdueBadgeItems.length) return;
+  document.getElementById('overdueBadgeTable').innerHTML=
+    `<thead><tr><th>순번</th><th>오류 발생 시점</th><th>제품 ID</th><th>설치 장소</th><th>오류 코드</th></tr></thead>
+     <tbody>${overdueBadgeItems.map((it,i)=>`<tr><td>${i+1}</td><td>${escHtml(it.since)}</td><td>${escHtml(it.id)}</td><td>${escHtml(wrLocText(it))}</td><td class="wr-code wr-code-${it.code.toLowerCase()}">${it.code}</td></tr>`).join('')}</tbody>`;
+  document.getElementById('overdueBadgeModal').style.display='flex';
+}
+function closeOverdueBadgeModal(){
+  document.getElementById('overdueBadgeModal').style.display='none';
+}
+function overdueBadgeOverlayClick(e){
+  if(e.target.id==='overdueBadgeModal') closeOverdueBadgeModal();
 }
 
 function updatePageTabsVisibility(){
