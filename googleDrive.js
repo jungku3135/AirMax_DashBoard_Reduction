@@ -72,9 +72,10 @@ try {
     return buildJson({ success: false, error: '시트 없음: ' + sheetName });
     }
 
-    // 8행에서 오늘 날짜와 일치하는 열 찾기
+    // 8행에서 오늘 날짜와 일치하는 열 찾기 — 날짜 서식 셀은 원본이 Date 객체라 getValues()로 비교하면
+    // 항상 실패하므로, 시트에 실제로 표시되는 문자열(getDisplayValues())로 비교해야 함
     var lastCol    = sheet.getLastColumn();
-    var headerVals = sheet.getRange(8, 1, 1, lastCol).getValues()[0];
+    var headerVals = sheet.getRange(8, 1, 1, lastCol).getDisplayValues()[0];
     var targetCol  = -1;
     for (var c = 0; c < headerVals.length; c++) {
     if (String(headerVals[c]).trim() === todayStr) {
