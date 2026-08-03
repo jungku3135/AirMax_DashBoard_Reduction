@@ -566,6 +566,18 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;
 }
 .zone-search-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.zone-lang-filter {
+  display:flex; gap:3px; padding:3px;
+  background:var(--input-bg); border:1.5px solid var(--border); border-radius:var(--radius);
+}
+.zone-lang-btn {
+  padding:5px 12px; font-size:11px; font-weight:400; cursor:pointer;
+  background:transparent; border:none; color:var(--text3);
+  font-family:inherit; border-radius:var(--radius-sm); white-space:nowrap;
+  transition:background-color 0.15s cubic-bezier(0.4,0,0.2,1),color 0.15s cubic-bezier(0.4,0,0.2,1);
+}
+.zone-lang-btn.active { background:var(--surface); color:var(--text); font-weight:500; }
+.zone-lang-btn:hover:not(.active) { color:var(--text); background:color-mix(in srgb,var(--accent) 6%, transparent); }
 .zone-search-wrap { position:relative; display:inline-flex; align-items:center; }
 .zone-search-icon {
   position:absolute; left:10px; font-size:15px; line-height:1;

@@ -189,6 +189,12 @@
           placeholder="영역명 검색 (예: 시청역)"
           oninput="filterZones(this.value)"/>
       </span>
+      <div class="zone-lang-filter" id="zoneLangFilter">
+        <button type="button" class="zone-lang-btn active" data-lang="ALL" onclick="setZoneLangFilter('ALL')">전체</button>
+        <button type="button" class="zone-lang-btn" data-lang="KO" onclick="setZoneLangFilter('KO')">한국어</button>
+        <button type="button" class="zone-lang-btn" data-lang="ZH" onclick="setZoneLangFilter('ZH')">중국어</button>
+        <button type="button" class="zone-lang-btn" data-lang="JA" onclick="setZoneLangFilter('JA')">일본어</button>
+      </div>
       <button class="btn-zone-toggle" id="zoneToggleBtn" onclick="toggleZoneGrid()">
         <span>펼치기</span>
         <span class="zone-toggle-arrow" id="zoneArrow">▼</span>
@@ -230,6 +236,12 @@
             placeholder="영역명 검색 (예: 시청역)"
             oninput="filterDustZones()"/>
         </span>
+        <div class="zone-lang-filter" id="dustZoneLangFilter">
+          <button type="button" class="zone-lang-btn active" data-lang="ALL" onclick="setDustZoneLangFilter('ALL')">전체</button>
+          <button type="button" class="zone-lang-btn" data-lang="KO" onclick="setDustZoneLangFilter('KO')">한국어</button>
+          <button type="button" class="zone-lang-btn" data-lang="ZH" onclick="setDustZoneLangFilter('ZH')">중국어</button>
+          <button type="button" class="zone-lang-btn" data-lang="JA" onclick="setDustZoneLangFilter('JA')">일본어</button>
+        </div>
         <button class="btn-zone-toggle" id="dustZoneToggleBtn" onclick="toggleDustZoneGrid()">
           <span>펼치기</span>
           <span class="zone-toggle-arrow" id="dustZoneArrow">▼</span>

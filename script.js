@@ -24,6 +24,7 @@ const isMobile = () => window.innerWidth <= 768;
 /* ===== 상태 ===== */
 let selectedZones   = new Set();
 let zoneGridOpen    = false;
+let zoneLangFilter  = 'ALL';     // 영역 선택 패널 언어 필터 — ALL|KO|ZH|JA
 let adminAuthenticated      = false;
 let superAdminAuthenticated = false;
 let sheetZones      = [];   // [{name, ids[]}] — GAS 시트에서 로드
@@ -50,6 +51,7 @@ let logVisible=false, logs=[], extraIds=[], dustExtraIds=[];
 let excludeReasons={}; // {id: reason}
 let isGlobalLocked=false;
 let selectedDustZones=new Set();
+let dustZoneLangFilter='ALL';    // 먼지 포집 영역 선택 패널 언어 필터 — ALL|KO|ZH|JA
 let lastResults = [];
 let lastDateRange=null, cardDetailModalOpen=false;
 let singleAllItems=[], singlePage=0, singleShowAll=false, singleChartDust=null, singleChartMotor=null;
@@ -412,13 +414,25 @@ function toggleZoneGrid(){
 
 function filterZones(){ renderZoneGrid(); }
 
-function _renderZoneGrid(gridId,noResultId,searchId,selSet,toggleFn,isOpen,openFn,afterFn){
+/* 영역명에 쓰인 문자 체계로 언어 추정 — 한글 > 가나(일본어 고유) > 그 외 한자(중국어로 간주).
+   순수 한자만 쓰인 일본 지명은 중국어로 분류될 수 있는 한계는 있음(휴리스틱) */
+function detectZoneLang(name){
+  if(/[가-힣ᄀ-ᇿ㄰-㆏]/.test(name)) return 'KO';
+  if(/[぀-ゟ゠-ヿ]/.test(name)) return 'JA';
+  if(/[一-鿿]/.test(name)) return 'ZH';
+  return 'OTHER';
+}
+
+function _renderZoneGrid(gridId,noResultId,searchId,selSet,toggleFn,isOpen,openFn,afterFn,langFilter){
   const gridEl=document.getElementById(gridId); if(!gridEl) return;
   const q=(document.getElementById(searchId)?.value||'').trim().toLowerCase();
+  const hasLangFilter=langFilter&&langFilter!=='ALL';
   gridEl.innerHTML=sheetZones.map((z,i)=>{
     const sel=selSet.has(i);
     const rangeText=z.ids.length===1?z.ids[0]:`${z.ids[0]}~${z.ids[z.ids.length-1]} (${z.ids.length}개)`;
-    const hidden=q&&!z.name.toLowerCase().includes(q)?'hidden':'';
+    const matchesQuery=!q||z.name.toLowerCase().includes(q);
+    const matchesLang=!hasLangFilter||detectZoneLang(z.name)===langFilter;
+    const hidden=(!matchesQuery||!matchesLang)?'hidden':'';
     return`<button class="zone-btn ${sel?'selected':''} ${hidden}" onclick="${toggleFn}(${i})">
       <span class="zone-name">${escHtml(z.name)}</span>
       <span class="zone-range">${rangeText}</span>
@@ -427,7 +441,7 @@ function _renderZoneGrid(gridId,noResultId,searchId,selSet,toggleFn,isOpen,openF
   const noRes=document.getElementById(noResultId);
   const allHidden=!gridEl.querySelector('.zone-btn:not(.hidden)');
   if(noRes) noRes.style.display=allHidden?'block':'none';
-  if(q&&!isOpen) openFn();
+  if((q||hasLangFilter)&&!isOpen) openFn();
   afterFn();
 }
 function _updateZoneInfo(selSet,el,fmt){
@@ -439,7 +453,12 @@ function _updateZoneInfo(selSet,el,fmt){
 function _toggleZoneItem(selSet,i,renderFn){ if(selSet.has(i)) selSet.delete(i); else selSet.add(i); renderFn(); }
 
 function renderZoneGrid(){
-  _renderZoneGrid('zoneGrid','zoneNoResult','zoneSearchInput',selectedZones,'toggleZone',zoneGridOpen,toggleZoneGrid,updateZoneCount);
+  _renderZoneGrid('zoneGrid','zoneNoResult','zoneSearchInput',selectedZones,'toggleZone',zoneGridOpen,toggleZoneGrid,updateZoneCount,zoneLangFilter);
+}
+function setZoneLangFilter(lang){
+  zoneLangFilter=lang;
+  document.querySelectorAll('#zoneLangFilter .zone-lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  renderZoneGrid();
 }
 function updateZoneCount(){
   _updateZoneInfo(selectedZones,document.getElementById('zoneSelectCount'),(c,t)=>`${c}개 영역 / 총 ${t}개 제품 선택됨`);
@@ -1187,7 +1206,12 @@ function toggleDustZoneGrid(){
 }
 
 function renderDustZoneGrid(){
-  _renderZoneGrid('dustZonePickerGrid','dustZoneNoResult','dustZoneSearchInput',selectedDustZones,'toggleDustZone',dustZoneGridOpen,toggleDustZoneGrid,updateDustZoneInfo);
+  _renderZoneGrid('dustZonePickerGrid','dustZoneNoResult','dustZoneSearchInput',selectedDustZones,'toggleDustZone',dustZoneGridOpen,toggleDustZoneGrid,updateDustZoneInfo,dustZoneLangFilter);
+}
+function setDustZoneLangFilter(lang){
+  dustZoneLangFilter=lang;
+  document.querySelectorAll('#dustZoneLangFilter .zone-lang-btn').forEach(b=>b.classList.toggle('active',b.dataset.lang===lang));
+  renderDustZoneGrid();
 }
 function toggleDustZone(i){ _toggleZoneItem(selectedDustZones,i,renderDustZoneGrid); }
 function filterDustZones(){ renderDustZoneGrid(); }
