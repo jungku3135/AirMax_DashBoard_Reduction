@@ -1012,7 +1012,10 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 #overdueBadgeTable th:nth-child(4), #overdueBadgeTable td:nth-child(4) { width:41%; }
 #wrOverdueTable th:nth-child(5), #wrOverdueTable td:nth-child(5),
 #overdueBadgeTable th:nth-child(5), #overdueBadgeTable td:nth-child(5) { width:31%; }
-.wr-new-row td { background:color-mix(in srgb,var(--em-chip-bg) 70%, transparent); font-weight:500; }
+/* 반투명 배경은 테이블 전역 tr:hover 규칙(명시도 더 높음)에 덮여 마우스 올릴 때만 색이 바뀌는 것처럼
+   보였음 — 불투명 색으로 바꾸고 hover 상태도 명시적으로 고정해 항상 같은 색이 보이게 함 */
+.wr-new-row td { background:var(--em-chip-bg); font-weight:500; }
+.wr-table tr.wr-new-row:hover td { background:var(--em-chip-bg); }
 .wr-new-badge {
   display:inline-block; font-size:9px; font-weight:500; letter-spacing:0.3px;
   padding:1px 6px; border-radius:10px; background:var(--em-chip-bg); color:var(--em-chip-text);
