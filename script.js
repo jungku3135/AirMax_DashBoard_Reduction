@@ -564,11 +564,14 @@ function parseFormatTime(str){
   const d=new Date(str.replace(/\./g,'-').replace(' ','T'));
   return isNaN(d.getTime())?null:d;
 }
-function classify(item,nowMs){
+function classify(item,nowMs,id){
   if(!item)return'NO';
+  // G004/G005는 판독값과 무관하게 전원(통신) 흔적만 있으면 OK — 통신 자체를 검증하는 용도의 제품
+  if(id==='G004'||id==='G005')return'OK';
   const d=parseFormatTime(item.format_created_time);
   if(!d)return'NO';
-  if((nowMs-d.getTime())/3600000>=2)return'NO';
+  // 전 제품 통신 주기가 10분으로 변경돼 최근 30분 이내 통신 기록이 없으면 NO로 판정
+  if((nowMs-d.getTime())/60000>=30)return'NO';
   const{pm_2_5,pm_10,co2}=item;
   if(pm_2_5===0&&pm_10===0&&co2===0)return'EM';
   if(pm_2_5===0&&pm_10===0&&co2!==0)return'PM';
@@ -2080,7 +2083,7 @@ async function runInspection(allIds){
   await Promise.all(allIds.map(async(id,idx)=>{
     try{
       const item=await fetchReport(id,dateRange,token);
-      const status=id==='A139'?'OK':classify(item,nowMs);
+      const status=id==='A139'?'OK':classify(item,nowMs,id);
       results[idx]={id,status,item,errMsg:''};
       addLog(`[${id}] ${status}`+(item?` | ${item.format_created_time}`:'  | 데이터 없음'),status==='OK'?'ok':status==='ERR'?'err':'warn');
     }catch(err){
