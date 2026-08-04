@@ -566,12 +566,12 @@ function parseFormatTime(str){
 }
 function classify(item,nowMs,id){
   if(!item)return'NO';
-  // G004/G005는 판독값과 무관하게 전원(통신) 흔적만 있으면 OK — 통신 자체를 검증하는 용도의 제품
-  if(id==='G004'||id==='G005')return'OK';
   const d=parseFormatTime(item.format_created_time);
   if(!d)return'NO';
-  // 전 제품 통신 주기가 10분으로 변경돼 최근 30분 이내 통신 기록이 없으면 NO로 판정
+  // 전 제품 통신 주기가 10분으로 변경돼 최근 30분 이내 통신 기록이 없으면 NO로 판정 (G004/G005 포함, 예외 없음)
   if((nowMs-d.getTime())/60000>=30)return'NO';
+  // G004/G005는 통신(전원) 확인용 제품 — 30분 이내 통신만 확인되면 판독값(pm/co2)과 무관하게 OK
+  if(id==='G004'||id==='G005')return'OK';
   const{pm_2_5,pm_10,co2}=item;
   if(pm_2_5===0&&pm_10===0&&co2===0)return'EM';
   if(pm_2_5===0&&pm_10===0&&co2!==0)return'PM';
