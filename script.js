@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.5.0';
+const APP_VERSION = 'v2.6.0';
 const APP_DATE    = '2026.08.10';
 
 /* ===== 설정 ===== */
@@ -52,6 +52,8 @@ let excludeReasons={}; // {id: reason}
 let isGlobalLocked=false;
 let selectedDustZones=new Set();
 let dustZoneLangFilter='ALL';    // 먼지 포집 영역 선택 패널 언어 필터 — ALL|KO|ZH|JA
+let selectedExcludeZones=new Set();  // 개별 제외 ID 영역 선택 피커에서 선택된 영역(추가 전 임시 상태)
+let excludeZoneGridOpen=false;
 let lastResults = [];
 let lastDateRange=null, cardDetailModalOpen=false;
 let collectStartMs=null;   // 데이터 수집 시작 시각 — 남은 시간 추정/소요 시간 표시용(참고용, 정확한 계측 아님)
@@ -294,6 +296,7 @@ async function loadSheetData(force=false){
     historyMonths=cached.monthSheets||[];
     renderZoneGrid();
     renderDustZoneGrid();
+    renderExcludeZoneGrid();
   }
 
   if((expired||force)&&GAS_URL){
@@ -307,6 +310,7 @@ async function loadSheetData(force=false){
         lsSet(LS_SHEET_CACHE,{ts:now,zones:sheetZones,locations:json.locations||{},monthSheets:historyMonths});
         renderZoneGrid();
         renderDustZoneGrid();
+        renderExcludeZoneGrid();
         const msg=force?'시트 데이터 새로고침 완료'
           :(cached?'시트 데이터 갱신':'시트 데이터 로드');
         addLog(`${msg} — 영역 ${sheetZones.length}개, 설치 장소 ${Object.keys(json.locations||{}).length}건`,'ok');
@@ -549,6 +553,35 @@ function renderExcludeTags(){
   row.innerHTML=Object.entries(excludeReasons).map(([id,reason])=>
     `<span class="extra-id-tag">${escHtml(id)}<span class="exclude-tag-reason"> — ${escHtml(reason)}</span><button onclick="removeExcludeId('${escHtml(id)}')" title="삭제">×</button></span>`
   ).join('');
+}
+
+/* 개별 제외 ID — 영역째로 선택해서 한 번에 추가 (ID 하나씩 입력하는 번거로움을 줄이기 위함) */
+function toggleExcludeZoneGrid(){
+  excludeZoneGridOpen=!excludeZoneGridOpen;
+  _applyZoneGridUI(excludeZoneGridOpen,'excludeZoneGridWrap','excludeZoneArrow','excludeZoneToggleBtn');
+}
+function renderExcludeZoneGrid(){
+  _renderZoneGrid('excludeZoneGrid','excludeZoneNoResult','excludeZoneSearchInput',selectedExcludeZones,'toggleExcludeZone',excludeZoneGridOpen,toggleExcludeZoneGrid,updateExcludeZoneCount,'ALL');
+}
+function toggleExcludeZone(i){ _toggleZoneItem(selectedExcludeZones,i,renderExcludeZoneGrid); }
+function filterExcludeZones(){ renderExcludeZoneGrid(); }
+function updateExcludeZoneCount(){
+  _updateZoneInfo(selectedExcludeZones,document.getElementById('excludeZoneSelectCount'),(c,t)=>`${c}개 영역 / 총 ${t}개 제품 선택됨`);
+}
+// 선택된 영역에 속한 모든 제품 ID를 현재 선택된 사유로 한 번에 제외 목록에 추가 (기존 excludeReasons·LS_EXCLUDE 그대로 재사용 → 저장 방식 동일)
+function addExcludeZones(){
+  const sel=document.getElementById('excludeReasonSel');
+  if(!sel||selectedExcludeZones.size===0) return;
+  const reason=sel.value;
+  if(!reason) return;
+  [...selectedExcludeZones].forEach(i=>{
+    const z=sheetZones[i]; if(!z) return;
+    z.ids.forEach(id=>{ excludeReasons[id]=reason; });
+  });
+  lsSet(LS_EXCLUDE,excludeReasons);
+  selectedExcludeZones.clear();
+  renderExcludeZoneGrid();
+  renderExcludeTags();
 }
 function addDustExtraId(){ _addExtraId(dustExtraIds,LS_DUST_EXTRA,'dustExtraIdInput',renderDustExtraTags); }
 function removeDustExtraId(id){ dustExtraIds=dustExtraIds.filter(v=>v!==id); lsSet(LS_DUST_EXTRA,dustExtraIds); renderDustExtraTags(); }
@@ -2807,6 +2840,8 @@ async function exportWeeklyReportXlsx(){
 
   document.getElementById('extraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addExtraId();});
   document.getElementById('dustExtraIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addDustExtraId();});
+  document.getElementById('excludeIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')addExcludeId();});
+  document.getElementById('excludeZoneSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';filterExcludeZones();}});
   document.getElementById('singleIdInput').addEventListener('keydown',e=>{if(e.key==='Enter')startInspection();});
   document.getElementById('dustZoneSearchInput')?.addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';filterDustZones();}});
   document.getElementById('adminPwInput').addEventListener('keydown',e=>{if(e.key==='Enter')authenticateAdmin();});
