@@ -145,42 +145,42 @@
           <button class="btn-add" onclick="addExtraId()">+ 추가</button>
         </div>
       </div>
-      <div style="grid-column:1/-1">
-        <div class="section-label" style="margin-bottom:6px">개별 제외 ID
-          <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — 점검은 하되 시트에 사유로 저장. 영역째로 고르거나 ID를 직접 입력</span>
-        </div>
-        <div class="extra-ids-row" id="excludeTagsRow"></div>
+    </div>
 
-        <div class="zone-header" style="margin-top:8px">
-          <span class="zone-search-wrap">
-            <span class="material-icons-round zone-search-icon">search</span>
-            <input type="text" class="zone-search-input" id="excludeZoneSearchInput"
-              placeholder="영역명 검색 (예: 시청역)"
-              oninput="filterExcludeZones()"/>
-          </span>
-          <button class="btn-zone-toggle" id="excludeZoneToggleBtn" onclick="toggleExcludeZoneGrid()">
-            <span>펼치기</span>
-            <span class="zone-toggle-arrow" id="excludeZoneArrow">▼</span>
-          </button>
-        </div>
-        <div class="zone-grid-wrap" id="excludeZoneGridWrap">
-          <div class="zone-grid" id="excludeZoneGrid"></div>
-          <div class="zone-no-result" id="excludeZoneNoResult" style="display:none">검색 결과가 없습니다.</div>
-        </div>
-        <div class="zone-select-row">
-          <span class="zone-select-count" id="excludeZoneSelectCount">선택된 영역 없음</span>
-        </div>
+    <hr class="divider" style="margin:10px 0"/>
 
-        <div class="row" style="margin-top:8px">
-          <input type="text" class="extra-id-input" id="excludeIdInput" placeholder="예: A005, A010  (쉼표 구분 가능)"/>
-          <select class="list-filter-sel" id="excludeReasonSel" style="flex-shrink:0">
-            <option value="유지보수X">유지보수X</option>
-            <option value="설치X">설치X</option>
-            <option value="기타">기타</option>
-          </select>
-          <button class="btn-add" onclick="addExcludeId()">+ ID 추가</button>
-          <button class="btn-add" onclick="addExcludeZones()">+ 선택 영역 추가</button>
-        </div>
+    <div>
+      <div class="section-label" style="margin-bottom:6px">개별 제외 ID
+        <span style="font-size:10px;text-transform:none;letter-spacing:0;color:var(--text4)"> — 점검은 하되 시트에 사유로 저장. 영역째로 고르거나 ID를 직접 입력</span>
+      </div>
+      <div class="extra-ids-row" id="excludeTagsRow"></div>
+
+      <div class="zone-header" style="margin-top:8px">
+        <span class="zone-search-wrap">
+          <span class="material-icons-round zone-search-icon">search</span>
+          <input type="text" class="zone-search-input" id="excludeZoneSearchInput"
+            placeholder="영역명 검색 (예: 시청역)"
+            oninput="filterExcludeZones()"/>
+        </span>
+        <select class="list-filter-sel" id="excludeReasonSel" style="flex-shrink:0" title="영역 클릭 시 적용될 제외 사유">
+          <option value="유지보수X">유지보수X</option>
+          <option value="설치X">설치X</option>
+          <option value="기타">기타</option>
+        </select>
+        <button class="btn-zone-toggle" id="excludeZoneToggleBtn" onclick="toggleExcludeZoneGrid()">
+          <span>펼치기</span>
+          <span class="zone-toggle-arrow" id="excludeZoneArrow">▼</span>
+        </button>
+        <span class="zone-select-count" id="excludeZoneSelectCount" style="margin-left:auto">제외된 영역 없음</span>
+      </div>
+      <div class="zone-grid-wrap" id="excludeZoneGridWrap">
+        <div class="zone-grid" id="excludeZoneGrid"></div>
+        <div class="zone-no-result" id="excludeZoneNoResult" style="display:none">검색 결과가 없습니다.</div>
+      </div>
+
+      <div class="row" style="margin-top:8px">
+        <input type="text" class="extra-id-input" id="excludeIdInput" placeholder="예: A005, A010  (쉼표 구분 가능)"/>
+        <button class="btn-add" onclick="addExcludeId()">+ ID 추가</button>
       </div>
     </div>
   </div>

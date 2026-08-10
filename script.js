@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.5.1';
+const APP_VERSION = 'v2.5.2';
 const APP_DATE    = '2026.08.10';
 
 /* ===== 설정 ===== */
@@ -52,7 +52,6 @@ let excludeReasons={}; // {id: reason}
 let isGlobalLocked=false;
 let selectedDustZones=new Set();
 let dustZoneLangFilter='ALL';    // 먼지 포집 영역 선택 패널 언어 필터 — ALL|KO|ZH|JA
-let selectedExcludeZones=new Set();  // 개별 제외 ID 영역 선택 피커에서 선택된 영역(추가 전 임시 상태)
 let excludeZoneGridOpen=false;
 let lastResults = [];
 let lastDateRange=null, cardDetailModalOpen=false;
@@ -541,11 +540,13 @@ function addExcludeId(){
   lsSet(LS_EXCLUDE,excludeReasons);
   inp.value='';
   renderExcludeTags();
+  renderExcludeZoneGrid();
 }
 function removeExcludeId(id){
   delete excludeReasons[id];
   lsSet(LS_EXCLUDE,excludeReasons);
   renderExcludeTags();
+  renderExcludeZoneGrid();
 }
 function renderExcludeTags(){
   const row=document.getElementById('excludeTagsRow');
@@ -555,33 +556,50 @@ function renderExcludeTags(){
   ).join('');
 }
 
-/* 개별 제외 ID — 영역째로 선택해서 한 번에 추가 (ID 하나씩 입력하는 번거로움을 줄이기 위함) */
+/* 개별 제외 ID — 영역 버튼을 누르면 그 자리에서 바로 제외/해제 (선택 후 별도 추가 버튼을 누르는 단계를 없앰).
+   상단 사유(select)를 먼저 고르고 영역을 클릭하면 그 영역의 전체 제품 ID가 즉시 제외 목록에 반영되고,
+   이미 전체 제외된 영역을 다시 클릭하면 그 영역 ID들을 제외 목록에서 뺀다. */
 function toggleExcludeZoneGrid(){
   excludeZoneGridOpen=!excludeZoneGridOpen;
   _applyZoneGridUI(excludeZoneGridOpen,'excludeZoneGridWrap','excludeZoneArrow','excludeZoneToggleBtn');
 }
+function _zoneFullyExcluded(z){ return z.ids.length>0 && z.ids.every(id=>id in excludeReasons); }
 function renderExcludeZoneGrid(){
-  _renderZoneGrid('excludeZoneGrid','excludeZoneNoResult','excludeZoneSearchInput',selectedExcludeZones,'toggleExcludeZone',excludeZoneGridOpen,toggleExcludeZoneGrid,updateExcludeZoneCount,'ALL');
+  const gridEl=document.getElementById('excludeZoneGrid'); if(!gridEl) return;
+  const q=(document.getElementById('excludeZoneSearchInput')?.value||'').trim().toLowerCase();
+  gridEl.innerHTML=sheetZones.map((z,i)=>{
+    const sel=_zoneFullyExcluded(z);
+    const rangeText=z.ids.length===1?z.ids[0]:`${z.ids[0]}~${z.ids[z.ids.length-1]} (${z.ids.length}개)`;
+    const hidden=(q&&!z.name.toLowerCase().includes(q))?'hidden':'';
+    return`<button class="zone-btn ${sel?'selected':''} ${hidden}" onclick="toggleExcludeZone(${i})" title="${sel?'클릭하면 제외 해제':'클릭하면 이 영역 전체를 현재 사유로 제외'}">
+      <span class="zone-name">${escHtml(z.name)}</span>
+      <span class="zone-range">${rangeText}</span>
+    </button>`;
+  }).join('');
+  const noRes=document.getElementById('excludeZoneNoResult');
+  const allHidden=!gridEl.querySelector('.zone-btn:not(.hidden)');
+  if(noRes) noRes.style.display=allHidden?'block':'none';
+  updateExcludeZoneCount();
 }
-function toggleExcludeZone(i){ _toggleZoneItem(selectedExcludeZones,i,renderExcludeZoneGrid); }
-function filterExcludeZones(){ renderExcludeZoneGrid(); }
-function updateExcludeZoneCount(){
-  _updateZoneInfo(selectedExcludeZones,document.getElementById('excludeZoneSelectCount'),(c,t)=>`${c}개 영역 / 총 ${t}개 제품 선택됨`);
-}
-// 선택된 영역에 속한 모든 제품 ID를 현재 선택된 사유로 한 번에 제외 목록에 추가 (기존 excludeReasons·LS_EXCLUDE 그대로 재사용 → 저장 방식 동일)
-function addExcludeZones(){
-  const sel=document.getElementById('excludeReasonSel');
-  if(!sel||selectedExcludeZones.size===0) return;
-  const reason=sel.value;
-  if(!reason) return;
-  [...selectedExcludeZones].forEach(i=>{
-    const z=sheetZones[i]; if(!z) return;
+function toggleExcludeZone(i){
+  const z=sheetZones[i]; if(!z||!z.ids.length) return;
+  if(_zoneFullyExcluded(z)){
+    z.ids.forEach(id=>{ delete excludeReasons[id]; });
+  }else{
+    const sel=document.getElementById('excludeReasonSel');
+    const reason=sel?sel.value:'';
+    if(!reason) return;
     z.ids.forEach(id=>{ excludeReasons[id]=reason; });
-  });
+  }
   lsSet(LS_EXCLUDE,excludeReasons);
-  selectedExcludeZones.clear();
   renderExcludeZoneGrid();
   renderExcludeTags();
+}
+function filterExcludeZones(){ renderExcludeZoneGrid(); }
+function updateExcludeZoneCount(){
+  const el=document.getElementById('excludeZoneSelectCount'); if(!el) return;
+  const cnt=sheetZones.filter(_zoneFullyExcluded).length;
+  el.textContent=cnt===0?'제외된 영역 없음':`${cnt}개 영역 제외 중`;
 }
 function addDustExtraId(){ _addExtraId(dustExtraIds,LS_DUST_EXTRA,'dustExtraIdInput',renderDustExtraTags); }
 function removeDustExtraId(id){ dustExtraIds=dustExtraIds.filter(v=>v!==id); lsSet(LS_DUST_EXTRA,dustExtraIds); renderDustExtraTags(); }
