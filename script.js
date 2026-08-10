@@ -54,6 +54,7 @@ let selectedDustZones=new Set();
 let dustZoneLangFilter='ALL';    // 먼지 포집 영역 선택 패널 언어 필터 — ALL|KO|ZH|JA
 let lastResults = [];
 let lastDateRange=null, cardDetailModalOpen=false;
+let collectStartMs=null;   // 데이터 수집 시작 시각 — 소요 시간 표시용(참고용, 정확한 계측 아님)
 let singleAllItems=[], singlePage=0, singleShowAll=false, singleChartDust=null, singleChartMotor=null;
 let dustDays=[], dustModalChart=null, dustModalOpen=false;
 const cardDetailCache=new Map();
@@ -635,11 +636,19 @@ function toggleLog(){
 }
 
 /* ===== 로딩 ===== */
+// 참고용 경과 시간 문자열(예: "3.2초") — 정확한 계측이 아닌 대략적인 표시용
+function elapsedText(){
+  if(!collectStartMs) return '';
+  return `${((Date.now()-collectStartMs)/1000).toFixed(1)}초`;
+}
 function setLoading(on,done=0,total=0){
   document.getElementById('loadingOverlay').classList.toggle('active',on);
   if(on){
+    if(done===0) collectStartMs=Date.now();
     document.getElementById('loadingBar').style.width=(total>0?Math.round(done/total*100):0)+'%';
-    document.getElementById('loadingText').textContent=total>0?`데이터 수집 중… ${done} / ${total}`:'데이터 수집 중…';
+    const base=total>0?`데이터 수집 중… ${done} / ${total}`:'데이터 수집 중…';
+    const et=elapsedText();
+    document.getElementById('loadingText').textContent=et?`${base}  (${et})`:base;
   }
 }
 
@@ -2210,7 +2219,7 @@ async function runInspection(allIds){
   renderZoneGrid();
   updateZoneCount();
   document.body.classList.remove('zone-active');
-  addLog('✓ 점검 완료','ok');
+  addLog(`✓ 점검 완료 (${elapsedText()} 소요)`,'ok');
   document.getElementById('logBtn').style.display='inline-block';
   if(adminAuthenticated) updateSheetBtn();
   if(logVisible)renderLog();
@@ -2242,8 +2251,9 @@ async function startInspection(){
     document.getElementById('loadingText').textContent='데이터 수집 중…';
     try{
       const allItems=await fetchAllReports(raw,dateRange,token,(pg,last)=>{
-        document.getElementById('loadingText').textContent=
-          last>1?`데이터 수집 중… (${pg}/${last} 페이지)`:'데이터 수집 중…';
+        const base=last>1?`데이터 수집 중… (${pg}/${last} 페이지)`:'데이터 수집 중…';
+        const et=elapsedText();
+        document.getElementById('loadingText').textContent=et?`${base}  (${et})`:base;
       });
       // API는 날짜 단위로만 필터링되므로 시간 범위는 클라이언트에서 처리
       const items=allItems.filter(item=>{
@@ -2253,7 +2263,7 @@ async function startInspection(){
         if(endMs&&d.getTime()>endMs) return false;
         return true;
       });
-      addLog(`단일 검색 완료 — 수집 ${allItems.length}건 / 시간 필터 후 ${items.length}건`,'ok');
+      addLog(`단일 검색 완료 — 수집 ${allItems.length}건 / 시간 필터 후 ${items.length}건 (${elapsedText()} 소요)`,'ok');
       renderSingleDetail(raw,items);
     }catch(e){
       errEl.textContent='⚠ 오류: '+e.message;
