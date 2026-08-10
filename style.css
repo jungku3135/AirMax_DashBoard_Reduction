@@ -376,6 +376,7 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   border-bottom:1px solid var(--border); flex-wrap:wrap; align-items:center;
 }
 .summary-right { margin-left:auto; display:flex; gap:8px; align-items:center; }
+.summary-elapsed { flex-basis:100%; font-size:11px; color:var(--text3); }
 .chip {
   display:flex; flex-direction:column; align-items:center;
   padding:8px 18px; border-radius:var(--radius); border:2px solid;

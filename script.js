@@ -54,7 +54,8 @@ let selectedDustZones=new Set();
 let dustZoneLangFilter='ALL';    // 먼지 포집 영역 선택 패널 언어 필터 — ALL|KO|ZH|JA
 let lastResults = [];
 let lastDateRange=null, cardDetailModalOpen=false;
-let collectStartMs=null;   // 데이터 수집 시작 시각 — 소요 시간 표시용(참고용, 정확한 계측 아님)
+let collectStartMs=null;   // 데이터 수집 시작 시각 — 남은 시간 추정/소요 시간 표시용(참고용, 정확한 계측 아님)
+let lastRunElapsedText='';  // 직전 점검 완료까지 걸린 시간(요약 영역 표시용) — 새 점검 시작 시 초기화
 let singleAllItems=[], singlePage=0, singleShowAll=false, singleChartDust=null, singleChartMotor=null;
 let dustDays=[], dustModalChart=null, dustModalOpen=false;
 const cardDetailCache=new Map();
@@ -636,10 +637,18 @@ function toggleLog(){
 }
 
 /* ===== 로딩 ===== */
-// 참고용 경과 시간 문자열(예: "3.2초") — 정확한 계측이 아닌 대략적인 표시용
+// 참고용 총 소요 시간 문자열(예: "3.2초") — 정확한 계측이 아닌 대략적인 표시용. 완료 후 요약 영역/로그에 사용.
 function elapsedText(){
   if(!collectStartMs) return '';
   return `${((Date.now()-collectStartMs)/1000).toFixed(1)}초`;
+}
+// 남은 시간 추정 문자열(예: "약 8초 남음") — 지금까지 처리 속도(done/경과시간)로 남은 개수를 단순 외삽.
+// 정확한 계측이 아닌 대략적인 안내용이며, 초반(done이 작을 때)엔 편차가 클 수 있음.
+function remainingText(done,total){
+  if(!collectStartMs||!total||done<=0) return '';
+  const avgMs=(Date.now()-collectStartMs)/done;
+  const remainSec=Math.round(avgMs*(total-done)/1000);
+  return remainSec>0?`약 ${remainSec}초 남음`:'';
 }
 function setLoading(on,done=0,total=0){
   document.getElementById('loadingOverlay').classList.toggle('active',on);
@@ -647,8 +656,8 @@ function setLoading(on,done=0,total=0){
     if(done===0) collectStartMs=Date.now();
     document.getElementById('loadingBar').style.width=(total>0?Math.round(done/total*100):0)+'%';
     const base=total>0?`데이터 수집 중… ${done} / ${total}`:'데이터 수집 중…';
-    const et=elapsedText();
-    document.getElementById('loadingText').textContent=et?`${base}  (${et})`:base;
+    const rt=remainingText(done,total);
+    document.getElementById('loadingText').textContent=rt?`${base}  (${rt})`:base;
   }
 }
 
@@ -678,7 +687,8 @@ function renderSummary(){
       <button class="view-tab ${currentView==='list'?'active':''}" onclick="switchView('list')">리스트</button>
     </div>
   </div>`;
-  document.getElementById('summary').innerHTML=chipsHtml+viewHtml;
+  const elapsedHtml=lastRunElapsedText?`<div class="summary-elapsed">완료 · ${lastRunElapsedText} 소요</div>`:'';
+  document.getElementById('summary').innerHTML=chipsHtml+viewHtml+elapsedHtml;
   renderSummaryDonut(counts);
 }
 
@@ -2182,6 +2192,7 @@ async function runInspection(allIds){
   currentFilter='ALL'; currentView='grid';
   const dateRange=getDateRange(currentMode); lastDateRange=dateRange;
   const nowMs=Date.now(),total=allIds.length;
+  lastRunElapsedText='';
   setLoading(true,0,total);
   addLog(`총 ${total}개 점검 시작`,'info');
   addLog(`기간: ${dateRange.started_at} ~ ${dateRange.finished_at}`,'muted');
@@ -2219,7 +2230,9 @@ async function runInspection(allIds){
   renderZoneGrid();
   updateZoneCount();
   document.body.classList.remove('zone-active');
-  addLog(`✓ 점검 완료 (${elapsedText()} 소요)`,'ok');
+  lastRunElapsedText=elapsedText();
+  renderSummary();
+  addLog(`✓ 점검 완료 (${lastRunElapsedText} 소요)`,'ok');
   document.getElementById('logBtn').style.display='inline-block';
   if(adminAuthenticated) updateSheetBtn();
   if(logVisible)renderLog();
@@ -2252,8 +2265,8 @@ async function startInspection(){
     try{
       const allItems=await fetchAllReports(raw,dateRange,token,(pg,last)=>{
         const base=last>1?`데이터 수집 중… (${pg}/${last} 페이지)`:'데이터 수집 중…';
-        const et=elapsedText();
-        document.getElementById('loadingText').textContent=et?`${base}  (${et})`:base;
+        const rt=remainingText(pg,last);
+        document.getElementById('loadingText').textContent=rt?`${base}  (${rt})`:base;
       });
       // API는 날짜 단위로만 필터링되므로 시간 범위는 클라이언트에서 처리
       const items=allItems.filter(item=>{
