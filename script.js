@@ -1,6 +1,6 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.4.0';
-const APP_DATE    = '2026.08.04';
+const APP_VERSION = 'v2.5.0';
+const APP_DATE    = '2026.08.10';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
@@ -331,14 +331,16 @@ function getDateRange(mode){
   if(mode==='zone'){
     return{started_at:yest, finished_at:today};
   }
-  // range: 2일 전 ~ 오늘
-  const d=new Date(); d.setDate(d.getDate()-2);
-  return{started_at:fmtDate(d), finished_at:today};
+  // range: 금일 00:00 ~ 현재
+  return{started_at:today, finished_at:today};
 }
 
 function updateDateInfo(){
   const dr=getDateRange(currentMode);
-  document.getElementById('dateInfo').textContent=`조회 기간  ${dr.started_at} ~ ${dr.finished_at}`;
+  const txt=dr.started_at===dr.finished_at
+    ? `조회 기간  ${dr.started_at}${dr.started_at===todayStr()?' (금일)':''}`
+    : `조회 기간  ${dr.started_at} ~ ${dr.finished_at}`;
+  document.getElementById('dateInfo').textContent=txt;
 }
 
 /* ===== 모드 전환 ===== */
