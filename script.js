@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.5.3';
+const APP_VERSION = 'v2.5.4';
 const APP_DATE    = '2026.08.10';
 
 /* ===== 설정 ===== */
@@ -1876,24 +1876,27 @@ function _renderCardDetailChart(items, rawItems){
       ]);
     }
 
-    /* ── 가동 횟수/시간 차트: 시간대 평균이 아닌 원본 데이터로 diff 계산 — 단일점검과 동일 ── */
+    /* ── 가동 횟수/시간 차트: 통신마다 찍으면 너무 촘촘해서 알아보기 어려우므로,
+       공기질 차트와 같은 시간대(items) 버킷 단위로 묶어 그 시간대 총 가동량을 한 막대로 표시.
+       각 시간대 버킷의 rawItems는 최신순 정렬이므로 rawItems[0]이 그 시간대 마지막(=누적값) 값 ── */
     const canvasMotor=document.getElementById('cardDetailChartMotor');
     if(canvasMotor){
-      const motorItems=rawItems.slice(1);
-      const motorLabels=motorItems.map(d=>fmtTime(d.format_created_time));
-      const motorPt=motorItems.length>15?2:4;
-      const countDiffs=motorItems.map((d,i)=>{
-        const cur=d.report_data?.motorRunningCount;
-        const prv=rawItems[i].report_data?.motorRunningCount;
-        if(cur==null||prv==null) return null;
-        const diff=Number(cur)-Number(prv);
+      const hourlyMotor=items.map(b=>{
+        const latest=(b.rawItems&&b.rawItems[0])||null;
+        return{count:latest?.report_data?.motorRunningCount, timeSec:hmsToSec(latest?.report_data?.motorRunningTime)};
+      });
+      const motorLabels=labels.slice(1);
+      const motorPt=hourlyMotor.length>15?2:4;
+      const countDiffs=hourlyMotor.slice(1).map((h,i)=>{
+        const prv=hourlyMotor[i];
+        if(h.count==null||prv.count==null) return null;
+        const diff=Number(h.count)-Number(prv.count);
         return diff>=0?diff:null;
       });
-      const timeDiffs=motorItems.map((d,i)=>{
-        const cur=hmsToSec(d.report_data?.motorRunningTime);
-        const prv=hmsToSec(rawItems[i].report_data?.motorRunningTime);
-        if(cur==null||prv==null) return null;
-        const diff=cur-prv;
+      const timeDiffs=hourlyMotor.slice(1).map((h,i)=>{
+        const prv=hourlyMotor[i];
+        if(h.timeSec==null||prv.timeSec==null) return null;
+        const diff=h.timeSec-prv.timeSec;
         return diff>=0?diff:null;
       });
       cardDetailChartMotor=new Chart(canvasMotor,{type:'bar', data:{labels:motorLabels, datasets:[
