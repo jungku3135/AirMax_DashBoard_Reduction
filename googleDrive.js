@@ -275,13 +275,22 @@ function getMonthGrid(data) {
 // 주간 점검 요청서 초안 계산 — 연속 문제 발생 시작일, 신규여부, 30일 이상 여부까지 서버에서 전부 계산
 // 신규 = 오류 발생 시점이 요청서 생성일(asOfDate) 당일인 항목. 한달 이상(30일+) 항목은 메인 목록에서 빼고
 // 하단 섹션에만 담아 중복 표시하지 않는다.
+// 날짜 객체를 아시아/서울 달력일 기준 "일수(day number)"로 정규화 — 시트 셀의 Date 객체가
+// 스프레드시트/스크립트 타임존 차이로 자정이 아닌 시각을 가질 수 있어, getTime() 직접 비교는
+// 당일 데이터가 미묘하게 하루 밀려 누락되는 원인이 됨. 반드시 이 함수로 정규화한 값끼리만 비교할 것.
+function dayNumber(d) {
+    var s = Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd').split('-');
+    return Math.round(Date.UTC(parseInt(s[0], 10), parseInt(s[1], 10) - 1, parseInt(s[2], 10)) / 86400000);
+}
+
 function getWeeklyReportDraft(data) {
     try {
         var ss = SpreadsheetApp.getActiveSpreadsheet();
         var asOfStr = data.asOfDate;
         var parts = asOfStr.split('-');
-        var asOfDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-        var asOfKey = asOfDate.getFullYear() * 100 + (asOfDate.getMonth() + 1);
+        var asOfY = parseInt(parts[0], 10), asOfM = parseInt(parts[1], 10), asOfD = parseInt(parts[2], 10);
+        var asOfDayNum = Math.round(Date.UTC(asOfY, asOfM - 1, asOfD) / 86400000);
+        var asOfKey = asOfY * 100 + asOfM;
 
         var monthSheetsMeta = listMonthSheetsAsc(ss).filter(function(m) {
             return (m.year * 100 + m.month) <= asOfKey;
@@ -295,7 +304,7 @@ function getWeeklyReportDraft(data) {
             if (!sheet) return;
             var mat = readSheetMatrix(sheet, m.year);
             mat.dates.forEach(function(d, colIdx) {
-                if (!d || d.getTime() > asOfDate.getTime()) return;
+                if (!d || dayNumber(d) > asOfDayNum) return;
                 Object.keys(mat.rowsById).forEach(function(id) {
                     if (!timelines[id]) timelines[id] = [];
                     timelines[id].push({ date: d, val: mat.rowsById[id][colIdx] });
@@ -324,13 +333,14 @@ function getWeeklyReportDraft(data) {
                 if (kind.indexOf('PROBLEM') === 0) { since = tl[i].date; i--; continue; }
                 break; // OK 또는 제외사유 → 연속 구간 종료
             }
-            var daysOpen = Math.round((asOfDate.getTime() - since.getTime()) / 86400000);
+            var sinceDayNum = dayNumber(since);
+            var daysOpen = asOfDayNum - sinceDayNum;
             var info = productList[id] || { zone: '', loc: '' };
             items.push({
                 id: id, zone: info.zone, loc: info.loc,
                 code: code, since: Utilities.formatDate(since, 'Asia/Seoul', 'yy.MM.dd'),
                 daysOpen: daysOpen, isOverdue: daysOpen >= 30,
-                isNew: since.getTime() === asOfDate.getTime()
+                isNew: sinceDayNum === asOfDayNum
             });
         });
 
