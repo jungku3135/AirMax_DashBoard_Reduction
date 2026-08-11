@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.5.4';
+const APP_VERSION = 'v2.5.5';
 const APP_DATE    = '2026.08.10';
 
 /* ===== 설정 ===== */
@@ -1193,6 +1193,20 @@ function isSpike(prev, cur, next){
   return (cur - prev) > Math.max(prev * (DUST_SPIKE_RATIO - 1), 10000) && next < cur;
 }
 
+// 0 급락 후 회복 감지 배수: 0으로 찍힌 직후 값이 직전값의 이 비율 이상으로 돌아오면
+// 실제 리셋이 아니라 기기 통신 오류(0/0 오전송)로 판정
+const DUST_ZERO_GLITCH_RECOVERY_RATIO = 0.5;
+
+// 진짜 리셋(기기 청소 등으로 카운터가 실제로 초기화돼 이후 소량부터 다시 누적)과
+// 0/0 통신 오류(카운터는 그대로인데 한두 건만 0으로 잘못 전송됐다가 원래 수준 근처로 바로 복귀)를 구분.
+// next가 prev의 RECOVERY_RATIO 이상으로 바로 회복되면 오류로 보고 그 0 레코드를 시퀀스에서 제외 —
+// 그대로 두면 다음 정상값과의 diff가 "0 -> 회복값"이 되어, 이미 쌓여있던 누적값이 그 순간 증가분인 것처럼
+// 한 번 더 더해지는 문제가 생김(예: 3524g -> 0/0(오류) -> 3773g 이면 diff가 +3773이 되어버림).
+function isZeroGlitch(prev, cur, next){
+  if(cur!==0||prev==null||next==null||prev<=0) return false;
+  return next >= prev * DUST_ZERO_GLITCH_RECOVERY_RATIO;
+}
+
 const DUST_BASELINE_THRESHOLD = 150000; // 최초 입력값이 이 값 초과면 기준점(baseline)으로 정규화
 
 function calcDust(items){
@@ -1214,10 +1228,17 @@ function calcDust(items){
     return{time, grams, date:time.slice(0,10)};
   });
 
-  // 스파이크 레코드 제외
-  const noSpike=raw.filter((p,i)=>{
+  // 0/0 통신 오류 레코드 제외 (스파이크 필터보다 먼저 — 0은 스파이크 판정 대상이 아니므로 별도 처리)
+  const noZeroGlitch=raw.filter((p,i)=>{
     const prev=i>0?raw[i-1].grams:null;
     const next=i<raw.length-1?raw[i+1].grams:null;
+    return !isZeroGlitch(prev, p.grams, next);
+  });
+
+  // 스파이크 레코드 제외
+  const noSpike=noZeroGlitch.filter((p,i)=>{
+    const prev=i>0?noZeroGlitch[i-1].grams:null;
+    const next=i<noZeroGlitch.length-1?noZeroGlitch[i+1].grams:null;
     return !isSpike(prev, p.grams, next);
   });
 
