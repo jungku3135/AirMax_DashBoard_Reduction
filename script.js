@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.5.5';
+const APP_VERSION = 'v2.5.6';
 const APP_DATE    = '2026.08.10';
 
 /* ===== 설정 ===== */
@@ -1193,18 +1193,39 @@ function isSpike(prev, cur, next){
   return (cur - prev) > Math.max(prev * (DUST_SPIKE_RATIO - 1), 10000) && next < cur;
 }
 
-// 0 급락 후 회복 감지 배수: 0으로 찍힌 직후 값이 직전값의 이 비율 이상으로 돌아오면
-// 실제 리셋이 아니라 기기 통신 오류(0/0 오전송)로 판정
+// 0 구간 이후 회복 감지 배수: 0이 하나 이상 이어지다가 그 다음 값이 마지막 유효값의 이 비율
+// 이상으로 돌아오면 실제 리셋이 아니라 기기 통신 오류(0/0 연속 오전송)로 판정
 const DUST_ZERO_GLITCH_RECOVERY_RATIO = 0.5;
 
 // 진짜 리셋(기기 청소 등으로 카운터가 실제로 초기화돼 이후 소량부터 다시 누적)과
-// 0/0 통신 오류(카운터는 그대로인데 한두 건만 0으로 잘못 전송됐다가 원래 수준 근처로 바로 복귀)를 구분.
-// next가 prev의 RECOVERY_RATIO 이상으로 바로 회복되면 오류로 보고 그 0 레코드를 시퀀스에서 제외 —
+// 0/0 통신 오류(카운터는 그대로인데 한 건이든 수십~수백 건이든 0으로 잘못 전송되다가 원래 수준
+// 근처로 복귀)를 구분해서, 오류 구간 전체(연속된 0들)를 시퀀스에서 통째로 제외한다.
+// 단일 레코드만 보고 판단하면 0이 여러 건 연달아 찍힌 경우(기기 이슈가 며칠 지속된 경우 등) 놓치므로,
+// "마지막 유효값 → 0 구간 → 그 구간 다음 첫 유효값"을 통째로 비교해서 판단한다.
 // 그대로 두면 다음 정상값과의 diff가 "0 -> 회복값"이 되어, 이미 쌓여있던 누적값이 그 순간 증가분인 것처럼
-// 한 번 더 더해지는 문제가 생김(예: 3524g -> 0/0(오류) -> 3773g 이면 diff가 +3773이 되어버림).
-function isZeroGlitch(prev, cur, next){
-  if(cur!==0||prev==null||next==null||prev<=0) return false;
-  return next >= prev * DUST_ZERO_GLITCH_RECOVERY_RATIO;
+// 한 번 더 더해지는 문제가 생김(예: 3524g -> 0/0(오류, N건) -> 3773g 이면 diff가 +3773이 되어버림).
+function stripZeroGlitchRuns(points){
+  const result=[];
+  let lastGood=null; // 마지막으로 확인된 0 초과 값
+  let i=0;
+  while(i<points.length){
+    const p=points[i];
+    if(p.grams!==0){
+      result.push(p);
+      lastGood=p.grams;
+      i++;
+      continue;
+    }
+    let j=i;
+    while(j<points.length&&points[j].grams===0) j++;
+    const nextGood=j<points.length?points[j].grams:null;
+    const isGlitch=lastGood!=null&&lastGood>0&&nextGood!=null&&nextGood>=lastGood*DUST_ZERO_GLITCH_RECOVERY_RATIO;
+    if(!isGlitch){
+      for(let k=i;k<j;k++) result.push(points[k]); // 진짜 리셋(또는 판단 불가) — 그대로 유지
+    }
+    i=j; // 오류 구간이면 result에 넣지 않고 통째로 건너뜀
+  }
+  return result;
 }
 
 const DUST_BASELINE_THRESHOLD = 150000; // 최초 입력값이 이 값 초과면 기준점(baseline)으로 정규화
@@ -1228,12 +1249,8 @@ function calcDust(items){
     return{time, grams, date:time.slice(0,10)};
   });
 
-  // 0/0 통신 오류 레코드 제외 (스파이크 필터보다 먼저 — 0은 스파이크 판정 대상이 아니므로 별도 처리)
-  const noZeroGlitch=raw.filter((p,i)=>{
-    const prev=i>0?raw[i-1].grams:null;
-    const next=i<raw.length-1?raw[i+1].grams:null;
-    return !isZeroGlitch(prev, p.grams, next);
-  });
+  // 0/0 통신 오류 구간 제외 (스파이크 필터보다 먼저 — 0은 스파이크 판정 대상이 아니므로 별도 처리)
+  const noZeroGlitch=stripZeroGlitchRuns(raw);
 
   // 스파이크 레코드 제외
   const noSpike=noZeroGlitch.filter((p,i)=>{
@@ -1353,10 +1370,13 @@ function updateDustZoneInfo(){
 }
 
 /* ===== 먼지 포집 localStorage 캐시 ===== */
+// calcDust() 집계 로직이 바뀔 때마다 올릴 것 — 캐시 키에 버전이 섞여 들어가서
+// 예전 버전 로직으로 계산된(잘못됐을 수 있는) 캐시가 자동으로 무효화되고 새로 계산됨
+const DUST_CALC_VERSION = 2;
 function dustCacheKey(startYm,endYm){
   const today=todayStr(), curYm=today.slice(0,7);
   const range=`${startYm}_${endYm}`;
-  return endYm>=curYm?`dustCache_${range}_${today}`:`dustCache_${range}`;
+  return endYm>=curYm?`dustCache_v${DUST_CALC_VERSION}_${range}_${today}`:`dustCache_v${DUST_CALC_VERSION}_${range}`;
 }
 function getDustCache(id,startYm,endYm){
   try{
