@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.6.0';
+const APP_VERSION = 'v2.6.1';
 const APP_DATE    = '2026.08.25';
 
 /* ===== 설정 ===== */
@@ -2315,7 +2315,8 @@ function renderSingleChart(items, dustCanvasId='singleChartDust', motorCanvasId=
    탭으로 기간을 선택해서 보게 함(둘 다 펼쳐두면 표가 너무 길어지므로) */
 let compareSortedDesc1=[], compareSortedDesc2=[]; // 기간별 원본 데이터(최신순) — 탭 전환 시 재조회 없이 재사용
 let compareActivePeriod=1;
-let compareHourlyData1=[], compareHourlyData2=[]; // 기간별 시간대별 집계 결과 — 행 펼치기(원본 보기)용
+let compareHourlyData1=[], compareHourlyData2=[]; // 기간별 시간대별 집계 결과 — 행 펼치기(원본 보기)/엑셀 다운로드용
+let compareExportId='', compareExportLabel1='', compareExportLabel2=''; // 엑셀 다운로드 파일명/시트 안내용
 const COMPARE_CHART_IDS1={dustCanvas:'compareChartDust1', motorCanvas:'compareChartMotor1', dustMinMax:'compareDustMinMax1', co2MinMax:'compareCo2MinMax1'};
 const COMPARE_CHART_IDS2={dustCanvas:'compareChartDust2', motorCanvas:'compareChartMotor2', dustMinMax:'compareDustMinMax2', co2MinMax:'compareCo2MinMax2'};
 
@@ -2412,6 +2413,7 @@ function renderCompareDetail(id, items1, items2, label1, label2){
   compareSortedDesc2=[...items2].sort((a,b)=>new Date(b.format_created_time)-new Date(a.format_created_time));
   compareHourlyData1=aggregateHourlyReadings(compareSortedDesc1);
   compareHourlyData2=aggregateHourlyReadings(compareSortedDesc2);
+  compareExportId=id; compareExportLabel1=label1; compareExportLabel2=label2;
 
   // 차트는 기간 1·2를 동시에 렌더 — 한눈에 비교 가능하도록
   const motor1=_renderCardDetailChart([...compareHourlyData1].reverse(), [...compareSortedDesc1].reverse(), COMPARE_CHART_IDS1);
@@ -2439,6 +2441,49 @@ function renderCompareDetail(id, items1, items2, label1, label2){
     const s=document.getElementById('compareResultSection');
     if(s&&s.offsetParent!==null) s.scrollIntoView({behavior:'smooth',block:'start'});
   },150);
+}
+
+// 비교 검색 결과(시간대별 표)를 엑셀로 다운로드 — 기간 1/기간 2 각각 별도 시트
+async function exportCompareXlsx(){
+  if(typeof ExcelJS==='undefined'){ alert('ExcelJS 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.'); return; }
+  if(!compareHourlyData1.length&&!compareHourlyData2.length){ alert('다운로드할 데이터가 없습니다.'); return; }
+  const btn=document.getElementById('compareExportBtn');
+  btn.disabled=true; btn.innerHTML='<span class="material-icons-round ico">hourglass_empty</span>생성 중…';
+  try{
+    const wb=new ExcelJS.Workbook();
+    const addPeriodSheet=(sheetName, periodLabel, hourly)=>{
+      const ws=wb.addWorksheet(sheetName);
+      ws.columns=[{width:20},{width:12},{width:12},{width:12}];
+      const info=ws.addRow([`${compareExportId} — ${periodLabel}`]);
+      info.getCell(1).font={bold:true};
+      ws.mergeCells(`A${info.number}:D${info.number}`);
+      const header=ws.addRow(['수집 시간','PM10 (㎍/㎥)','PM2.5 (㎍/㎥)','CO₂ (ppm)']);
+      header.eachCell(c=>{ c.font={bold:true}; c.alignment={horizontal:'center',vertical:'middle'}; c.border={bottom:{style:'thin'}}; });
+      // 화면 표와 동일하게 최신 시간대가 위로 오도록(오름차순으로 뒤집지 않음)
+      [...hourly].forEach(item=>{
+        const row=ws.addRow([item.format_created_time, item.pm_10??'', item.pm_2_5??'', item.co2??'']);
+        row.eachCell(c=>{ c.alignment={horizontal:'center',vertical:'middle'}; });
+      });
+      if(!hourly.length){
+        const emptyRow=ws.addRow(['수집된 데이터가 없습니다.']);
+        ws.mergeCells(`A${emptyRow.number}:D${emptyRow.number}`);
+        emptyRow.getCell(1).alignment={horizontal:'center'};
+      }
+    };
+    addPeriodSheet('기간 1', compareExportLabel1, compareHourlyData1);
+    addPeriodSheet('기간 2', compareExportLabel2, compareHourlyData2);
+
+    const buf=await wb.xlsx.writeBuffer();
+    const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=`${compareExportId||'제품'}_기간비교_${todayStr().replace(/-/g,'.')}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }catch(e){
+    alert('엑셀 생성 중 오류: '+e.message);
+  }
+  btn.disabled=false; btn.innerHTML='<span class="material-icons-round ico">file_download</span>엑셀 다운로드';
 }
 
 /* ===== 공통 실행 ===== */
