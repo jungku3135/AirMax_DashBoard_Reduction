@@ -1,6 +1,6 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.5.6';
-const APP_DATE    = '2026.08.10';
+const APP_VERSION = 'v2.6.0';
+const APP_DATE    = '2026.08.25';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
@@ -17,6 +17,7 @@ const LS_MODE  = 'airmax_mode';
 const LS_PROD_LOCS    = 'airmax_product_locations';
 const LS_SHEET_CACHE  = 'airmax_sheet_cache';
 const LS_DUST_EXTRA   = 'airmax_dust_extra_ids';
+const LS_COMPARE_MODE = 'airmax_compare_mode';
 const CACHE_TTL       = 3600000; // 1시간 (ms)
 
 const isMobile = () => window.innerWidth <= 768;
@@ -57,10 +58,15 @@ let lastResults = [];
 let lastDateRange=null, cardDetailModalOpen=false;
 let collectStartMs=null;   // 데이터 수집 시작 시각 — 남은 시간 추정/소요 시간 표시용(참고용, 정확한 계측 아님)
 let lastRunElapsedText='';  // 직전 점검 완료까지 걸린 시간(요약 영역 표시용) — 새 점검 시작 시 초기화
-let singleAllItems=[], singlePage=0, singleShowAll=false, singleChartDust=null, singleChartMotor=null;
+let singleAllItems=[], singlePage=0, singleShowAll=false;
+let compareMode=false; // 단일 검색 - 비교 검색(두 기간) 토글 상태
+const chartRegistry=new Map(); // canvasId -> Chart 인스턴스. 단일 검색/기간 비교 차트가 공용으로 사용
+function destroyChart(canvasId){
+  const c=chartRegistry.get(canvasId);
+  if(c){ c.destroy(); chartRegistry.delete(canvasId); }
+}
 let dustDays=[], dustModalChart=null, dustModalOpen=false;
 const cardDetailCache=new Map();
-let cardDetailChartDust=null, cardDetailChartMotor=null;
 const dustResultMap=new Map();
 const SINGLE_PAGE_SIZE=30;
 
@@ -241,8 +247,9 @@ function updateRunBtnText(){
     dustBtn.style.display='';
     return;
   }
-  btn.textContent='점검 시작';
-  mBtn.textContent='점검 시작';
+  const label=(currentMode==='single'&&compareMode)?'비교 조회':'점검 시작';
+  btn.textContent=label;
+  mBtn.textContent=label;
 }
 
 function updateSheetBtn(){
@@ -370,6 +377,7 @@ function switchMode(mode){
   }
   if(mode!=='single'){
     document.getElementById('singleResultSection').style.display='none';
+    document.getElementById('compareResultSection').style.display='none';
   }
   if(mode!=='dust'){
     document.getElementById('dustResultSection').style.display='none';
@@ -1824,14 +1832,28 @@ function toggleCardDetailHourRow(idx){
 }
 // items: 시간대별 평균(오름차순) — 공기질 차트/최소·최대 요약용
 // rawItems: 원본 미집계 데이터(오름차순) — 가동횟수/가동시간은 누적값이라 평균이 아닌 diff로 계산해야 해서 별도로 받음
-function _renderCardDetailChart(items, rawItems){
-  if(cardDetailChartDust){cardDetailChartDust.destroy();cardDetailChartDust=null;}
-  if(cardDetailChartMotor){cardDetailChartMotor.destroy();cardDetailChartMotor=null;}
-  const dustEl=document.getElementById('cardDetailDustMinMax');
-  const co2El=document.getElementById('cardDetailCo2MinMax');
+// ids로 캔버스/최소·최대 표시 영역을 지정하면 카드 상세 모달 외 다른 화면(기간 비교 등)에도 동일한 차트를 재사용 가능
+// 반환값은 해당 기간의 총 가동 횟수/시간 — 기간 비교 요약 표에서 재사용
+function _renderCardDetailChart(items, rawItems, ids={}){
+  const dustCanvasId=ids.dustCanvas||'cardDetailChartDust';
+  const motorCanvasId=ids.motorCanvas||'cardDetailChartMotor';
+  const dustMinMaxId=ids.dustMinMax||'cardDetailDustMinMax';
+  const co2MinMaxId=ids.co2MinMax||'cardDetailCo2MinMax';
+  destroyChart(dustCanvasId);
+  destroyChart(motorCanvasId);
+  const dustEl=document.getElementById(dustMinMaxId);
+  const co2El=document.getElementById(co2MinMaxId);
   if(dustEl) dustEl.innerHTML='';
   if(co2El)  co2El.innerHTML='';
-  if(!items.length) return;
+  // 총 가동 횟수/시간 — 아래 차트 렌더는 비동기(requestAnimationFrame)라 별도로 먼저 동기 계산해서 반환
+  const firstItem=rawItems[0], lastItem=rawItems[rawItems.length-1];
+  const rawFirst=firstItem?.report_data?.motorRunningCount;
+  const rawLast=lastItem?.report_data?.motorRunningCount;
+  const totalCount=(rawFirst!=null&&rawLast!=null)?Math.max(0,Number(rawLast)-Number(rawFirst)):null;
+  const firstTimeSec=hmsToSec(firstItem?.report_data?.motorRunningTime);
+  const lastTimeSec=hmsToSec(lastItem?.report_data?.motorRunningTime);
+  const totalTimeSec=(firstTimeSec!=null&&lastTimeSec!=null)?Math.max(0,lastTimeSec-firstTimeSec):null;
+  if(!items.length) return{totalCount, totalTimeSec};
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
@@ -1865,9 +1887,9 @@ function _renderCardDetailChart(items, rawItems){
 
   requestAnimationFrame(()=>setTimeout(()=>{
     /* ── 공기질 차트: PM10·PM2.5(좌) + CO₂(우) 하나로 통합 — 단일점검과 동일 스타일 ── */
-    const canvasDust=document.getElementById('cardDetailChartDust');
+    const canvasDust=document.getElementById(dustCanvasId);
     if(canvasDust){
-      cardDetailChartDust=new Chart(canvasDust,{type:'line', data:{labels, datasets:[
+      chartRegistry.set(dustCanvasId, new Chart(canvasDust,{type:'line', data:{labels, datasets:[
         {label:'PM10 (㎍/㎥)', data:pm10Vals,
          yAxisID:'y', borderColor:'#5f8fb3', backgroundColor:'rgba(95,143,179,0.12)',
          fill:true, tension:0.4, pointRadius:pt, pointHoverRadius:7,
@@ -1909,7 +1931,7 @@ function _renderCardDetailChart(items, rawItems){
               ticks:{color:'#ee6018',font:{size:9},maxTicksLimit:6,callback:v=>Number.isInteger(v)?v:null},
               grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true,min:0},
         }
-      }, plugins:[yLabelPlugin('㎍/㎥','#5f8fb3','ppm','#ee6018')]});
+      }, plugins:[yLabelPlugin('㎍/㎥','#5f8fb3','ppm','#ee6018')]}));
       injectChartLegend(canvasDust,[
         {borderColor:'#5f8fb3', label:'PM10 (㎍/㎥)'},
         {borderColor:'#a0ca92', label:'PM2.5 (㎍/㎥)'},
@@ -1920,7 +1942,7 @@ function _renderCardDetailChart(items, rawItems){
     /* ── 가동 횟수/시간 차트: 통신마다 찍으면 너무 촘촘해서 알아보기 어려우므로,
        공기질 차트와 같은 시간대(items) 버킷 단위로 묶어 그 시간대 총 가동량을 한 막대로 표시.
        각 시간대 버킷의 rawItems는 최신순 정렬이므로 rawItems[0]이 그 시간대 마지막(=누적값) 값 ── */
-    const canvasMotor=document.getElementById('cardDetailChartMotor');
+    const canvasMotor=document.getElementById(motorCanvasId);
     if(canvasMotor){
       const hourlyMotor=items.map(b=>{
         const latest=(b.rawItems&&b.rawItems[0])||null;
@@ -1940,7 +1962,7 @@ function _renderCardDetailChart(items, rawItems){
         const diff=h.timeSec-prv.timeSec;
         return diff>=0?diff:null;
       });
-      cardDetailChartMotor=new Chart(canvasMotor,{type:'bar', data:{labels:motorLabels, datasets:[
+      chartRegistry.set(motorCanvasId, new Chart(canvasMotor,{type:'bar', data:{labels:motorLabels, datasets:[
         {label:'가동 횟수 (회)', data:countDiffs,
          yAxisID:'y', backgroundColor:'rgba(193,114,98,0.55)', borderColor:'#c17262',
          borderWidth:1.5, borderRadius:3, type:'bar'},
@@ -1977,16 +1999,8 @@ function _renderCardDetailChart(items, rawItems){
               ticks:{color:'#ee6018',font:{size:9},callback:v=>Number.isInteger(v)?v:null,maxTicksLimit:6},
               grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true,min:0},
         }
-      }, plugins:[yLabelPlugin('회','#c17262','초','#ee6018')]});
-
-      const firstItem=rawItems[0], lastItem=rawItems[rawItems.length-1];
-      const rawFirst=firstItem?.report_data?.motorRunningCount;
-      const rawLast=lastItem?.report_data?.motorRunningCount;
-      const totalCount=(rawFirst!=null&&rawLast!=null)?Math.max(0,Number(rawLast)-Number(rawFirst)):null;
-      const firstTimeSec=hmsToSec(firstItem?.report_data?.motorRunningTime);
-      const lastTimeSec=hmsToSec(lastItem?.report_data?.motorRunningTime);
-      const totalTimeSec=(firstTimeSec!=null&&lastTimeSec!=null)?Math.max(0,lastTimeSec-firstTimeSec):null;
-
+      }, plugins:[yLabelPlugin('회','#c17262','초','#ee6018')]}));
+      // totalCount/totalTimeSec은 함수 상단에서 이미 계산됨(동기 반환용) — 여기선 그대로 재사용
       injectChartLegend(canvasMotor,[
         {type:'bar', borderColor:'#c17262', label:'가동 횟수 (회)'},
         {borderColor:'#ee6018', label:'가동 시간 (초)'},
@@ -2003,13 +2017,14 @@ function _renderCardDetailChart(items, rawItems){
       }
     }
   },50));
+  return{totalCount, totalTimeSec};
 }
 function closeCardDetailModal(){
   cardDetailModalOpen=false;
   document.getElementById('cardDetailModal').style.display='none';
   document.body.style.overflow='';
-  if(cardDetailChartDust){cardDetailChartDust.destroy();cardDetailChartDust=null;}
-  if(cardDetailChartMotor){cardDetailChartMotor.destroy();cardDetailChartMotor=null;}
+  destroyChart('cardDetailChartDust');
+  destroyChart('cardDetailChartMotor');
 }
 function cardDetailOverlayClick(e){
   if(e.target===document.getElementById('cardDetailModal')) closeCardDetailModal();
@@ -2082,6 +2097,24 @@ function toggleSingleShowAll(){
   if(singleAllItems.length) renderSinglePage();
 }
 
+/* ===== 비교 검색 (단일 검색 확장) ===== */
+function applyCompareModeUI(){
+  document.getElementById('compareModeBtn').classList.toggle('active',compareMode);
+  document.getElementById('comparePeriod2Row').style.display=compareMode?'flex':'none';
+  document.getElementById('singlePeriodLabel').textContent=compareMode?'기간 1':'기간';
+  const showAllBtn=document.getElementById('singleShowAllBtn');
+  if(showAllBtn) showAllBtn.style.display=compareMode?'none':'';
+  updateRunBtnText();
+}
+function toggleCompareMode(){
+  compareMode=!compareMode;
+  lsSet(LS_COMPARE_MODE,compareMode);
+  applyCompareModeUI();
+  // 모드 전환 시 이전 결과는 숨겨서 서로 다른 기준의 결과가 섞여 보이지 않게 함
+  document.getElementById('singleResultSection').style.display='none';
+  document.getElementById('compareResultSection').style.display='none';
+}
+
 function copySingleToClipboard(){
   if(!singleAllItems.length) return;
   const header='수집 시간\tPM10\tPM2.5\tCO₂';
@@ -2115,10 +2148,12 @@ function injectChartLegend(canvasEl, datasets){
   }).join('');
 }
 
-function renderSingleChart(items){
-  if(singleChartDust){ singleChartDust.destroy(); singleChartDust=null; }
-  if(singleChartMotor){ singleChartMotor.destroy(); singleChartMotor=null; }
-  if(!items.length) return;
+// dustCanvasId/motorCanvasId를 지정하면 단일 검색 외 다른 캔버스(기간 비교 등)에도 동일한 차트를 그릴 수 있음.
+// 반환값은 해당 기간의 총 가동 횟수/시간 — 기간 비교 요약 표에서 재사용
+function renderSingleChart(items, dustCanvasId='singleChartDust', motorCanvasId='singleChartMotor'){
+  destroyChart(dustCanvasId);
+  destroyChart(motorCanvasId);
+  if(!items.length) return{totalCount:null, totalTimeSec:null};
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
   const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
@@ -2134,9 +2169,9 @@ function renderSingleChart(items){
   const pt=items.length>15?2:4;
 
   /* ── Chart 1: PM10 · PM2.5 (좌/㎍/㎥) + CO₂ (우/ppm) ── */
-  const canvasDust=document.getElementById('singleChartDust');
+  const canvasDust=document.getElementById(dustCanvasId);
   if(canvasDust){
-    singleChartDust=new Chart(canvasDust,{type:'line', data:{labels, datasets:[
+    chartRegistry.set(dustCanvasId, new Chart(canvasDust,{type:'line', data:{labels, datasets:[
       {label:'PM10 (㎍/㎥)', data:items.map(d=>d.pm_10!==undefined?Number(d.pm_10):null),
        yAxisID:'y', borderColor:'#5f8fb3', backgroundColor:'rgba(95,143,179,0.12)',
        fill:true, tension:0.4, pointRadius:pt, pointHoverRadius:7,
@@ -2178,7 +2213,7 @@ function renderSingleChart(items){
             ticks:{color:'#ee6018',font:{size:10},maxTicksLimit:6,callback:v=>Number.isInteger(v)?v:null},
             grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true,min:0},
       }
-    }, plugins:[yLabelPlugin('㎍/㎥','#5f8fb3','ppm','#ee6018')]});
+    }, plugins:[yLabelPlugin('㎍/㎥','#5f8fb3','ppm','#ee6018')]}));
     injectChartLegend(canvasDust,[
       {borderColor:'#5f8fb3', label:'PM10 (㎍/㎥)'},
       {borderColor:'#a0ca92', label:'PM2.5 (㎍/㎥)'},
@@ -2205,9 +2240,10 @@ function renderSingleChart(items){
     return diff>=0?diff:null;
   });
 
-  const canvasMotor=document.getElementById('singleChartMotor');
+  const canvasMotor=document.getElementById(motorCanvasId);
+  let totalCount=null, totalTimeSec=null;
   if(canvasMotor){
-    singleChartMotor=new Chart(canvasMotor,{type:'bar', data:{labels:motorLabels, datasets:[
+    chartRegistry.set(motorCanvasId, new Chart(canvasMotor,{type:'bar', data:{labels:motorLabels, datasets:[
       {label:'가동 횟수 (회)', data:countDiffs,
        yAxisID:'y', backgroundColor:'rgba(193,114,98,0.55)', borderColor:'#c17262',
        borderWidth:1.5, borderRadius:3, type:'bar'},
@@ -2244,15 +2280,15 @@ function renderSingleChart(items){
             ticks:{color:'#ee6018',font:{size:10},callback:v=>Number.isInteger(v)?v:null,maxTicksLimit:6},
             grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true,min:0},
       }
-    }, plugins:[yLabelPlugin('회','#c17262','초','#ee6018')]});
+    }, plugins:[yLabelPlugin('회','#c17262','초','#ee6018')]}));
     /* 총 가동 횟수 / 시간 — 기간 내 총량 = 마지막 - 첫번째 */
     const firstItem=items[0], lastItem=items[items.length-1];
     const rawFirst=firstItem?.report_data?.motorRunningCount;
     const rawLast=lastItem?.report_data?.motorRunningCount;
-    const totalCount=(rawFirst!=null&&rawLast!=null)?Math.max(0,Number(rawLast)-Number(rawFirst)):null;
+    totalCount=(rawFirst!=null&&rawLast!=null)?Math.max(0,Number(rawLast)-Number(rawFirst)):null;
     const firstTimeSec=hmsToSec(firstItem?.report_data?.motorRunningTime);
     const lastTimeSec=hmsToSec(lastItem?.report_data?.motorRunningTime);
-    const totalTimeSec=(firstTimeSec!=null&&lastTimeSec!=null)?Math.max(0,lastTimeSec-firstTimeSec):null;
+    totalTimeSec=(firstTimeSec!=null&&lastTimeSec!=null)?Math.max(0,lastTimeSec-firstTimeSec):null;
 
     injectChartLegend(canvasMotor,[
       {type:'bar', borderColor:'#c17262', label:'가동 횟수 (회)'},
@@ -2271,6 +2307,138 @@ function renderSingleChart(items){
       legendBar.appendChild(statWrap);
     }
   }
+  return{totalCount, totalTimeSec};
+}
+
+/* ===== 비교 검색 결과 — 카드 상세와 동일하게 시간대 평균으로 표시 =====
+   차트(공기질/가동)는 기간 1·2를 동시에 나란히 보여주고, 그 아래 원본 시간대 표만
+   탭으로 기간을 선택해서 보게 함(둘 다 펼쳐두면 표가 너무 길어지므로) */
+let compareSortedDesc1=[], compareSortedDesc2=[]; // 기간별 원본 데이터(최신순) — 탭 전환 시 재조회 없이 재사용
+let compareActivePeriod=1;
+let compareHourlyData1=[], compareHourlyData2=[]; // 기간별 시간대별 집계 결과 — 행 펼치기(원본 보기)용
+const COMPARE_CHART_IDS1={dustCanvas:'compareChartDust1', motorCanvas:'compareChartMotor1', dustMinMax:'compareDustMinMax1', co2MinMax:'compareCo2MinMax1'};
+const COMPARE_CHART_IDS2={dustCanvas:'compareChartDust2', motorCanvas:'compareChartMotor2', dustMinMax:'compareDustMinMax2', co2MinMax:'compareCo2MinMax2'};
+
+function compareAvg(items,key){
+  const vals=items.map(it=>it[key]).filter(v=>v!==undefined&&v!==null).map(Number).filter(v=>!isNaN(v));
+  if(!vals.length) return null;
+  return Math.round((vals.reduce((s,v)=>s+v,0)/vals.length)*10)/10;
+}
+function compareDiffText(v1,v2,unit){
+  if(v1==null||v2==null) return '—';
+  const d=Math.round((v2-v1)*10)/10;
+  if(d===0) return `±0${unit||''}`;
+  return `${d>0?'+':''}${d.toLocaleString()}${unit||''}`;
+}
+function compareDiffSec(sec1,sec2){
+  if(sec1==null||sec2==null) return '—';
+  const d=sec2-sec1;
+  if(d===0) return '±0초';
+  return `${d>0?'+':'-'}${secToHms(Math.abs(d))}`;
+}
+
+// 시간대별 평균 행을 클릭하면 그 시간대에 실제 수집된 원본 데이터를 펼쳐 보여줌 (카드 상세와 동일한 방식)
+function toggleCompareHourRow(idx){
+  const body=document.getElementById('compareDetailBody');
+  const row=body.querySelectorAll('tr.card-detail-hour-row')[idx];
+  if(!row) return;
+  const next=row.nextElementSibling;
+  if(next&&next.classList.contains('card-detail-hour-expand')){
+    next.remove();
+    row.classList.remove('expanded');
+    return;
+  }
+  body.querySelectorAll('tr.card-detail-hour-expand').forEach(el=>el.remove());
+  body.querySelectorAll('tr.card-detail-hour-row.expanded').forEach(el=>el.classList.remove('expanded'));
+
+  const hourlyData=compareActivePeriod===1?compareHourlyData1:compareHourlyData2;
+  const item=hourlyData[idx];
+  if(!item||!item.rawItems.length) return;
+  row.classList.add('expanded');
+  const expandRow=document.createElement('tr');
+  expandRow.className='card-detail-hour-expand';
+  expandRow.innerHTML=`<td colspan="4">
+    <div class="card-detail-hour-raw-wrap">
+      <table class="card-detail-hour-raw-table">
+        <thead><tr><th>수집 시간</th><th>PM10</th><th>PM2.5</th><th>CO₂</th></tr></thead>
+        <tbody>${item.rawItems.map(r=>`<tr>
+          <td>${escHtml(r.format_created_time||'—')}</td>
+          <td>${r.pm_10??'—'}</td>
+          <td>${r.pm_2_5??'—'}</td>
+          <td>${r.co2??'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </td>`;
+  row.after(expandRow);
+}
+
+// 기간 탭 전환 — 아래 원본 시간대 표만 갱신 (차트는 이미 두 기간 다 그려져 있어 그대로 둠)
+function showComparePeriod(which){
+  compareActivePeriod=which;
+  document.getElementById('comparePeriodTab1').classList.toggle('active',which===1);
+  document.getElementById('comparePeriodTab2').classList.toggle('active',which===2);
+  const sortedDesc=which===1?compareSortedDesc1:compareSortedDesc2;
+  const loadEl=document.getElementById('compareDetailLoading');
+  const wrap=document.getElementById('compareDetailWrap');
+  if(!sortedDesc.length){
+    loadEl.innerHTML='<div style="padding:40px 0 20px;text-align:center"><span class="material-icons-round" style="font-size:28px;line-height:1;color:var(--text4);margin-bottom:10px;display:inline-block">inbox</span><div style="font-size:13px;font-weight:500;color:var(--text2);margin-bottom:4px">수집 데이터 없음</div><div style="font-size:11px;color:var(--text3)">해당 기간에 수집된 데이터가 없습니다</div></div>';
+    loadEl.style.display='block';
+    wrap.style.display='none';
+    return;
+  }
+  loadEl.style.display='none';
+  wrap.style.display='block';
+  const hourly=which===1?compareHourlyData1:compareHourlyData2;
+  document.getElementById('compareDetailCount').textContent=`시간대 ${hourly.length}개 (원본 ${sortedDesc.length}건 평균) — 행을 누르면 원본 상세가 펼쳐집니다`;
+  document.getElementById('compareDetailBody').innerHTML=hourly.map((item,idx)=>`<tr class="card-detail-hour-row" onclick="toggleCompareHourRow(${idx})">
+      <td title="${item.sampleCount}건 평균 — 눌러서 원본 보기">${escHtml(item.format_created_time||'—')}</td>
+      <td>${item.pm_10??'—'}</td>
+      <td>${item.pm_2_5??'—'}</td>
+      <td>${item.co2??'—'}</td>
+    </tr>`).join('');
+}
+
+function renderCompareDetail(id, items1, items2, label1, label2){
+  document.getElementById('singleResultSection').style.display='none';
+  document.getElementById('compareResultSection').style.display='block';
+  document.getElementById('compareDetailTitle').textContent=`${id} — 기간 비교`;
+  document.getElementById('compareChartLabel1').textContent=`기간 1 · ${label1} (${items1.length}건)`;
+  document.getElementById('compareChartLabel2').textContent=`기간 2 · ${label2} (${items2.length}건)`;
+  document.getElementById('comparePeriodTab1').textContent=`기간 1 (${items1.length}건)`;
+  document.getElementById('comparePeriodTab2').textContent=`기간 2 (${items2.length}건)`;
+
+  compareSortedDesc1=[...items1].sort((a,b)=>new Date(b.format_created_time)-new Date(a.format_created_time));
+  compareSortedDesc2=[...items2].sort((a,b)=>new Date(b.format_created_time)-new Date(a.format_created_time));
+  compareHourlyData1=aggregateHourlyReadings(compareSortedDesc1);
+  compareHourlyData2=aggregateHourlyReadings(compareSortedDesc2);
+
+  // 차트는 기간 1·2를 동시에 렌더 — 한눈에 비교 가능하도록
+  const motor1=_renderCardDetailChart([...compareHourlyData1].reverse(), [...compareSortedDesc1].reverse(), COMPARE_CHART_IDS1);
+  const motor2=_renderCardDetailChart([...compareHourlyData2].reverse(), [...compareSortedDesc2].reverse(), COMPARE_CHART_IDS2);
+
+  const pm10_1=compareAvg(items1,'pm_10'), pm10_2=compareAvg(items2,'pm_10');
+  const pm25_1=compareAvg(items1,'pm_2_5'), pm25_2=compareAvg(items2,'pm_2_5');
+  const co2_1=compareAvg(items1,'co2'), co2_2=compareAvg(items2,'co2');
+
+  const rows=[
+    ['리포트 건수', items1.length.toLocaleString()+'건', items2.length.toLocaleString()+'건', compareDiffText(items1.length,items2.length,'건')],
+    ['PM10 평균 (㎍/㎥)', pm10_1??'—', pm10_2??'—', compareDiffText(pm10_1,pm10_2)],
+    ['PM2.5 평균 (㎍/㎥)', pm25_1??'—', pm25_2??'—', compareDiffText(pm25_1,pm25_2)],
+    ['CO₂ 평균 (ppm)', co2_1??'—', co2_2??'—', compareDiffText(co2_1,co2_2)],
+    ['가동 횟수 (회)', motor1.totalCount!=null?motor1.totalCount.toLocaleString():'—', motor2.totalCount!=null?motor2.totalCount.toLocaleString():'—', compareDiffText(motor1.totalCount,motor2.totalCount)],
+    ['가동 시간', secToHms(motor1.totalTimeSec), secToHms(motor2.totalTimeSec), compareDiffSec(motor1.totalTimeSec,motor2.totalTimeSec)],
+  ];
+  document.getElementById('compareSummaryBody').innerHTML=rows.map(([label,v1,v2,diff])=>
+    `<tr><td>${escHtml(label)}</td><td>${escHtml(String(v1))}</td><td>${escHtml(String(v2))}</td><td>${escHtml(diff)}</td></tr>`
+  ).join('');
+
+  showComparePeriod(1);
+
+  setTimeout(()=>{
+    const s=document.getElementById('compareResultSection');
+    if(s&&s.offsetParent!==null) s.scrollIntoView({behavior:'smooth',block:'start'});
+  },150);
 }
 
 /* ===== 공통 실행 ===== */
@@ -2348,6 +2516,53 @@ async function startInspection(){
   if(currentMode==='single'){
     const raw=document.getElementById('singleIdInput').value.trim();
     if(!raw){errEl.textContent='⚠ 제품 ID를 입력해주세요.';return;}
+
+    /* 비교 검색 — 같은 제품 ID를 두 기간으로 나눠 조회 후 나란히 비교 */
+    if(compareMode){
+      const s1=document.getElementById('singleStartDate').value;
+      const e1=document.getElementById('singleEndDate').value;
+      const s2=document.getElementById('compareStartDate2').value;
+      const e2=document.getElementById('compareEndDate2').value;
+      if(!s1||!e1||!s2||!e2){errEl.textContent='⚠ 비교할 두 기간을 모두 입력해주세요.';return;}
+      const s1Ms=new Date(s1).getTime(), e1Ms=new Date(e1).getTime()+59999;
+      const s2Ms=new Date(s2).getTime(), e2Ms=new Date(e2).getTime()+59999;
+      if(s1Ms>=e1Ms){errEl.textContent='⚠ 기간 1의 종료 시간이 시작 시간보다 뒤여야 합니다.';return;}
+      if(s2Ms>=e2Ms){errEl.textContent='⚠ 기간 2의 종료 시간이 시작 시간보다 뒤여야 합니다.';return;}
+      const range1={started_at:s1.slice(0,10), finished_at:e1.slice(0,10)};
+      const range2={started_at:s2.slice(0,10), finished_at:e2.slice(0,10)};
+      setGlobalLock(true);
+      setLoading(true);
+      document.getElementById('loadingText').textContent='기간 1 데이터 수집 중…';
+      try{
+        const allItems1=await fetchAllReports(raw,range1,token,(pg,last)=>{
+          document.getElementById('loadingText').textContent='기간 1 수집 중…'+(last>1?` (${pg}/${last} 페이지)`:'');
+        });
+        document.getElementById('loadingText').textContent='기간 2 데이터 수집 중…';
+        const allItems2=await fetchAllReports(raw,range2,token,(pg,last)=>{
+          document.getElementById('loadingText').textContent='기간 2 수집 중…'+(last>1?` (${pg}/${last} 페이지)`:'');
+        });
+        // API는 날짜 단위로만 필터링되므로 시간 범위는 클라이언트에서 처리
+        const items1=allItems1.filter(item=>{
+          const d=parseFormatTime(item.format_created_time);
+          return !!d && d.getTime()>=s1Ms && d.getTime()<=e1Ms;
+        });
+        const items2=allItems2.filter(item=>{
+          const d=parseFormatTime(item.format_created_time);
+          return !!d && d.getTime()>=s2Ms && d.getTime()<=e2Ms;
+        });
+        addLog(`비교 검색 완료 — 기간1 ${items1.length}건 / 기간2 ${items2.length}건 (${elapsedText()} 소요)`,'ok');
+        renderCompareDetail(raw, items1, items2,
+          `${s1.replace('T',' ')} ~ ${e1.replace('T',' ')}`,
+          `${s2.replace('T',' ')} ~ ${e2.replace('T',' ')}`);
+      }catch(e){
+        errEl.textContent='⚠ 오류: '+e.message;
+      }finally{
+        setLoading(false);
+        setGlobalLock(false);
+      }
+      return;
+    }
+
     const startVal=document.getElementById('singleStartDate').value;
     const endVal=document.getElementById('singleEndDate').value;
     const startMs=startVal?new Date(startVal).getTime():null;
@@ -2882,6 +3097,9 @@ async function exportWeeklyReportXlsx(){
   if(savedGlobalEnd) document.getElementById('globalEndId').value=savedGlobalEnd;
   renderExtraTags();
   renderExcludeTags();
+
+  compareMode=lsGet(LS_COMPARE_MODE,false);
+  applyCompareModeUI();
 
   const savedMode=lsGet(LS_MODE,'range');
   switchMode(savedMode);

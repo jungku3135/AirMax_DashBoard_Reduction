@@ -192,11 +192,18 @@
     <div class="row">
       <label>제품 ID</label>
       <input type="text" class="id-input" id="singleIdInput" placeholder="A001" style="width:140px"/>
-      <label style="margin-left:8px;min-width:auto">기간</label>
+      <label style="margin-left:8px;min-width:auto" id="singlePeriodLabel">기간</label>
       <input type="datetime-local" id="singleStartDate" style="width:210px"/>
       <span class="dash" style="font-size:14px">~</span>
       <input type="datetime-local" id="singleEndDate" style="width:210px"/>
       <button class="btn-show-all" id="singleShowAllBtn" onclick="toggleSingleShowAll()">한 페이지로 보기</button>
+      <button class="btn-show-all" id="compareModeBtn" onclick="toggleCompareMode()" title="같은 제품의 두 기간을 나란히 비교">비교 검색</button>
+    </div>
+    <div class="row" id="comparePeriod2Row" style="display:none;margin-top:8px">
+      <label style="min-width:auto">기간 2</label>
+      <input type="datetime-local" id="compareStartDate2" style="width:210px"/>
+      <span class="dash" style="font-size:14px">~</span>
+      <input type="datetime-local" id="compareEndDate2" style="width:210px"/>
     </div>
   </div>
 
@@ -339,6 +346,69 @@
   </div>
   <!-- 페이지네이션 -->
   <div class="single-pagination" id="singlePagination"></div>
+</div>
+
+<!-- 단일 검색 - 기간 비교 결과 -->
+<div id="compareResultSection" style="display:none; padding:20px 32px;">
+  <div class="single-detail-header">
+    <div class="single-detail-title" id="compareDetailTitle"></div>
+  </div>
+
+  <div class="single-detail-scroll" style="margin-bottom:18px">
+    <table class="single-detail-table">
+      <thead><tr><th>항목</th><th id="compareColHead1">기간 1</th><th id="compareColHead2">기간 2</th><th>차이</th></tr></thead>
+      <tbody id="compareSummaryBody"></tbody>
+    </table>
+  </div>
+
+  <!-- 기간 1·2 차트를 동시에 나란히 표시 (시간대 평균) -->
+  <div class="single-chart-panel-label" style="margin-bottom:6px" id="compareChartLabel1"></div>
+  <div id="compareDustMinMax1"></div>
+  <div id="compareCo2MinMax1"></div>
+  <div class="single-charts-row">
+    <div class="single-chart-panel">
+      <div class="single-chart-panel-label">미세먼지 / 이산화탄소 (PM10 · PM2.5 / CO₂)</div>
+      <div class="single-chart-wrap"><canvas id="compareChartDust1"></canvas></div>
+    </div>
+    <div class="single-chart-panel">
+      <div class="single-chart-panel-label">가동 횟수 / 가동 시간</div>
+      <div class="single-chart-wrap"><canvas id="compareChartMotor1"></canvas></div>
+    </div>
+  </div>
+
+  <div class="single-chart-panel-label" style="margin:18px 0 6px" id="compareChartLabel2"></div>
+  <div id="compareDustMinMax2"></div>
+  <div id="compareCo2MinMax2"></div>
+  <div class="single-charts-row">
+    <div class="single-chart-panel">
+      <div class="single-chart-panel-label">미세먼지 / 이산화탄소 (PM10 · PM2.5 / CO₂)</div>
+      <div class="single-chart-wrap"><canvas id="compareChartDust2"></canvas></div>
+    </div>
+    <div class="single-chart-panel">
+      <div class="single-chart-panel-label">가동 횟수 / 가동 시간</div>
+      <div class="single-chart-wrap"><canvas id="compareChartMotor2"></canvas></div>
+    </div>
+  </div>
+
+  <!-- 원본 시간대 표는 기간을 선택해서 하나씩 확인 -->
+  <div class="section-label" style="margin:20px 0 6px">시간대별 원본 데이터</div>
+  <div class="mode-tabs" style="margin-bottom:14px">
+    <button class="mode-tab active" id="comparePeriodTab1" onclick="showComparePeriod(1)">기간 1</button>
+    <button class="mode-tab" id="comparePeriodTab2" onclick="showComparePeriod(2)">기간 2</button>
+  </div>
+  <div id="compareDetailLoading" style="text-align:center;padding:32px 0;color:var(--text3);font-size:13px"></div>
+  <div id="compareDetailWrap" style="display:none">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px;text-align:right" id="compareDetailCount"></div>
+    <div class="single-detail-scroll">
+      <table class="single-detail-table" style="font-size:12px">
+        <colgroup>
+          <col style="width:36%"><col style="width:21.33%"><col style="width:21.33%"><col style="width:21.33%">
+        </colgroup>
+        <thead><tr><th>수집 시간</th><th>PM10<small style="display:block;font-weight:400;opacity:.7">(㎍/㎥)</small></th><th>PM2.5<small style="display:block;font-weight:400;opacity:.7">(㎍/㎥)</small></th><th>CO₂<small style="display:block;font-weight:400;opacity:.7">(ppm)</small></th></tr></thead>
+        <tbody id="compareDetailBody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <!-- 먼지 포집 데이터 결과 -->
