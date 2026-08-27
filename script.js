@@ -1,6 +1,6 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.6.1';
-const APP_DATE    = '2026.08.25';
+const APP_VERSION = 'v2.6.2';
+const APP_DATE    = '2026.08.27';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
@@ -1173,6 +1173,32 @@ function secToHms(s){
   if(sec>0||parts.length===0) parts.push(`${sec}초`);
   return parts.join(' ');
 }
+// 모터 누적 카운터(motorRunningCount/motorRunningTime) 총 증가량 계산.
+// "마지막값 - 첫값"으로 계산하면 중간에 기기 재부팅 등으로 카운터가 리셋될 경우
+// 그 구간이 음수 diff가 되어 총량이 실제보다 훨씬 작게(심하면 0으로) 나오는 문제가 있었음.
+// 그래서 연속된 두 값의 diff를 하나씩 구해서, 양수 구간만 전부 더하는 방식으로 계산한다
+// (리셋 구간의 음수 diff만 건너뛰고 그 뒤로 다시 쌓이는 증가분은 그대로 반영됨).
+// itemsAsc: 오름차순(과거→최신) 원본 데이터
+function calcMotorTotal(itemsAsc){
+  let totalCount=0, totalTimeSec=0, hasCount=false, hasTime=false;
+  for(let i=1;i<itemsAsc.length;i++){
+    const curCount=itemsAsc[i].report_data?.motorRunningCount;
+    const prvCount=itemsAsc[i-1].report_data?.motorRunningCount;
+    if(curCount!=null&&prvCount!=null){
+      hasCount=true;
+      const diff=Number(curCount)-Number(prvCount);
+      if(diff>0) totalCount+=diff;
+    }
+    const curSec=hmsToSec(itemsAsc[i].report_data?.motorRunningTime);
+    const prvSec=hmsToSec(itemsAsc[i-1].report_data?.motorRunningTime);
+    if(curSec!=null&&prvSec!=null){
+      hasTime=true;
+      const diff=curSec-prvSec;
+      if(diff>0) totalTimeSec+=diff;
+    }
+  }
+  return{totalCount:hasCount?totalCount:null, totalTimeSec:hasTime?totalTimeSec:null};
+}
 /* 차트 좌/우 Y축 단위 라벨 — 차트 상단 모서리에 수평 표시 */
 function yLabelPlugin(lText,lColor,rText,rColor){
   return {
@@ -1845,14 +1871,9 @@ function _renderCardDetailChart(items, rawItems, ids={}){
   const co2El=document.getElementById(co2MinMaxId);
   if(dustEl) dustEl.innerHTML='';
   if(co2El)  co2El.innerHTML='';
-  // 총 가동 횟수/시간 — 아래 차트 렌더는 비동기(requestAnimationFrame)라 별도로 먼저 동기 계산해서 반환
-  const firstItem=rawItems[0], lastItem=rawItems[rawItems.length-1];
-  const rawFirst=firstItem?.report_data?.motorRunningCount;
-  const rawLast=lastItem?.report_data?.motorRunningCount;
-  const totalCount=(rawFirst!=null&&rawLast!=null)?Math.max(0,Number(rawLast)-Number(rawFirst)):null;
-  const firstTimeSec=hmsToSec(firstItem?.report_data?.motorRunningTime);
-  const lastTimeSec=hmsToSec(lastItem?.report_data?.motorRunningTime);
-  const totalTimeSec=(firstTimeSec!=null&&lastTimeSec!=null)?Math.max(0,lastTimeSec-firstTimeSec):null;
+  // 총 가동 횟수/시간 — 아래 차트 렌더는 비동기(requestAnimationFrame)라 별도로 먼저 동기 계산해서 반환.
+  // 중간에 리셋이 있어도 정확히 합산 (마지막-첫값 방식은 리셋 시 총량이 깎이는 문제가 있음)
+  const{totalCount, totalTimeSec}=calcMotorTotal(rawItems);
   if(!items.length) return{totalCount, totalTimeSec};
 
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
@@ -2281,14 +2302,8 @@ function renderSingleChart(items, dustCanvasId='singleChartDust', motorCanvasId=
             grid:{drawOnChartArea:false},border:{display:false},beginAtZero:true,min:0},
       }
     }, plugins:[yLabelPlugin('회','#c17262','초','#ee6018')]}));
-    /* 총 가동 횟수 / 시간 — 기간 내 총량 = 마지막 - 첫번째 */
-    const firstItem=items[0], lastItem=items[items.length-1];
-    const rawFirst=firstItem?.report_data?.motorRunningCount;
-    const rawLast=lastItem?.report_data?.motorRunningCount;
-    totalCount=(rawFirst!=null&&rawLast!=null)?Math.max(0,Number(rawLast)-Number(rawFirst)):null;
-    const firstTimeSec=hmsToSec(firstItem?.report_data?.motorRunningTime);
-    const lastTimeSec=hmsToSec(lastItem?.report_data?.motorRunningTime);
-    totalTimeSec=(firstTimeSec!=null&&lastTimeSec!=null)?Math.max(0,lastTimeSec-firstTimeSec):null;
+    /* 총 가동 횟수 / 시간 — 중간에 리셋이 있어도 정확히 합산 (마지막-첫값 방식은 리셋 시 총량이 깎이는 문제가 있음) */
+    ({totalCount, totalTimeSec}=calcMotorTotal(items));
 
     injectChartLegend(canvasMotor,[
       {type:'bar', borderColor:'#c17262', label:'가동 횟수 (회)'},
