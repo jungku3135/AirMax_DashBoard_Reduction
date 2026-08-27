@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.6.2';
+const APP_VERSION = 'v2.6.3';
 const APP_DATE    = '2026.08.27';
 
 /* ===== 설정 ===== */
@@ -1173,12 +1173,15 @@ function secToHms(s){
   if(sec>0||parts.length===0) parts.push(`${sec}초`);
   return parts.join(' ');
 }
-// 모터 누적 카운터(motorRunningCount/motorRunningTime) 총 증가량 계산.
-// "마지막값 - 첫값"으로 계산하면 중간에 기기 재부팅 등으로 카운터가 리셋될 경우
-// 그 구간이 음수 diff가 되어 총량이 실제보다 훨씬 작게(심하면 0으로) 나오는 문제가 있었음.
-// 그래서 연속된 두 값의 diff를 하나씩 구해서, 양수 구간만 전부 더하는 방식으로 계산한다
-// (리셋 구간의 음수 diff만 건너뛰고 그 뒤로 다시 쌓이는 증가분은 그대로 반영됨).
+// motorRunningCount는 기기가 4자리(0~9999)까지만 보내고 10000이 되면 앞자리가 잘려 다시
+// 작은 값부터 표기되는 랩어라운드 필드다 (예: 9846 다음에 12가 오면 실제로는 10012 — 12가
+// 아니라 10000+12임). 그래서 "마지막값-첫값"이나 "리셋 구간을 그냥 버리는" 방식은 실제보다
+// 총량이 훨씬 작게 나온다. 연속된 두 값의 diff가 음수면 랩어라운드로 보고 10000을 더해
+// 보정한 뒤 누적한다 (10분~20분 간격 수집 대비 리셋은 며칠에 한 번꼴이라 두 리포트 사이에
+// 두 번 이상 랩어라운드가 겹칠 가능성은 사실상 없음).
+// motorRunningTime(가동 시간, HH:MM:SS)은 랩어라운드 증거가 없어 기존처럼 음수 구간만 건너뛴다.
 // itemsAsc: 오름차순(과거→최신) 원본 데이터
+const MOTOR_COUNT_MODULUS=10000;
 function calcMotorTotal(itemsAsc){
   let totalCount=0, totalTimeSec=0, hasCount=false, hasTime=false;
   for(let i=1;i<itemsAsc.length;i++){
@@ -1186,8 +1189,9 @@ function calcMotorTotal(itemsAsc){
     const prvCount=itemsAsc[i-1].report_data?.motorRunningCount;
     if(curCount!=null&&prvCount!=null){
       hasCount=true;
-      const diff=Number(curCount)-Number(prvCount);
-      if(diff>0) totalCount+=diff;
+      let diff=Number(curCount)-Number(prvCount);
+      if(diff<0) diff+=MOTOR_COUNT_MODULUS; // 랩어라운드 보정
+      totalCount+=diff;
     }
     const curSec=hmsToSec(itemsAsc[i].report_data?.motorRunningTime);
     const prvSec=hmsToSec(itemsAsc[i-1].report_data?.motorRunningTime);
@@ -1974,8 +1978,9 @@ function _renderCardDetailChart(items, rawItems, ids={}){
       const countDiffs=hourlyMotor.slice(1).map((h,i)=>{
         const prv=hourlyMotor[i];
         if(h.count==null||prv.count==null) return null;
-        const diff=Number(h.count)-Number(prv.count);
-        return diff>=0?diff:null;
+        let diff=Number(h.count)-Number(prv.count);
+        if(diff<0) diff+=MOTOR_COUNT_MODULUS; // motorRunningCount 랩어라운드 보정 — calcMotorTotal과 동일한 규칙
+        return diff;
       });
       const timeDiffs=hourlyMotor.slice(1).map((h,i)=>{
         const prv=hourlyMotor[i];
@@ -2250,8 +2255,9 @@ function renderSingleChart(items, dustCanvasId='singleChartDust', motorCanvasId=
     const cur=d.report_data?.motorRunningCount;
     const prv=items[i].report_data?.motorRunningCount;
     if(cur==null||prv==null) return null;
-    const diff=Number(cur)-Number(prv);
-    return diff>=0?diff:null;
+    let diff=Number(cur)-Number(prv);
+    if(diff<0) diff+=MOTOR_COUNT_MODULUS; // motorRunningCount 랩어라운드 보정 — calcMotorTotal과 동일한 규칙
+    return diff;
   });
   const timeDiffs=motorItems.map((d,i)=>{
     const cur=hmsToSec(d.report_data?.motorRunningTime);
