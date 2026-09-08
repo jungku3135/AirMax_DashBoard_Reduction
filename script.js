@@ -1,6 +1,6 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.6.3';
-const APP_DATE    = '2026.08.27';
+const APP_VERSION = 'v2.6.4';
+const APP_DATE    = '2026.09.08';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
@@ -48,6 +48,7 @@ let overdueBadgeItems = [];     // 30일 이상 지속오류 배지 상세 목�
 let requesterList = [];
 
 let results=[], currentFilter='ALL', currentView='grid', currentMode='range';
+let resultZoneGroups=null; // 영역 점검 결과를 영역별로 묶어 보여줄 때 Map(영역명 -> id[]) — 범위 검색 등에서는 null
 let logVisible=false, logs=[], extraIds=[], dustExtraIds=[];
 let excludeReasons={}; // {id: reason}
 let isGlobalLocked=false;
@@ -752,30 +753,51 @@ function renderSummary(){
 }
 
 /* ===== Grid / List ===== */
+function cardHtml(r){
+  const cfg=STATUS[r.status]||STATUS.LOAD;
+  const loc=productLocations[r.id]||'';
+  const tip=r.errMsg?escHtml(r.errMsg):r.item
+    ?`PM10: ${r.item.pm_10}㎍/㎥<br>PM2.5: ${r.item.pm_2_5}㎍/㎥<br>CO₂: ${r.item.co2}ppm<br><span class="tooltip-time">수집: ${escHtml(r.item.format_created_time)}</span>`
+    :'<span style="display:block;text-align:center">데이터 없음</span>';
+  const exReason=excludeReasons[r.id]||'';
+  return`<div class="card ${cfg.cls}" data-id="${escHtml(r.id)}" onclick="openCardDetailModal('${escHtml(r.id)}')">
+    <div class="card-status" style="color:var(${cfg.textVar})">${cfg.icon?`<span class="material-icons-round card-icon">${cfg.icon}</span>`:''}${cfg.label}</div>
+    <div class="card-id">${escHtml(r.id)}</div>
+    ${exReason?`<div class="exclude-reason-badge">${escHtml(exReason)}</div>`:''}
+    ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
+    ${r.item?`<div class="card-meta">${r.item.pm_10}㎍/㎥ | ${r.item.pm_2_5}㎍/㎥ | ${r.item.co2}ppm</div>`:''}
+    ${r.status==='ERR'&&r.errMsg?`<div class="card-err-text">${escHtml(r.errMsg.slice(0,50))}</div>`:''}
+    <div class="tooltip">${tip}</div>
+  </div>`;
+}
 function renderGrid(){
   const filtered=currentFilter==='ALL'?results:results.filter(r=>r.status===currentFilter);
+  const gridEl=document.getElementById('grid');
   if(!filtered.length){
     const msg=currentFilter==='ALL'?'검색 결과가 없습니다':'해당 상태의 결과가 없습니다';
-    document.getElementById('grid').innerHTML=`<div class="empty-inline"><span class="material-icons-round empty-inline-icon">search_off</span><span>${msg}</span></div>`;
+    gridEl.style.display=''; gridEl.style.flexDirection=''; gridEl.style.gap='';
+    gridEl.innerHTML=`<div class="empty-inline"><span class="material-icons-round empty-inline-icon">search_off</span><span>${msg}</span></div>`;
     return;
   }
-  document.getElementById('grid').innerHTML=filtered.map(r=>{
-    const cfg=STATUS[r.status]||STATUS.LOAD;
-    const loc=productLocations[r.id]||'';
-    const tip=r.errMsg?escHtml(r.errMsg):r.item
-      ?`PM10: ${r.item.pm_10}㎍/㎥<br>PM2.5: ${r.item.pm_2_5}㎍/㎥<br>CO₂: ${r.item.co2}ppm<br><span class="tooltip-time">수집: ${escHtml(r.item.format_created_time)}</span>`
-      :'<span style="display:block;text-align:center">데이터 없음</span>';
-    const exReason=excludeReasons[r.id]||'';
-    return`<div class="card ${cfg.cls}" data-id="${escHtml(r.id)}" onclick="openCardDetailModal('${escHtml(r.id)}')">
-      <div class="card-status" style="color:var(${cfg.textVar})">${cfg.icon?`<span class="material-icons-round card-icon">${cfg.icon}</span>`:''}${cfg.label}</div>
-      <div class="card-id">${escHtml(r.id)}</div>
-      ${exReason?`<div class="exclude-reason-badge">${escHtml(exReason)}</div>`:''}
-      ${loc?`<div class="card-location">${escHtml(loc)}</div>`:''}
-      ${r.item?`<div class="card-meta">${r.item.pm_10}㎍/㎥ | ${r.item.pm_2_5}㎍/㎥ | ${r.item.co2}ppm</div>`:''}
-      ${r.status==='ERR'&&r.errMsg?`<div class="card-err-text">${escHtml(r.errMsg.slice(0,50))}</div>`:''}
-      <div class="tooltip">${tip}</div>
-    </div>`;
-  }).join('');
+  if(resultZoneGroups){
+    // 영역 점검 결과 — 먼지 포집처럼 영역별로 묶어서 표시.
+    // 인라인 style로 직접 지정 — style.css가 (배포 캐시 등으로) 최신이 아니어도 레이아웃이 깨지지 않도록 함
+    gridEl.style.display='flex'; gridEl.style.flexDirection='column'; gridEl.style.gap='0';
+    const byId=new Map(filtered.map(r=>[r.id,r]));
+    let html='';
+    resultZoneGroups.forEach((ids,zoneName)=>{
+      const zoneResults=ids.map(id=>byId.get(id)).filter(Boolean);
+      if(!zoneResults.length) return;
+      html+=`<div class="zone-result-group">
+        <div class="zone-result-header">${escHtml(zoneName)}<span class="zone-result-count">${zoneResults.length}개</span></div>
+        <div class="zone-result-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">${zoneResults.map(cardHtml).join('')}</div>
+      </div>`;
+    });
+    gridEl.innerHTML=html;
+    return;
+  }
+  gridEl.style.display=''; gridEl.style.flexDirection=''; gridEl.style.gap='';
+  gridEl.innerHTML=filtered.map(cardHtml).join('');
 }
 
 /* ===== 제품 편집 (시트 연동) ===== */
@@ -1466,6 +1488,20 @@ function onDustStartMonthChange(){
   if(startSel.value>endSel.value) endSel.value=startSel.value;
 }
 
+// ids를 sheetZones 기준으로 영역별로 묶는다. 어느 영역에도 속하지 않은 ID는 '미분류'로 모음 (먼지 포집/영역 점검 결과 공용)
+function groupIdsByZone(ids){
+  const idSet=new Set(ids);
+  const zoneGroups=new Map();
+  sheetZones.forEach(z=>{
+    const zIds=z.ids.filter(zid=>idSet.has(zid));
+    if(zIds.length) zoneGroups.set(z.name,zIds);
+  });
+  const zonedIds=new Set([...zoneGroups.values()].flat());
+  const unzoned=ids.filter(id=>!zonedIds.has(id));
+  if(unzoned.length) zoneGroups.set('미분류',unzoned);
+  return zoneGroups;
+}
+
 async function startDustSearch(){
   if(isGlobalLocked) return;
   if(isMobile() && !adminAuthenticated){
@@ -1505,15 +1541,7 @@ async function startDustSearch(){
   gridEl.innerHTML='';
 
   // 영역별 그룹핑
-  const idSet=new Set(ids);
-  const zoneGroups=new Map();
-  sheetZones.forEach(z=>{
-    const zIds=z.ids.filter(zid=>idSet.has(zid));
-    if(zIds.length) zoneGroups.set(z.name,zIds);
-  });
-  const zonedIds=new Set([...zoneGroups.values()].flat());
-  const unzoned=ids.filter(id=>!zonedIds.has(id));
-  if(unzoned.length) zoneGroups.set('미분류',unzoned);
+  const zoneGroups=groupIdsByZone(ids);
 
   const cardHtmlLoading=id=>`
     <div class="dust-card loading" id="dust-card-${escHtml(id)}">
@@ -2668,9 +2696,12 @@ async function startInspection(){
     if(selectedZones.size===0){errEl.textContent='⚠ 영역을 하나 이상 선택해주세요.';return;}
     const zoneIds=[];
     selectedZones.forEach(i=>{ if(sheetZones[i]) zoneIds.push(...sheetZones[i].ids); });
-    await runInspection([...new Set(zoneIds)]);
+    const dedupedIds=[...new Set(zoneIds)];
+    resultZoneGroups=groupIdsByZone(dedupedIds); // 결과를 먼지 포집처럼 영역별로 묶어서 보여줌
+    await runInspection(dedupedIds);
     return;
   }
+  resultZoneGroups=null; // 범위/단일 검색은 기존처럼 영역 구분 없이 표시
 
   /* 범위 검색 */
   const domStartRaw    = document.getElementById('domStartId').value.trim()||'A001';

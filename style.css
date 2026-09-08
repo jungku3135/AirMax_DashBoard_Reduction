@@ -405,6 +405,16 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
   display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
   gap:10px; padding:20px 32px;
 }
+/* 영역 점검 결과 — 먼지 포집처럼 영역별로 묶어서 표시할 때 */
+.grid.zone-grouped { display:flex; flex-direction:column; gap:0; }
+.zone-result-group { margin-bottom:22px; }
+.zone-result-header {
+  font-size:10px; font-weight:500; color:var(--text4); letter-spacing:1px; text-transform:uppercase;
+  padding:5px 0 9px; border-bottom:1px solid var(--border); margin-bottom:12px;
+  display:flex; align-items:center; gap:6px;
+}
+.zone-result-count { font-weight:400; color:var(--text4); }
+.zone-result-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
 .card {
   border-radius:var(--radius); border:1.5px solid; padding:10px;
   display:flex; flex-direction:column; align-items:center;
