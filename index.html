@@ -13,7 +13,7 @@
      한글 본문은 Pretendard 유지 (Geist엔 한글 글리프가 없음) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&display=swap"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"/>
-<link rel="stylesheet" href="style.css?v=2.9.0"/>
+<link rel="stylesheet" href="style.css?v=2.10.0"/>
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </head>
@@ -595,7 +595,7 @@
         <div class="checklist-q">
           <div class="checklist-q-label">점검 구분</div>
           <div class="checklist-toggle-group" id="clType">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clType','정기',this,'on-sel')">정기</button>
+            <button type="button" class="checklist-toggle-btn on-sel" onclick="clSetToggle('clType','정기',this,'on-sel')">정기</button>
             <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clType','수시',this,'on-sel')">수시</button>
             <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clType','긴급',this,'on-sel')">긴급</button>
           </div>
@@ -608,51 +608,55 @@
 
         <div class="checklist-q" style="padding-top:0;border-top:none">
           <div class="checklist-q-label">① 볼 상태 점검 (육안)</div>
-          <div class="checklist-q-hint">볼이 빠진 곳이 있는지, 파손된 볼이 있는지 확인</div>
+          <div class="checklist-q-hint">볼이 빠진 곳이 있는지, 상판홀 변형 확인</div>
           <div class="checklist-toggle-group" id="clBallResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clBallResult','정상',this)">정상</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clBallResult','이상',this)">이상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clBallResult','정상',this,null,'clBallIssue')">정상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clBallResult','이상',this,null,'clBallIssue')">이상</button>
           </div>
-          <input type="text" class="checklist-input" id="clBallIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px"/>
+          <input type="text" class="checklist-input cl-issue-field" id="clBallIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px;display:none"/>
         </div>
 
         <div class="checklist-q">
-          <div class="checklist-q-label">② 매트 상태 점검 (육안)</div>
-          <div class="checklist-q-hint">외관 심한 오염, 찌그러짐, 매트 깨짐·파손 여부 확인</div>
+          <div class="checklist-q-label">② 상판/경사면 (육안)</div>
+          <div class="checklist-q-hint">상판 및 경사면 심한 오염 및 찌그러짐, 변형, 매트 깨짐·파손 여부 확인</div>
           <div class="checklist-toggle-group" id="clMatResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clMatResult','정상',this)">정상</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clMatResult','이상',this)">이상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clMatResult','정상',this,null,'clMatIssue')">정상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clMatResult','이상',this,null,'clMatIssue')">이상</button>
           </div>
-          <input type="text" class="checklist-input" id="clMatIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px"/>
+          <input type="text" class="checklist-input cl-issue-field" id="clMatIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px;display:none"/>
         </div>
 
         <div class="checklist-q">
           <div class="checklist-q-label">③ 스프링 상태 점검 (매트 전체를 밟아보며 확인)</div>
-          <div class="checklist-q-hint">밟았을 때 볼이 정상적으로 복구되는지 확인</div>
+          <div class="checklist-q-hint">매트를 밟았을 때 볼 복귀 여부 확인</div>
           <div class="checklist-toggle-group" id="clSpringResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clSpringResult','정상',this)">정상</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clSpringResult','이상',this)">이상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clSpringResult','정상',this,null,'clSpringIssue')">정상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clSpringResult','이상',this,null,'clSpringIssue')">이상</button>
           </div>
-          <input type="text" class="checklist-input" id="clSpringIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px"/>
+          <input type="text" class="checklist-input cl-issue-field" id="clSpringIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px;display:none"/>
         </div>
 
         <div class="checklist-q">
-          <div class="checklist-q-label">④ 흡입 상태 점검 (청취)</div>
-          <div class="checklist-q-hint">밸브에서 흡입하는 소리가 정상적으로 들리는지 확인</div>
-          <div class="checklist-toggle-group" id="clSuctionSoundResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clSuctionSoundResult','정상',this)">정상</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clSuctionSoundResult','이상',this)">이상</button>
+          <div class="checklist-q-label">④ 흡입력 (풍속계 사용)</div>
+          <div class="checklist-q-hint">측정을 진행했으면 "실시"를 선택하고 측정 위치와 풍속을 입력해주세요. 여러 지점을 측정했으면 "+ 측정 위치 추가"로 계속 추가할 수 있습니다. (출고 기준 풍속 32는 참고값 — 판정 기준 아님)</div>
+          <div class="checklist-toggle-group" id="clWindTest">
+            <button type="button" class="checklist-toggle-btn on-sel" onclick="clSelectWindTest('미실시',this)">미실시</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSelectWindTest('실시',this)">실시</button>
+          </div>
+          <div id="clWindTestDetail" style="display:none;margin-top:10px">
+            <div id="clWindTestRows"></div>
+            <button type="button" class="btn-add" onclick="clAddWindTestRow()">+ 측정 위치 추가</button>
           </div>
         </div>
 
         <div class="checklist-q">
-          <div class="checklist-q-label">⑤ 호스 상태 점검 (육안 및 청취)</div>
-          <div class="checklist-q-hint">집진기 연결부까지 끊어진 곳이 있는지, 바람 새는 소리가 있는지, 브라켓에서 빠지지 않았는지 확인</div>
+          <div class="checklist-q-label">⑤ 호스 상태 점검 (육안)</div>
+          <div class="checklist-q-hint">집진기 연결부까지 끊어진 곳이 있는지, 바람이 새는 곳이 있는지, 브라켓에서 빠지지 않았는지 확인</div>
           <div class="checklist-toggle-group" id="clHoseResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clHoseResult','정상',this)">정상</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clHoseResult','이상',this)">이상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clHoseResult','정상',this,null,'clHoseIssue')">정상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clHoseResult','이상',this,null,'clHoseIssue')">이상</button>
           </div>
-          <input type="text" class="checklist-input" id="clHoseIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px"/>
+          <input type="text" class="checklist-input cl-issue-field" id="clHoseIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px;display:none"/>
         </div>
       </div>
 
@@ -662,21 +666,22 @@
 
         <div class="checklist-q" style="padding-top:0;border-top:none">
           <div class="checklist-q-label">① 전원 및 동작상태 (육안)</div>
-          <div class="checklist-q-hint">전원이 켜져 있는지, 흡입이 정상 동작하는지 확인</div>
+          <div class="checklist-q-hint">전원이 켜져 있는지, 흡입이 정상 동작하는지 확인, LED 전원이 제대로 점등되는지, LCD 화면이 제대로 켜져있는지 확인</div>
           <div class="checklist-toggle-group" id="clPowerResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clPowerResult','정상',this)">정상</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clPowerResult','이상',this)">이상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clPowerResult','정상',this,null,'clPowerIssue')">정상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clPowerResult','이상',this,null,'clPowerIssue')">이상</button>
           </div>
-          <input type="text" class="checklist-input" id="clPowerIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px"/>
+          <input type="text" class="checklist-input cl-issue-field" id="clPowerIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px;display:none"/>
         </div>
 
         <div class="checklist-q">
           <div class="checklist-q-label">② 센서 상태 (육안 및 시연 — 센서 통과)</div>
-          <div class="checklist-q-hint">센서 앞을 지나가거나 근접했을 때 정상적으로 감지하여 동작하는지 확인</div>
+          <div class="checklist-q-hint">센서 앞을 지나가거나 근접했을 때 정상적으로 감지하여 동작하는지 확인, 부착 상태 점검</div>
           <div class="checklist-toggle-group" id="clSensorResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clSensorResult','정상',this)">정상</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clSensorResult','이상',this)">이상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clSensorResult','정상',this,null,'clSensorIssue')">정상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clSensorResult','이상',this,null,'clSensorIssue')">이상</button>
           </div>
+          <input type="text" class="checklist-input cl-issue-field" id="clSensorIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px;display:none"/>
         </div>
 
         <div class="checklist-q">
@@ -690,22 +695,22 @@
 
         <div class="checklist-q" id="clLedSection" style="display:none">
           <div class="checklist-q-label">③ LED 표시상태 (육안)</div>
-          <div class="checklist-q-hint">상판 LED가 상태(동작, 대기 등)에 따라 정상적으로 점멸되는지 확인</div>
+          <div class="checklist-q-hint">동작 시 LED바가 점멸되는지 확인, 대기 상태에 파워 LED가 점멸되는지 확인</div>
           <div class="checklist-toggle-group" id="clLedResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clLedResult','정상',this)">정상</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clLedResult','이상',this)">이상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clLedResult','정상',this,null,'clLedIssue')">정상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clLedResult','이상',this,null,'clLedIssue')">이상</button>
           </div>
-          <input type="text" class="checklist-input" id="clLedIssue" placeholder="이상 항목 (해당 시 입력)" style="margin-top:8px"/>
+          <input type="text" class="checklist-input cl-issue-field" id="clLedIssue" placeholder="이상 항목 (해당 시 입력)" style="margin-top:8px;display:none"/>
         </div>
 
         <div class="checklist-q" id="clLcdSection" style="display:none">
           <div class="checklist-q-label">③ LCD 표시상태 (육안)</div>
           <div class="checklist-q-hint">제품 ID, 소모품 사용량, 동작시간, 동작횟수, 센서, 모터 상태가 모두 정상 표기되는지 확인하고, 흡입 동작 시간에 따라 값이 변화하는지 확인</div>
           <div class="checklist-toggle-group" id="clLcdResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clLcdResult','정상',this)">정상</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clLcdResult','이상',this)">이상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clLcdResult','정상',this,null,'clLcdIssue')">정상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clLcdResult','이상',this,null,'clLcdIssue')">이상</button>
           </div>
-          <input type="text" class="checklist-input" id="clLcdIssue" placeholder="이상 항목 (해당 시 입력)" style="margin-top:8px"/>
+          <input type="text" class="checklist-input cl-issue-field" id="clLcdIssue" placeholder="이상 항목 (해당 시 입력)" style="margin-top:8px;display:none"/>
         </div>
 
         <div class="checklist-q" id="clCommSection" style="display:none">
@@ -713,14 +718,16 @@
           <div class="checklist-q-hint">통신이 정상적으로 연결되는지, 공기질 센서 농도가 정상 표기되는지 확인</div>
           <div class="checklist-q-label" style="margin-top:2px">통신상태</div>
           <div class="checklist-toggle-group" id="clCommResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clCommResult','OK',this)">OK</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clCommResult','NO',this)">NO</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clCommResult','정상',this,null,'clCommIssue')">정상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clCommResult','이상',this,null,'clCommIssue')">이상</button>
           </div>
+          <input type="text" class="checklist-input cl-issue-field" id="clCommIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px;display:none"/>
           <div class="checklist-q-label" style="margin-top:10px">공기질 센서 상태</div>
           <div class="checklist-toggle-group" id="clAirSensorResult">
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clAirSensorResult','OK',this)">OK</button>
-            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clAirSensorResult','NO',this)">NO</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clAirSensorResult','정상',this,null,'clAirSensorIssue')">정상</button>
+            <button type="button" class="checklist-toggle-btn" onclick="clSetToggle('clAirSensorResult','이상',this,null,'clAirSensorIssue')">이상</button>
           </div>
+          <input type="text" class="checklist-input cl-issue-field" id="clAirSensorIssue" placeholder="이상 부분 (해당 시 입력)" style="margin-top:8px;display:none"/>
         </div>
       </div>
 
@@ -844,6 +851,6 @@
   <span class="footer-date" id="footerDate"></span>
 </div>
 
-<script defer src="script.js?v=2.9.0"></script>
+<script defer src="script.js?v=2.10.0"></script>
 </body>
 </html>

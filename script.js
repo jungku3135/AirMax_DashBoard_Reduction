@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.9.0';
+const APP_VERSION = 'v2.10.0';
 const APP_DATE    = '2026.09.22';
 
 /* ===== 설정 ===== */
@@ -2962,26 +2962,121 @@ function initChecklistDate(){
     const last=lsGet(LS_CL_INSPECTOR,'');
     if(last) insp.value=last;
   }
+  // 풍속 측정 그룹의 초기 data-value가 아직 안 잡혀있으면(최초 진입) "미실시"로 세팅 — 이미 값이
+  // 있으면(다른 탭 갔다가 돌아온 경우 등) 사용자가 고른 값을 건드리지 않음
+  const windGroup=document.getElementById('clWindTest');
+  if(windGroup && !windGroup.dataset.value) clResetWindTestDefault();
+  // 점검 구분도 마찬가지로 기본값 "정기"를 세팅 — 대부분의 점검이 정기 점검이라 매번 누르지 않게 함
+  const typeGroup=document.getElementById('clType');
+  if(typeGroup && !typeGroup.dataset.value) clResetTypeDefault();
 }
-// 사용률/포집량 입력란 — type=number만으로는 일부 모바일 브라우저(한글 IME 등)에서 숫자 아닌
-// 문자가 섞여 들어가는 경우가 있어(예: "222ㅇ"), text+inputmode=numeric으로 바꾸고 입력할 때마다
-// 숫자 아닌 문자를 직접 걸러낸다. maxVal이 있으면 그 값을 넘지 않게 자름(사용률 0~100%용)
-function clSanitizeNumberInput(el,maxVal){
-  let cleaned=el.value.replace(/[^0-9]/g,'');
+function clResetTypeDefault(){
+  const group=document.getElementById('clType');
+  if(!group) return;
+  group.dataset.value='정기';
+  const btns=group.querySelectorAll('.checklist-toggle-btn');
+  btns.forEach(b=>b.classList.remove('on-ok','on-bad','on-sel'));
+  if(btns[0]) btns[0].classList.add('on-sel');
+}
+// 사용률/포집량/풍속 입력란 — type=number만으로는 일부 모바일 브라우저(한글 IME 등)에서 숫자 아닌
+// 문자가 섞여 들어가는 경우가 있어(예: "222ㅇ"), text+inputmode로 바꾸고 입력할 때마다 숫자 아닌
+// 문자를 직접 걸러낸다. maxVal이 있으면 그 값을 넘지 않게 자름(사용률 0~100%용). allowDecimal이면
+// 소수점 하나까지 허용(풍속 m/s용)
+function clSanitizeNumberInput(el,maxVal,allowDecimal){
+  let cleaned=el.value.replace(allowDecimal?/[^0-9.]/g:/[^0-9]/g,'');
+  if(allowDecimal){
+    const parts=cleaned.split('.');
+    if(parts.length>2) cleaned=parts[0]+'.'+parts.slice(1).join('');
+  }
   if(maxVal!=null&&cleaned!==''){
-    const n=parseInt(cleaned,10);
-    if(n>maxVal) cleaned=String(maxVal);
+    const n=parseFloat(cleaned);
+    if(!isNaN(n)&&n>maxVal) cleaned=String(maxVal);
   }
   if(cleaned!==el.value) el.value=cleaned;
 }
 // 정상/이상, OK/NO, 정기/수시/긴급 등 단일 선택 토글 그룹 — 같은 그룹 내 클릭된 버튼만 강조되고
-// group의 data-value 속성에 선택값을 보관한다(제출 시 여기서 읽음)
-function clSetToggle(groupId,value,btnEl,cls){
+// group의 data-value 속성에 선택값을 보관한다(제출 시 여기서 읽음).
+// issueFieldId를 주면 "이상"(또는 NO) 선택 시에만 그 이상 부분 입력란을 보여주고, "정상"으로
+// 돌아가면 다시 숨기면서 값도 비운다 — 필수는 아니고 이상일 때만 작성 가능하게 하기 위함
+function clSetToggle(groupId,value,btnEl,cls,issueFieldId){
   const group=document.getElementById(groupId);
   if(!group) return;
   group.dataset.value=value;
   group.querySelectorAll('.checklist-toggle-btn').forEach(b=>b.classList.remove('on-ok','on-bad','on-sel'));
   btnEl.classList.add(cls||((value==='정상'||value==='OK')?'on-ok':'on-bad'));
+  if(issueFieldId){
+    const isBad=(value==='이상'||value==='NO');
+    const el=document.getElementById(issueFieldId);
+    if(el){
+      el.style.display=isBad?'block':'none';
+      if(!isBad) el.value='';
+    }
+  }
+}
+// 풍속 측정 — 기본값은 "미실시"(선택 사항이라 안 재도 제출 막히지 않음). "실시" 선택 시에만
+// 측정 위치/풍속 입력 줄이 보임. 여러 지점을 잴 수 있어 줄을 계속 추가할 수 있게 함
+function clSelectWindTest(value,btnEl){
+  clSetToggle('clWindTest',value,btnEl,'on-sel');
+  const detail=document.getElementById('clWindTestDetail');
+  if(detail) detail.style.display=value==='실시'?'block':'none';
+  const rowsWrap=document.getElementById('clWindTestRows');
+  if(value==='실시'){
+    if(rowsWrap&&!rowsWrap.children.length) clAddWindTestRow();
+  } else if(rowsWrap){
+    rowsWrap.innerHTML='';
+  }
+}
+function clAddWindTestRow(){
+  const wrap=document.getElementById('clWindTestRows');
+  if(!wrap) return;
+  const row=document.createElement('div');
+  row.className='checklist-wind-row';
+  row.innerHTML=
+    '<input type="text" class="checklist-input" placeholder="측정 위치 (예: 매트 상단)"/>'+
+    '<input type="text" inputmode="decimal" class="checklist-input" placeholder="풍속 (m/s)" oninput="clSanitizeNumberInput(this,null,true)"/>'+
+    '<button type="button" class="cl-wind-row-remove" onclick="clRemoveWindTestRow(this)" title="삭제"><span class="material-icons-round" style="font-size:18px">close</span></button>';
+  wrap.appendChild(row);
+  clUpdateWindRowRemoveButtons();
+}
+// 실시 상태에선 측정 줄이 최소 1개는 남아있어야 해서, 남은 줄이 1개면 삭제 버튼을 숨김
+function clRemoveWindTestRow(btnEl){
+  const wrap=document.getElementById('clWindTestRows');
+  if(!wrap||wrap.children.length<=1) return;
+  btnEl.closest('.checklist-wind-row')?.remove();
+  clUpdateWindRowRemoveButtons();
+}
+function clUpdateWindRowRemoveButtons(){
+  const wrap=document.getElementById('clWindTestRows');
+  if(!wrap) return;
+  const rows=wrap.querySelectorAll('.checklist-wind-row');
+  rows.forEach(row=>{
+    const btn=row.querySelector('.cl-wind-row-remove');
+    if(btn) btn.style.display=rows.length>1?'flex':'none';
+  });
+}
+function clCollectWindTestRows(){
+  const wrap=document.getElementById('clWindTestRows');
+  if(!wrap) return[];
+  return[...wrap.querySelectorAll('.checklist-wind-row')].map(row=>{
+    const inputs=row.querySelectorAll('input');
+    return{location:(inputs[0]?.value||'').trim(), speed:(inputs[1]?.value||'').trim()};
+  }).filter(r=>r.location||r.speed);
+}
+function clWindTestSummaryText(){
+  return clCollectWindTestRows().map(r=>`${r.location||'-'}: ${r.speed||'-'}m/s`).join(', ');
+}
+// 페이지 로드/새 점검표 작성 시 풍속 측정을 항상 "미실시"로 되돌린다 — HTML 초기 상태와 맞춰줌
+function clResetWindTestDefault(){
+  const group=document.getElementById('clWindTest');
+  if(!group) return;
+  group.dataset.value='미실시';
+  const btns=group.querySelectorAll('.checklist-toggle-btn');
+  btns.forEach(b=>b.classList.remove('on-ok','on-bad','on-sel'));
+  if(btns[0]) btns[0].classList.add('on-sel');
+  const detail=document.getElementById('clWindTestDetail');
+  if(detail) detail.style.display='none';
+  const rowsWrap=document.getElementById('clWindTestRows');
+  if(rowsWrap) rowsWrap.innerHTML='';
 }
 const CL_USAGE_RATE_IDS=['clBagRate','clHepaRate','clMotorRate'];
 // LED/LCD 제품 표시 방식 선택 — 헷갈리지 않도록 선택된 쪽의 점검 항목만 보여주고 다른 쪽은 숨김.
@@ -3037,14 +3132,15 @@ function collectChecklistData(){
     ballResult:tog('clBallResult'), ballIssue:val('clBallIssue'),
     matResult:tog('clMatResult'), matIssue:val('clMatIssue'),
     springResult:tog('clSpringResult'), springIssue:val('clSpringIssue'),
-    suctionSoundResult:tog('clSuctionSoundResult'),
+    windTest:tog('clWindTest'), windTestDetail:clWindTestSummaryText(),
     hoseResult:tog('clHoseResult'), hoseIssue:val('clHoseIssue'),
     powerResult:tog('clPowerResult'), powerIssue:val('clPowerIssue'),
-    sensorResult:tog('clSensorResult'),
+    sensorResult:tog('clSensorResult'), sensorIssue:val('clSensorIssue'),
     displayType:tog('clDisplayType'),
     ledResult:tog('clLedResult'), ledIssue:val('clLedIssue'),
     lcdResult:tog('clLcdResult'), lcdIssue:val('clLcdIssue'),
-    commResult:tog('clCommResult'), airSensorResult:tog('clAirSensorResult'),
+    commResult:tog('clCommResult'), commIssue:val('clCommIssue'),
+    airSensorResult:tog('clAirSensorResult'), airSensorIssue:val('clAirSensorIssue'),
     bagRate:val('clBagRate'), hepaRate:val('clHepaRate'), motorRate:val('clMotorRate'),
     bagWeight:val('clBagWeight'), inputDone:document.getElementById('clInputDone')?.checked||false,
     remark:val('clRemark')
@@ -3059,9 +3155,8 @@ function getChecklistMissingItems(){
   if(!val('clDate')) missing.push('점검 일자');
   if(!tog('clType')) missing.push('점검 구분 (정기/수시/긴급)');
   if(!tog('clBallResult')) missing.push('매트 ① 볼 상태 점검');
-  if(!tog('clMatResult')) missing.push('매트 ② 매트 상태 점검');
+  if(!tog('clMatResult')) missing.push('매트 ② 상판/경사면');
   if(!tog('clSpringResult')) missing.push('매트 ③ 스프링 상태 점검');
-  if(!tog('clSuctionSoundResult')) missing.push('매트 ④ 흡입 상태 점검(흡입음)');
   if(!tog('clHoseResult')) missing.push('매트 ⑤ 호스 상태 점검');
   if(!tog('clPowerResult')) missing.push('집진기 ① 전원 및 동작상태');
   if(!tog('clSensorResult')) missing.push('집진기 ② 센서 상태');
@@ -3099,6 +3194,38 @@ function setChecklistFormLocked(locked){
   const form=document.getElementById('checklistForm');
   if(form) form.classList.toggle('checklist-form-locked',locked);
 }
+// 제출 1건당 하나로 고정되는 ID — 자동 재시도뿐 아니라 사용자가 실패 후 "제출하기"를 다시 눌러도
+// 같은 값을 재사용한다(새 점검표 작성 시에만 초기화됨). 서버가 이 ID로 중복 저장을 걸러내므로,
+// 응답을 못 받아 오류가 떠도 재시도/재클릭이 실제로는 절대 중복 행을 만들지 않는다
+let clCurrentSubmissionId=null;
+function clGetOrCreateSubmissionId(){
+  if(!clCurrentSubmissionId) clCurrentSubmissionId='cl'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+  return clCurrentSubmissionId;
+}
+// 요청이 응답 없이 무한정 걸리는 걸 막기 위한 타임아웃 래퍼
+async function clFetchWithTimeout(url,opts,timeoutMs){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  try{ return await fetch(url,{...opts,signal:controller.signal}); }
+  finally{ clearTimeout(timer); }
+}
+// 모바일 환경 특성상 응답이 유실되는 경우가 있어, 같은 요청을 최대 attempts번까지 자동 재시도한다.
+// clientSubmissionId가 매 시도 동일하므로 서버 쪽에서 중복 저장 없이 안전하게 재시도할 수 있다
+async function clPostChecklist(payload,attempts){
+  let lastErr;
+  for(let i=1;i<=attempts;i++){
+    try{
+      const res=await clFetchWithTimeout(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify(payload)},15000);
+      const text=await res.text();
+      return JSON.parse(text); // GAS가 HTML(로그인/권한 오류 페이지 등)을 반환하면 여기서 실패 → 재시도
+    }catch(e){
+      lastErr=e;
+      if(i<attempts) await new Promise(r=>setTimeout(r,900*i));
+    }
+  }
+  throw lastErr;
+}
 async function submitChecklist(){
   if(!GAS_URL){ alert('GAS_URL이 설정되지 않았습니다.'); return; }
   if(checklistHasUncheckedBagWeight()){
@@ -3115,15 +3242,8 @@ async function submitChecklist(){
   btn.disabled=true; btn.textContent='제출 중…';
   setChecklistFormLocked(true); // 제출 중엔 다른 항목 수정 못 하게 폼 전체 잠금
   try{
-    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({action:'submitChecklist',...data})});
-    const text=await res.text();
-    let json;
-    try{ json=JSON.parse(text); }
-    catch{
-      // GAS가 JSON이 아니라 HTML(로그인/권한 오류 페이지 등)을 반환한 경우 — 배포·권한 설정 문제일 가능성이 큼
-      throw new Error('서버 응답을 처리할 수 없습니다. 구글 앱스 스크립트 배포/권한 설정을 확인해주세요.');
-    }
+    const clientSubmissionId=clGetOrCreateSubmissionId();
+    const json=await clPostChecklist({action:'submitChecklist',clientSubmissionId,...data},3);
     if(json.success){
       if(data.inspector) lsSet(LS_CL_INSPECTOR,data.inspector); // 이 기기의 다음 점검표 작성 시 자동으로 채워지도록 기억
       document.getElementById('checklistForm').style.display='none';
@@ -3135,13 +3255,14 @@ async function submitChecklist(){
       setChecklistFormLocked(false);
     }
   }catch(e){
-    alert('오류: '+e.message);
+    alert('네트워크가 불안정해 서버 응답을 받지 못했습니다 (3회 재시도함).\n이미 저장됐을 수 있으니, "제출하기"를 다시 눌러도 중복 저장되지 않습니다 — 안심하고 다시 눌러주세요.');
     btn.disabled=false; btn.textContent='제출하기';
     setChecklistFormLocked(false);
   }
 }
 function resetChecklistForm(){
   document.getElementById('checklistSuccess').style.display='none';
+  clCurrentSubmissionId=null; // 새 점검표는 새로운 제출 ID를 쓰도록 초기화
   const form=document.getElementById('checklistForm');
   form.style.display='block';
   setChecklistFormLocked(false); // 이전 제출 성공 시 잠긴 채로 숨겨졌을 수 있어 새 작성 시작 전에 반드시 풀어줌
@@ -3150,6 +3271,7 @@ function resetChecklistForm(){
   if(inputDone) inputDone.checked=false;
   form.querySelectorAll('.checklist-toggle-group').forEach(g=>delete g.dataset.value);
   form.querySelectorAll('.checklist-toggle-btn').forEach(b=>b.classList.remove('on-ok','on-bad','on-sel'));
+  form.querySelectorAll('.cl-issue-field').forEach(el=>{ el.style.display='none'; }); // "이상" 눌렀을 때만 보이던 입력란 다시 숨김
   const ledSection=document.getElementById('clLedSection');
   const lcdSection=document.getElementById('clLcdSection');
   const commSection=document.getElementById('clCommSection');

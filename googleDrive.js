@@ -262,19 +262,19 @@ function buildChecklistItemRows(base, data) {
         rows.push(base.concat([section, item, result || '', note || '']));
     }
     add('매트', '① 볼 상태 점검', data.ballResult, data.ballIssue);
-    add('매트', '② 매트 상태 점검', data.matResult, data.matIssue);
+    add('매트', '② 상판/경사면', data.matResult, data.matIssue);
     add('매트', '③ 스프링 상태 점검', data.springResult, data.springIssue);
-    add('매트', '④ 흡입 상태 점검(흡입음)', data.suctionSoundResult, '');
+    add('매트', '④ 흡입력(풍속 측정)', data.windTest || '', data.windTest === '실시' ? (data.windTestDetail || '-') : '');
     add('매트', '⑤ 호스 상태 점검', data.hoseResult, data.hoseIssue);
     add('집진기', '① 전원 및 동작상태', data.powerResult, data.powerIssue);
-    add('집진기', '② 센서 상태', data.sensorResult, '');
+    add('집진기', '② 센서 상태', data.sensorResult, data.sensorIssue);
     add('집진기', '표시 방식', data.displayType, '');
     if (data.displayType === 'LED') {
         add('집진기', '③ LED 표시상태', data.ledResult, data.ledIssue);
     } else if (data.displayType === 'LCD') {
         add('집진기', '③ LCD 표시상태', data.lcdResult, data.lcdIssue);
-        add('집진기', '④ 통신상태', data.commResult, '');
-        add('집진기', '④ 공기질 센서 상태', data.airSensorResult, '');
+        add('집진기', '④ 통신상태', data.commResult, data.commIssue);
+        add('집진기', '④ 공기질 센서 상태', data.airSensorResult, data.airSensorIssue);
     }
     add('소모품', '먼지봉투 사용률(%)', data.bagRate, '');
     add('소모품', 'HEPA필터 사용률(%)', data.hepaRate, '');
@@ -284,8 +284,15 @@ function buildChecklistItemRows(base, data) {
     add('완료보고', '특이사항', '', data.remark);
     return rows;
 }
+// 모바일 환경에선 저장은 성공했는데 응답만 유실되는 경우가 있어, 클라이언트가 같은 clientSubmissionId로
+// 재시도/재제출해도 중복 행이 쌓이지 않도록 CacheService로 최근 처리된 제출을 10분간 기억해둔다
 function handleSubmitChecklist(data) {
     try {
+        var cache = CacheService.getScriptCache();
+        var dedupeKey = data.clientSubmissionId ? ('cl_sub_' + data.clientSubmissionId) : null;
+        if (dedupeKey && cache.get(dedupeKey)) {
+            return buildJson({ success: true }); // 이미 처리된 제출 — 다시 저장하지 않고 성공만 응답
+        }
         var ss = getOrCreateChecklistSpreadsheet();
         var sheet = ss.getSheetByName('점검표') || ss.getSheets()[0];
         var savedDate = data.savedAt ? new Date(data.savedAt) : new Date();
@@ -296,6 +303,7 @@ function handleSubmitChecklist(data) {
         if (rows.length) {
             sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, CHECKLIST_LONG_HEADERS.length).setValues(rows);
         }
+        if (dedupeKey) cache.put(dedupeKey, '1', 600);
         return buildJson({ success: true });
     } catch(err) {
         return buildJson({ success: false, error: err.message });

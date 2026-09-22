@@ -966,6 +966,14 @@ body.checklist-page-active { padding-bottom:46px; }
 .checklist-check-row input[type=checkbox] { width:20px; height:20px; accent-color:var(--accent); cursor:pointer; }
 .checklist-check-row input[type=checkbox]:disabled { cursor:not-allowed; opacity:0.5; }
 .checklist-check-row span { font-size:15px; color:var(--text); }
+.checklist-wind-row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+.checklist-wind-row .checklist-input { flex:1; min-width:0; }
+.checklist-wind-row .cl-wind-row-remove {
+  flex-shrink:0; width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+  background:transparent; border:1.5px solid var(--border); border-radius:var(--radius);
+  color:var(--text3); cursor:pointer; transition:all 0.15s cubic-bezier(0.4,0,0.2,1);
+}
+.checklist-wind-row .cl-wind-row-remove:hover { border-color:var(--pm-border); color:var(--pm-text); }
 .checklist-submit-bar { padding:8px 0 0; }
 .checklist-submit-bar .btn-primary { width:100%; padding:16px 0; font-size:17px; }
 .checklist-success { text-align:center; padding:70px 20px; }
