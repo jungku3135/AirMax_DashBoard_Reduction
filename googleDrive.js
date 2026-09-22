@@ -17,6 +17,13 @@ Google Apps Script 코드 — 아래 코드를 복사하여 GAS 프로젝트에 
     시트가 없으면 직접 만들어두세요 — 1행 공백, 2행에 헤더(B열부터), 3행부터 데이터:
         B          C     D      E       F      G         H    I      J     K
         생성일     제품ID 오류코드 오류발생일 신규여부 한달이상여부 영역 설치장소 요청자 비고
+
+    점검표 — 현장 점검표(매트/집진기/소모품) 제출 시 자동 기록됨. 이 스크립트가 붙어있는(container-bound)
+    스프레드시트가 아니라, "Air Max 점검표"라는 이름의 완전히 별도인 새 스프레드시트를 최초 제출 시
+    자동으로 생성해서 그쪽에 쌓는다(그 안의 "점검표" 시트, 1행 헤더/2행부터 데이터). 새로 만들어진
+    스프레드시트의 ID는 스크립트 속성(PropertiesService)에 저장해 이후 제출부터 재사용한다.
+    이 스프레드시트는 스크립트가 "실행 계정"으로 배포된 계정의 내 드라이브에 생성되므로, 필요하면
+    직접 찾아서(제출 성공 응답에 포함되는 링크 참고) 다른 사람과 공유해줘야 한다.
 ================================================================================
 */
 // GET 요청 — 제품 리스트 시트에서 영역/설치장소 + 월별 점검 시트 목록 반환
@@ -54,6 +61,7 @@ try {
     if (action === 'getMonthGrid')        return getMonthGrid(data);
     if (action === 'getWeeklyReportDraft')return getWeeklyReportDraft(data);
     if (action === 'saveWeeklyReport')    return saveWeeklyReport(data);
+    if (action === 'submitChecklist')     return handleSubmitChecklist(data);
 
     // 저장 요청 시각 기준으로 KST 날짜 산출
     var savedDate = data.savedAt ? new Date(data.savedAt) : new Date();
@@ -176,6 +184,122 @@ function handleDeleteProduct(data) {
     if (row === -1) return buildJson({ success: false, error: 'ID 없음: ' + data.id });
     sheet.deleteRow(row);
     return buildJson({ success: true, id: data.id });
+}
+
+// 현장 점검표(매트/집진기/소모품) 제출 저장 — 기존 시트(제품 리스트 등)와는 별도로 전용 스프레드시트를
+// 하나 새로 만들어 거기에 저장한다. 최초 제출 시 자동 생성되고, 그 스프레드시트 ID를
+// PropertiesService(스크립트 속성)에 저장해뒀다가 이후 제출부터는 같은 시트를 계속 재사용한다.
+// (스프레드시트가 삭제되는 등 ID로 더 이상 열 수 없게 되면 다음 제출 시 자동으로 새로 하나 더 생성됨)
+//
+// 세로형(long format) — 제출 1건을 한 행에 다 욱여넣으면(항목이 30개라 가로로 계속 스크롤해야 함)
+// 열람하기 너무 불편해서, 제출 1건당 "항목 하나 = 행 하나"로 풀어서 저장한다. 제출시각/장소 등
+// 공통 정보는 각 항목 행마다 반복해서 넣어 같은 제출 건을 필터/정렬로 쉽게 묶어볼 수 있게 한다.
+// 원본 절차서 종이 양식(항목을 위→아래로 쭉 읽는 표)과 같은 느낌으로 보이는 게 목표.
+var CHECKLIST_LONG_HEADERS = ['제출ID', '제출시각', '점검장소', '점검일자', '점검자', '점검구분', '구분', '항목', '결과', '비고'];
+var CHECKLIST_SCHEMA_VERSION = 'v2-long'; // 열 구성이 바뀌면 이 값을 올릴 것 — 값이 다르면 시트를 새 구성으로 초기화함
+var CHECKLIST_SHEET_ID_PROP = 'CHECKLIST_SHEET_ID';
+var CHECKLIST_SCHEMA_VERSION_PROP = 'CHECKLIST_SCHEMA_VERSION';
+
+// 헤더를 굵게/배경색/줄바꿈 처리하고, 항목 성격에 맞게 열 너비를 다르게 줘서 가독성을 높인다.
+// "결과"가 이상/NO인 행은 옅은 빨강으로 강조해서 문제 항목이 한눈에 보이게 조건부 서식도 건다.
+// 서식 작업 자체가 실패해도 실제 데이터 저장엔 영향 없도록 호출부에서 try/catch로 감쌈.
+function formatChecklistSheet(sheet) {
+    var numCols = CHECKLIST_LONG_HEADERS.length;
+    var headerRange = sheet.getRange(1, 1, 1, numCols);
+    headerRange.setFontWeight('bold').setBackground('#434343').setFontColor('#ffffff')
+        .setWrap(true).setVerticalAlignment('middle').setHorizontalAlignment('center');
+    sheet.setRowHeight(1, 40);
+    sheet.setFrozenRows(1);
+    var widths = { '제출ID': 130, '제출시각': 140, '점검장소': 160, '점검일자': 95, '점검자': 85,
+        '점검구분': 85, '구분': 75, '항목': 230, '결과': 90, '비고': 280 };
+    for (var c = 1; c <= numCols; c++) sheet.setColumnWidth(c, widths[CHECKLIST_LONG_HEADERS[c - 1]] || 100);
+    var bigRange = sheet.getRange(2, 1, 2000, numCols);
+    bigRange.clearFormat();
+    var resultCol = CHECKLIST_LONG_HEADERS.indexOf('결과') + 1;
+    var colLetter = String.fromCharCode(64 + resultCol);
+    var rules = [
+        SpreadsheetApp.newConditionalFormatRule()
+            .whenFormulaSatisfied('=OR($' + colLetter + '2="이상",$' + colLetter + '2="NO")')
+            .setBackground('#fce8e6').setRanges([bigRange]).build()
+    ];
+    sheet.setConditionalFormatRules(rules);
+}
+function getOrCreateChecklistSpreadsheet() {
+    var props = PropertiesService.getScriptProperties();
+    var id = props.getProperty(CHECKLIST_SHEET_ID_PROP);
+    var ss = null;
+    if (id) {
+        try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; }
+    }
+    var needsInit = false;
+    if (!ss) {
+        ss = SpreadsheetApp.create('Air Max 점검표');
+        props.setProperty(CHECKLIST_SHEET_ID_PROP, ss.getId());
+        needsInit = true;
+    }
+    var sheet = ss.getSheetByName('점검표');
+    if (!sheet) {
+        sheet = ss.getSheets()[0];
+        sheet.setName('점검표');
+        needsInit = true;
+    }
+    // 열 구성 버전이 다르면(최초 생성 포함) 시트를 새 구성으로 초기화 — 기존 데이터가 있다면 주의:
+    // 구성이 완전히 바뀌는 경우라 이전 데이터는 보존하지 않고 헤더부터 다시 씀
+    if (props.getProperty(CHECKLIST_SCHEMA_VERSION_PROP) !== CHECKLIST_SCHEMA_VERSION) {
+        sheet.clear();
+        sheet.getRange(1, 1, 1, CHECKLIST_LONG_HEADERS.length).setValues([CHECKLIST_LONG_HEADERS]);
+        try { formatChecklistSheet(sheet); } catch (e) { /* 서식 실패는 무시하고 데이터 저장은 계속 진행 */ }
+        props.setProperty(CHECKLIST_SCHEMA_VERSION_PROP, CHECKLIST_SCHEMA_VERSION);
+    }
+    return ss;
+}
+// data(제출된 점검표 1건)를 (구분, 항목, 결과, 비고) 행 목록으로 풀어낸다 — 값이 아예 없는 항목은
+// 빈 행을 만들지 않고 건너뛴다(입력 안 한 소모품 사용률 등)
+function buildChecklistItemRows(base, data) {
+    var rows = [];
+    function add(section, item, result, note) {
+        if (!result && !note) return;
+        rows.push(base.concat([section, item, result || '', note || '']));
+    }
+    add('매트', '① 볼 상태 점검', data.ballResult, data.ballIssue);
+    add('매트', '② 매트 상태 점검', data.matResult, data.matIssue);
+    add('매트', '③ 스프링 상태 점검', data.springResult, data.springIssue);
+    add('매트', '④ 흡입 상태 점검(흡입음)', data.suctionSoundResult, '');
+    add('매트', '⑤ 호스 상태 점검', data.hoseResult, data.hoseIssue);
+    add('집진기', '① 전원 및 동작상태', data.powerResult, data.powerIssue);
+    add('집진기', '② 센서 상태', data.sensorResult, '');
+    add('집진기', '표시 방식', data.displayType, '');
+    if (data.displayType === 'LED') {
+        add('집진기', '③ LED 표시상태', data.ledResult, data.ledIssue);
+    } else if (data.displayType === 'LCD') {
+        add('집진기', '③ LCD 표시상태', data.lcdResult, data.lcdIssue);
+        add('집진기', '④ 통신상태', data.commResult, '');
+        add('집진기', '④ 공기질 센서 상태', data.airSensorResult, '');
+    }
+    add('소모품', '먼지봉투 사용률(%)', data.bagRate, '');
+    add('소모품', 'HEPA필터 사용률(%)', data.hepaRate, '');
+    add('소모품', '모터 사용률(%)', data.motorRate, '');
+    add('소모품', '먼지봉투 포집량 측정값(g)', data.bagWeight, '');
+    add('소모품', '집진기 입력완료', data.inputDone ? '완료' : '', '');
+    add('완료보고', '특이사항', '', data.remark);
+    return rows;
+}
+function handleSubmitChecklist(data) {
+    try {
+        var ss = getOrCreateChecklistSpreadsheet();
+        var sheet = ss.getSheetByName('점검표') || ss.getSheets()[0];
+        var savedDate = data.savedAt ? new Date(data.savedAt) : new Date();
+        var submittedAt = Utilities.formatDate(savedDate, 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+        var submissionId = Utilities.formatDate(savedDate, 'Asia/Seoul', 'yyyyMMddHHmmss') + '-' + Math.floor(Math.random() * 900 + 100);
+        var base = [submissionId, submittedAt, data.location || '', data.date || '', data.inspector || '', data.type || ''];
+        var rows = buildChecklistItemRows(base, data);
+        if (rows.length) {
+            sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, CHECKLIST_LONG_HEADERS.length).setValues(rows);
+        }
+        return buildJson({ success: true });
+    } catch(err) {
+        return buildJson({ success: false, error: err.message });
+    }
 }
 
 /* ===================================================================

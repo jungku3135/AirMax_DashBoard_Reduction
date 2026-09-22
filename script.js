@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.7.0';
+const APP_VERSION = 'v2.8.0';
 const APP_DATE    = '2026.09.22';
 
 /* ===== 설정 ===== */
@@ -37,6 +37,7 @@ let peOriginals = {};
 /* ===== 히스토리 / 주간 점검 요청서 ===== */
 const LS_REQUESTERS = 'airmax_requesters';
 const LS_LAST_REQUESTER = 'airmax_last_requester';
+const LS_CL_INSPECTOR = 'airmax_checklist_inspector'; // 점검표 - 마지막으로 입력한 점검자 이름(기기별로 유지, 각자 개인 폰으로 점검하므로 자동 채움에 적합)
 let currentPage = 'inspection'; // 'inspection' | 'history'
 let historyMonths = [];         // ["26년 7월", ...] — GAS에서 로드
 let historyLoadedMonth = null;
@@ -205,9 +206,9 @@ function overdueBadgeOverlayClick(e){
 }
 
 function updatePageTabsVisibility(){
-  const tabs=document.getElementById('pageTabs');
-  if(!tabs) return;
-  tabs.style.display=adminAuthenticated?'flex':'none';
+  // 점검/점검표 탭은 일반 유저도 항상 사용 가능 — 히스토리 탭만 관리자 인증 시에만 노출
+  const histTab=document.getElementById('pageTabHistory');
+  if(histTab) histTab.style.display=adminAuthenticated?'':'none';
   if(!adminAuthenticated && currentPage==='history') switchPage('inspection');
 }
 
@@ -659,28 +660,54 @@ async function fetchReport(controllerId,dateRange,token){
   return data[0];
 }
 
+// 페이지 하나를 조회한다 — 순간적인 네트워크/인증서 오류(ERR_CERT_VERIFIER_CHANGED 등, 동시 연결이
+// 많을 때 브라우저 쪽에서 종종 발생함)는 짧게 대기 후 재시도해서, 페이지 하나의 일시적 오류가
+// 전체 조회 실패로 번지지 않게 한다
+async function fetchReportsPage(url,hdrs,retries=2){
+  for(let attempt=0;attempt<=retries;attempt++){
+    try{
+      const r=await fetch(url,{headers:hdrs});
+      if(!r.ok) return null;
+      return await r.json();
+    }catch(e){
+      if(attempt===retries) throw e;
+      await new Promise(res=>setTimeout(res,400*(attempt+1)));
+    }
+  }
+}
+// 동시에 열리는 연결 수를 제한해서 페이지를 모아온다 — 한 제품의 기간이 길면 페이지가 수십~수백
+// 개가 되는데, 이걸 전부 한 번에 Promise.all로 쏘면 같은 호스트로 동시 연결이 폭증해서
+// ERR_CERT_VERIFIER_CHANGED 같은 브라우저 네트워크 오류가 나기 쉬워진다(제품별로도 동시에 조회되니
+// 더 심해짐). 최대 CONCURRENCY개씩만 동시에 요청하도록 제한한다.
+const FETCH_PAGE_CONCURRENCY=6;
 async function fetchAllReports(controllerId,dateRange,token,onProgress){
   const PER=100;
   const hdrs={Authorization:`Bearer ${token}`,Accept:'application/json'};
   const base={controller_id:controllerId,started_at:dateRange.started_at,finished_at:dateRange.finished_at,per_page:String(PER)};
 
-  const r1=await fetch(`${API}?${new URLSearchParams({...base,page:'1'})}`,{headers:hdrs});
-  if(!r1.ok){const b=await r1.text().catch(()=>'');throw new Error(`HTTP ${r1.status}: ${b.slice(0,80)}`);}
-  const j1=await r1.json();
+  const j1=await fetchReportsPage(`${API}?${new URLSearchParams({...base,page:'1'})}`,hdrs);
+  if(!j1) throw new Error('먼지 포집 데이터 조회 실패 (1페이지)');
   const all=Array.isArray(j1.data)?[...j1.data]:[];
   const lastPage=j1.meta?.last_page??j1.last_page??1;
   if(onProgress) onProgress(1,lastPage);
 
   if(lastPage>1){
     const pages=Array.from({length:lastPage-1},(_,i)=>i+2);
-    const rest=await Promise.all(pages.map(async pg=>{
-      const r=await fetch(`${API}?${new URLSearchParams({...base,page:String(pg)})}`,{headers:hdrs});
-      if(!r.ok) return [];
-      const j=await r.json();
-      if(onProgress) onProgress(pg,lastPage);
-      return Array.isArray(j.data)?j.data:[];
-    }));
-    rest.forEach(d=>all.push(...d));
+    const results=new Array(pages.length);
+    let next=0;
+    async function worker(){
+      while(next<pages.length){
+        const idx=next++;
+        const pg=pages[idx];
+        let j=null;
+        try{ j=await fetchReportsPage(`${API}?${new URLSearchParams({...base,page:String(pg)})}`,hdrs); }
+        catch{ j=null; } // 재시도까지 실패하면 그 페이지만 빈 값 처리(전체 실패로 번지지 않도록)
+        results[idx]=Array.isArray(j?.data)?j.data:[];
+        if(onProgress) onProgress(pg,lastPage);
+      }
+    }
+    await Promise.all(Array.from({length:Math.min(FETCH_PAGE_CONCURRENCY,pages.length)},worker));
+    results.forEach(d=>all.push(...d));
   }
   return all;
 }
@@ -2909,14 +2936,223 @@ async function startInspection(){
 function switchPage(page){
   currentPage=page;
   document.getElementById('pageTabInspection').classList.toggle('active', page==='inspection');
+  document.getElementById('pageTabChecklist').classList.toggle('active', page==='checklist');
   document.getElementById('pageTabHistory').classList.toggle('active', page==='history');
   document.getElementById('inspectionPage').style.display = page==='inspection' ? '' : 'none';
+  document.getElementById('checklistPage').style.display = page==='checklist' ? '' : 'none';
   document.getElementById('historyPage').style.display = page==='history' ? '' : 'none';
-  // 히스토리 페이지는 모바일 고정 버튼이 없어 body의 넉넉한 padding-bottom(80px)이 불필요 —
-  // 그대로 두면 그리드 높이를 아무리 정확히 맞춰도 그 여유분만큼 페이지 자체 스크롤(더블 스크롤)이 남음
+  // 히스토리/점검표 페이지는 모바일 고정 버튼이 없어 body의 넉넉한 padding-bottom(80px)이 불필요 —
+  // 그대로 두면 그리드/폼 높이를 아무리 정확히 맞춰도 그 여유분만큼 페이지 자체 스크롤(더블 스크롤)이 남음
   document.body.classList.toggle('history-page-active', page==='history');
+  document.body.classList.toggle('checklist-page-active', page==='checklist');
   // 히스토리 탭에 들어올 때마다 최신 데이터로 동기화 (당일 점검 후 바로 확인 못했을 수 있으므로 캐시된 월도 강제 재조회)
   if(page==='history') loadHistoryMonths(true);
+  if(page==='checklist') initChecklistDate();
+}
+
+/* ===== 점검표 (현장 체크리스트 폼) =====
+   구글 폼처럼 한 화면에서 항목을 채우고 제출하면 GAS를 통해 구글 시트(구글 드라이브 내)에 한 행으로
+   저장된다. 1차 버전 — 사진 첨부는 제외, 추후 필요 시 확장 */
+function initChecklistDate(){
+  const d=document.getElementById('clDate');
+  if(d && !d.value) d.value=todayStr();
+  // 점검자 이름은 각자 개인 폰으로 점검을 진행하므로, 이 기기에서 마지막으로 제출했던 이름을 자동으로 채워둠
+  const insp=document.getElementById('clInspector');
+  if(insp && !insp.value){
+    const last=lsGet(LS_CL_INSPECTOR,'');
+    if(last) insp.value=last;
+  }
+}
+// 사용률/포집량 입력란 — type=number만으로는 일부 모바일 브라우저(한글 IME 등)에서 숫자 아닌
+// 문자가 섞여 들어가는 경우가 있어(예: "222ㅇ"), text+inputmode=numeric으로 바꾸고 입력할 때마다
+// 숫자 아닌 문자를 직접 걸러낸다. maxVal이 있으면 그 값을 넘지 않게 자름(사용률 0~100%용)
+function clSanitizeNumberInput(el,maxVal){
+  let cleaned=el.value.replace(/[^0-9]/g,'');
+  if(maxVal!=null&&cleaned!==''){
+    const n=parseInt(cleaned,10);
+    if(n>maxVal) cleaned=String(maxVal);
+  }
+  if(cleaned!==el.value) el.value=cleaned;
+}
+// 정상/이상, OK/NO, 정기/수시/긴급 등 단일 선택 토글 그룹 — 같은 그룹 내 클릭된 버튼만 강조되고
+// group의 data-value 속성에 선택값을 보관한다(제출 시 여기서 읽음)
+function clSetToggle(groupId,value,btnEl,cls){
+  const group=document.getElementById(groupId);
+  if(!group) return;
+  group.dataset.value=value;
+  group.querySelectorAll('.checklist-toggle-btn').forEach(b=>b.classList.remove('on-ok','on-bad','on-sel'));
+  btnEl.classList.add(cls||((value==='정상'||value==='OK')?'on-ok':'on-bad'));
+}
+// LED/LCD 제품 표시 방식 선택 — 헷갈리지 않도록 선택된 쪽의 점검 항목만 보여주고 다른 쪽은 숨김.
+// LCD 모뎀 통신상태도 LCD 전용 항목이라 LCD 선택 시에만 노출
+function clSelectDisplayType(type,btnEl){
+  clSetToggle('clDisplayType',type,btnEl,'on-sel');
+  const ledSection=document.getElementById('clLedSection');
+  const lcdSection=document.getElementById('clLcdSection');
+  const commSection=document.getElementById('clCommSection');
+  if(ledSection) ledSection.style.display=type==='LED'?'block':'none';
+  if(lcdSection) lcdSection.style.display=type==='LCD'?'block':'none';
+  if(commSection) commSection.style.display=type==='LCD'?'block':'none';
+}
+// 사용률(clBagRate 등)은 교체 여부와 무관하게 항상 입력 가능 — 포집량 측정(무게)은 실제 교체를
+// 진행했을 때만 의미가 있으므로, "소모품 교체" 버튼을 누르기 전까진 이 두 필드만 비활성화해서
+// 교체하지 않은 방문에 실수로 값이 채워지는 걸 방지한다. 다시 누르면 꺼지면서 입력값도 초기화됨
+const CL_REPLACE_FIELD_IDS=['clBagWeight','clInputDone'];
+let clReplaceActive=false;
+function clToggleConsumableReplace(){
+  clReplaceActive=!clReplaceActive;
+  const btn=document.getElementById('clReplaceToggleBtn');
+  CL_REPLACE_FIELD_IDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.disabled=!clReplaceActive;
+    if(!clReplaceActive){ if(el.type==='checkbox') el.checked=false; else el.value=''; }
+  });
+  if(btn){
+    btn.classList.toggle('on-sel',clReplaceActive);
+    btn.textContent=clReplaceActive?'소모품 교체 (진행 중 — 다시 누르면 취소)':'소모품 교체';
+  }
+}
+function collectChecklistData(){
+  const val=id=>(document.getElementById(id)?.value||'').trim();
+  const tog=id=>document.getElementById(id)?.dataset.value||'';
+  return{
+    savedAt:new Date().toISOString(),
+    location:val('clLocation'), date:val('clDate'), inspector:val('clInspector'), type:tog('clType'),
+    ballResult:tog('clBallResult'), ballIssue:val('clBallIssue'),
+    matResult:tog('clMatResult'), matIssue:val('clMatIssue'),
+    springResult:tog('clSpringResult'), springIssue:val('clSpringIssue'),
+    suctionSoundResult:tog('clSuctionSoundResult'),
+    hoseResult:tog('clHoseResult'), hoseIssue:val('clHoseIssue'),
+    powerResult:tog('clPowerResult'), powerIssue:val('clPowerIssue'),
+    sensorResult:tog('clSensorResult'),
+    displayType:tog('clDisplayType'),
+    ledResult:tog('clLedResult'), ledIssue:val('clLedIssue'),
+    lcdResult:tog('clLcdResult'), lcdIssue:val('clLcdIssue'),
+    commResult:tog('clCommResult'), airSensorResult:tog('clAirSensorResult'),
+    bagRate:val('clBagRate'), hepaRate:val('clHepaRate'), motorRate:val('clMotorRate'),
+    bagWeight:val('clBagWeight'), inputDone:document.getElementById('clInputDone')?.checked||false,
+    remark:val('clRemark')
+  };
+}
+// 체크(정상/이상, OK/NO 등)가 안 된 점검 항목을 찾아 라벨 목록으로 반환 — 빈 배열이면 전부 체크된 것
+function getChecklistMissingItems(){
+  const tog=id=>document.getElementById(id)?.dataset.value||'';
+  const val=id=>(document.getElementById(id)?.value||'').trim();
+  const missing=[];
+  if(!val('clLocation')) missing.push('점검 장소');
+  if(!val('clDate')) missing.push('점검 일자');
+  if(!tog('clType')) missing.push('점검 구분 (정기/수시/긴급)');
+  if(!tog('clBallResult')) missing.push('매트 ① 볼 상태 점검');
+  if(!tog('clMatResult')) missing.push('매트 ② 매트 상태 점검');
+  if(!tog('clSpringResult')) missing.push('매트 ③ 스프링 상태 점검');
+  if(!tog('clSuctionSoundResult')) missing.push('매트 ④ 흡입 상태 점검(흡입음)');
+  if(!tog('clHoseResult')) missing.push('매트 ⑤ 호스 상태 점검');
+  if(!tog('clPowerResult')) missing.push('집진기 ① 전원 및 동작상태');
+  if(!tog('clSensorResult')) missing.push('집진기 ② 센서 상태');
+  const displayType=tog('clDisplayType');
+  if(!displayType) missing.push('집진기 표시 방식 선택 (LED/LCD)');
+  else if(displayType==='LED'&&!tog('clLedResult')) missing.push('집진기 ③ LED 표시상태');
+  else if(displayType==='LCD'){
+    if(!tog('clLcdResult')) missing.push('집진기 ③ LCD 표시상태');
+    if(!tog('clCommResult')) missing.push('집진기 ④ 통신상태');
+    if(!tog('clAirSensorResult')) missing.push('집진기 ④ 공기질 센서 상태');
+  }
+  return missing;
+}
+// 빈 값(입력 안 한 필드)은 전송 데이터에서 빼서 전송량을 줄인다 — GAS 쪽은 없는 키를 그대로 빈 값으로
+// 취급하므로(data.xxx || '') 동작에는 차이가 없음
+function compactChecklistData(data){
+  const out={};
+  Object.keys(data).forEach(k=>{
+    const v=data[k];
+    if(v===''||v==null||v===false) return;
+    out[k]=v;
+  });
+  return out;
+}
+function setChecklistFormLocked(locked){
+  const form=document.getElementById('checklistForm');
+  if(form) form.classList.toggle('checklist-form-locked',locked);
+}
+async function submitChecklist(){
+  if(!GAS_URL){ alert('GAS_URL이 설정되지 않았습니다.'); return; }
+  const missing=getChecklistMissingItems();
+  if(missing.length){
+    alert('다음 항목이 누락되었습니다:\n\n'+missing.map(m=>'· '+m).join('\n'));
+    return;
+  }
+  const data=compactChecklistData(collectChecklistData());
+  const btn=document.getElementById('clSubmitBtn');
+  btn.disabled=true; btn.textContent='제출 중…';
+  setChecklistFormLocked(true); // 제출 중엔 다른 항목 수정 못 하게 폼 전체 잠금
+  try{
+    const res=await fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'submitChecklist',...data})});
+    const text=await res.text();
+    let json;
+    try{ json=JSON.parse(text); }
+    catch{
+      // GAS가 JSON이 아니라 HTML(로그인/권한 오류 페이지 등)을 반환한 경우 — 배포·권한 설정 문제일 가능성이 큼
+      throw new Error('서버 응답을 처리할 수 없습니다. 구글 앱스 스크립트 배포/권한 설정을 확인해주세요.');
+    }
+    if(json.success){
+      if(data.inspector) lsSet(LS_CL_INSPECTOR,data.inspector); // 이 기기의 다음 점검표 작성 시 자동으로 채워지도록 기억
+      document.getElementById('checklistForm').style.display='none';
+      document.getElementById('checklistSuccess').style.display='block';
+      openChecklistPhotoModal();
+    } else {
+      alert('제출 실패: '+(json.error||'오류'));
+      btn.disabled=false; btn.textContent='제출하기';
+      setChecklistFormLocked(false);
+    }
+  }catch(e){
+    alert('오류: '+e.message);
+    btn.disabled=false; btn.textContent='제출하기';
+    setChecklistFormLocked(false);
+  }
+}
+function resetChecklistForm(){
+  document.getElementById('checklistSuccess').style.display='none';
+  const form=document.getElementById('checklistForm');
+  form.style.display='block';
+  setChecklistFormLocked(false); // 이전 제출 성공 시 잠긴 채로 숨겨졌을 수 있어 새 작성 시작 전에 반드시 풀어줌
+  form.querySelectorAll('input[type=text],input[type=number],input[type=date],textarea').forEach(el=>el.value='');
+  const inputDone=document.getElementById('clInputDone');
+  if(inputDone) inputDone.checked=false;
+  form.querySelectorAll('.checklist-toggle-group').forEach(g=>delete g.dataset.value);
+  form.querySelectorAll('.checklist-toggle-btn').forEach(b=>b.classList.remove('on-ok','on-bad','on-sel'));
+  const ledSection=document.getElementById('clLedSection');
+  const lcdSection=document.getElementById('clLcdSection');
+  const commSection=document.getElementById('clCommSection');
+  if(ledSection) ledSection.style.display='none';
+  if(lcdSection) lcdSection.style.display='none';
+  if(commSection) commSection.style.display='none';
+  clReplaceActive=false;
+  CL_REPLACE_FIELD_IDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.disabled=true;
+    if(el.type==='checkbox') el.checked=false; else el.value='';
+  });
+  const replaceBtn=document.getElementById('clReplaceToggleBtn');
+  if(replaceBtn) replaceBtn.textContent='소모품 교체';
+  const btn=document.getElementById('clSubmitBtn');
+  btn.disabled=false; btn.textContent='제출하기';
+  initChecklistDate();
+}
+// 제출 완료 직후 — 현장 사진(LCD/먼지봉투 포집량)을 예시와 같은 형식으로 찍어 점검 단톡방에
+// 공유해달라고 안내하는 팝업
+function openChecklistPhotoModal(){
+  document.getElementById('checklistPhotoModal').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+function closeChecklistPhotoModal(){
+  document.getElementById('checklistPhotoModal').style.display='none';
+  document.body.style.overflow='';
+}
+function checklistPhotoModalOverlayClick(e){
+  if(e.target===document.getElementById('checklistPhotoModal')) closeChecklistPhotoModal();
 }
 
 /* ===== 점검 히스토리 ===== */

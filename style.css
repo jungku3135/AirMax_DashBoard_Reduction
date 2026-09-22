@@ -922,6 +922,71 @@ input[type=date], input[type=datetime-local] { cursor:pointer; }
 .page-tab:hover:not(.active) { color:var(--text2); }
 @media (max-width:768px) { .page-tabs { order:3; width:100%; justify-content:center; } }
 
+/* ===== 점검표 (현장 체크리스트 폼, 모바일 기준) =====
+   사용자 연령대가 있어 전체적으로 글씨/버튼을 넉넉하게 키움 */
+body.checklist-page-active { padding-bottom:46px; }
+.checklist-wrap { max-width:640px; margin:0 auto; padding:20px 20px 40px; }
+/* 제출 중엔 다른 항목을 못 건드리게 폼 전체를 잠금 */
+#checklistForm.checklist-form-locked { pointer-events:none; opacity:0.55; }
+.checklist-header { margin-bottom:18px; }
+.checklist-title { font-size:22px; font-weight:600; color:var(--text); margin-bottom:5px; }
+.checklist-desc { font-size:15px; color:var(--text2); line-height:1.5; }
+.checklist-section {
+  background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius-lg);
+  padding:18px; margin-bottom:16px; box-shadow:var(--shadow-xs);
+}
+.checklist-section-title { font-size:18px; font-weight:600; color:var(--text); margin-bottom:3px; }
+.checklist-section-desc { font-size:13px; color:var(--text2); margin-bottom:10px; }
+.checklist-q { padding:16px 0; border-top:1px solid var(--border2); }
+.checklist-q:first-child { border-top:none; }
+.checklist-q-label { font-size:16px; font-weight:600; color:var(--text); margin-bottom:6px; }
+.checklist-q-hint { font-size:13px; color:var(--text2); line-height:1.55; margin-bottom:12px; }
+.checklist-toggle-group { display:flex; gap:8px; flex-wrap:wrap; }
+.checklist-toggle-btn {
+  flex:1; min-width:72px; padding:13px 0; text-align:center;
+  border:1.5px solid var(--border); border-radius:var(--radius); background:var(--input-bg);
+  color:var(--text2); font-size:16px; font-weight:500; cursor:pointer; font-family:inherit;
+  transition:all 0.15s cubic-bezier(0.4,0,0.2,1);
+}
+.checklist-toggle-btn:hover { border-color:var(--text3); color:var(--text); }
+.checklist-toggle-btn.on-ok { background:var(--ok-bg); border-color:var(--ok-border); color:var(--ok-text); }
+.checklist-toggle-btn.on-bad { background:var(--pm-bg); border-color:var(--pm-border); color:var(--pm-text); }
+.checklist-toggle-btn.on-sel { background:var(--accent-bg); border-color:var(--accent); color:var(--accent-text); }
+.checklist-input, .checklist-textarea {
+  width:100%; box-sizing:border-box; background:var(--input-bg); border:1.5px solid var(--border);
+  border-radius:var(--radius); color:var(--text); padding:12px 14px; font-size:16px;
+  font-family:inherit; outline:none; transition:border-color 0.15s cubic-bezier(0.4,0,0.2,1);
+}
+.checklist-input:focus, .checklist-textarea:focus { border-color:var(--accent); }
+.checklist-input:disabled { background:var(--surface2); color:var(--text4); cursor:not-allowed; }
+.checklist-textarea { resize:vertical; min-height:76px; }
+.checklist-row3 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.checklist-row3 label { display:block; font-size:13px; font-weight:500; color:var(--text2); margin-bottom:5px; min-width:0; }
+.checklist-check-row { display:flex; align-items:center; gap:9px; margin-top:12px; }
+.checklist-check-row input[type=checkbox] { width:20px; height:20px; accent-color:var(--accent); cursor:pointer; }
+.checklist-check-row input[type=checkbox]:disabled { cursor:not-allowed; opacity:0.5; }
+.checklist-check-row span { font-size:15px; color:var(--text); }
+.checklist-submit-bar { padding:8px 0 0; }
+.checklist-submit-bar .btn-primary { width:100%; padding:16px 0; font-size:17px; }
+.checklist-success { text-align:center; padding:70px 20px; }
+.checklist-success .material-icons-round { font-size:52px; color:var(--ok-text); margin-bottom:12px; }
+@media (max-width:640px) {
+  .checklist-wrap { padding:14px 14px 32px; }
+  .checklist-row3 { grid-template-columns:1fr; }
+}
+
+/* ===== 점검 완료 후 사진 공유 안내 팝업 ===== */
+.checklist-photo-modal-box { max-width:520px; }
+.checklist-photo-modal-msg { font-size:17px; font-weight:600; color:var(--text); margin-bottom:6px; }
+.checklist-photo-modal-hint { font-size:14px; color:var(--text2); line-height:1.5; margin-bottom:14px; }
+.checklist-photo-example-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.checklist-photo-example { border:1.5px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--input-bg); }
+.checklist-photo-example img { width:100%; display:block; max-height:60vh; object-fit:contain; background:var(--surface2); }
+.checklist-photo-example-label { font-size:12px; color:var(--text2); text-align:center; padding:7px 6px; }
+@media (max-width:480px) {
+  .checklist-photo-example-grid { grid-template-columns:1fr; }
+}
+
 /* ===== 점검 히스토리 그리드 ===== */
 .history-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
 .history-toolbar-spacer { flex:1; }
