@@ -13,7 +13,7 @@
      한글 본문은 Pretendard 유지 (Geist엔 한글 글리프가 없음) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&display=swap"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"/>
-<link rel="stylesheet" href="style.css?v=2.6.5"/>
+<link rel="stylesheet" href="style.css?v=2.7.0"/>
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </head>
@@ -245,15 +245,15 @@
 
   <!-- 먼지 포집 검색 -->
   <div id="panelDust" style="display:none">
-    <div id="dustNotAuthMsg" style="font-size:12px;color:var(--text3);padding:6px 0">
-      모바일 환경에서는 상단 <strong>관리자 PW</strong> 인증 후 사용 가능합니다.
-    </div>
     <div id="dustSearchArea" style="display:none">
-      <div class="row" style="margin-bottom:10px;align-items:center;gap:6px;flex-wrap:wrap">
+      <div id="dustPeriodRow" class="row" style="margin-bottom:10px;align-items:center;gap:6px;flex-wrap:wrap">
         <label style="font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:500;color:var(--text3)">조회 기간</label>
         <select id="dustStartMonth" class="list-filter-sel" style="min-width:130px;" onchange="onDustStartMonthChange()"></select>
         <span style="font-size:12px;color:var(--text3);font-weight:500">~</span>
         <select id="dustEndMonth" class="list-filter-sel" style="min-width:130px;"></select>
+      </div>
+      <div id="dustTodayOnlyNote" style="display:none;font-size:12px;color:var(--text3);padding:0 0 10px">
+        모바일에서는 <strong>당일</strong> 데이터만 조회됩니다. 전체 기간 조회는 관리자 인증이 필요합니다.
       </div>
       <hr class="divider" style="margin:0 0 10px"/>
       <div class="zone-header">
@@ -617,6 +617,6 @@
   <span class="footer-date" id="footerDate"></span>
 </div>
 
-<script defer src="script.js?v=2.6.5"></script>
+<script defer src="script.js?v=2.7.0"></script>
 </body>
 </html>

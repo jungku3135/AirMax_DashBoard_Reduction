@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.6.5';
+const APP_VERSION = 'v2.7.0';
 const APP_DATE    = '2026.09.22';
 
 /* ===== 설정 ===== */
@@ -211,13 +211,18 @@ function updatePageTabsVisibility(){
   if(!adminAuthenticated && currentPage==='history') switchPage('inspection');
 }
 
+// 모바일에서는 관리자 인증(일반/슈퍼 모두 가능) 시 전체 기간 조회 가능 — 미인증(일반 유저)은 당일 데이터만
+function isDustTodayOnlyMode(){ return isMobile() && !adminAuthenticated; }
 function _applyDustAuthUI(){
-  const notMsg=document.getElementById('dustNotAuthMsg');
   const area=document.getElementById('dustSearchArea');
-  const blocked = isMobile() && !adminAuthenticated;
-  if(notMsg) notMsg.style.display=blocked?'block':'none';
-  if(area) area.style.display=blocked?'none':'block';
-  if(!blocked) renderDustZoneGrid();
+  const periodRow=document.getElementById('dustPeriodRow');
+  const todayNote=document.getElementById('dustTodayOnlyNote');
+  const todayOnly=isDustTodayOnlyMode();
+  if(area) area.style.display='block';
+  if(periodRow) periodRow.style.display=todayOnly?'none':'flex';
+  if(todayNote) todayNote.style.display=todayOnly?'block':'none';
+  updateRunBtnText();
+  renderDustZoneGrid();
 }
 
 function deauthAdmin(){
@@ -246,6 +251,7 @@ function updateRunBtnText(){
     btn.style.display='none';
     mBtn.style.display='none';
     dustBtn.style.display='';
+    dustBtn.textContent=isDustTodayOnlyMode()?'오늘 먼지 포집 데이터 조회':'먼지 포집 데이터 조회';
     return;
   }
   const label=(currentMode==='single'&&compareMode)?'비교 조회':'점검 시작';
@@ -1430,74 +1436,211 @@ function updateDustZoneInfo(){
 }
 
 /* ===== 먼지 포집 localStorage 캐시 =====
-   계산 결과가 아니라 달별 원본 리포트를 캐싱하므로(아래 fetchDustItemsByMonth 참고),
-   calcDust() 로직이 바뀌어도 다음 조회 때 캐시된 원본으로 자동으로 새로 계산된다 —
-   버전별 무효화가 필요 없음 */
+   이제는 일자별 계산 결과를 IndexedDB에 저장한다(아래 fetchDustResult 참고) — 이 함수는
+   예전 버전에서 쓰던 localStorage 잔여 캐시만 정리한다 */
 function cleanOldDustCache(){
   const today=todayStr();
   for(let i=localStorage.length-1;i>=0;i--){
     const k=localStorage.key(i);
-    if(!k||(!k.startsWith('dustCache_')&&!k.startsWith('dustRaw_'))) continue;
-    // 오늘 날짜 포함 캐시 중 날짜 다른 것 삭제
+    if(!k||!k.startsWith('dustCache_')) continue;
     const dateMatch=k.match(/_(\d{4}-\d{2}-\d{2})$/);
     if(dateMatch&&dateMatch[1]!==today) localStorage.removeItem(k);
   }
 }
 
-// ===== 먼지 포집 월별 원본 리포트 캐시 =====
-// 이전엔 (시작월~종료월) 범위 전체를 하나의 캐시 키로 묶어서, 종료월이 당월(계속 바뀜)이면
-// 매일 범위 전체(과거 달 포함)를 통째로 재조회했다 — 조회 기간이 누적될수록(달이 늘어날수록)
-// API 호출이 기하급수적으로 늘어나 느려지는 원인. 완료된 과거 달은 다시 바뀔 일이 없으므로
-// 달 단위로 쪼개서 캐싱하고, 당월(계속 데이터가 들어오는 중인 달)만 매일 새로 조회한다.
-const DUST_RAW_CACHE_VERSION=1;
-function dustRawCacheKey(id,ym){
-  const curYm=todayStr().slice(0,7);
-  return ym>=curYm?`dustRaw_v${DUST_RAW_CACHE_VERSION}_${id}_${ym}_${todayStr()}`:`dustRaw_v${DUST_RAW_CACHE_VERSION}_${id}_${ym}`;
+// ===== 먼지 포집 일자별 결과 캐시 (IndexedDB) =====
+// 원본 리포트가 아니라 "하루 단위로 계산된 결과"(합산 전/합산 후/증가량)만 캐싱한다 — 원본을 통째로
+// 들고 있는 것보다 훨씬 용량이 작아서 제품이 많아도 부담이 없다. 포집이 발생하지 않은 날(증가량 0)은
+// 저장하지 않고, 대신 "어느 날짜까지 이미 확인이 끝났는지"를 제품별로 별도 기록(coverage)해서 —
+// 다음 조회 때 이미 확인된 구간은 API를 전혀 부르지 않고, 아직 확인 안 된 새 구간(gap)만 조회한다.
+// 지나온(끝난) 날짜는 다시 바뀔 일이 없으므로 영구 캐싱해도 되지만, 당일은 계속 누적되는 중이라
+// 절대 캐싱하지 않고 매번 새로 조회한다.
+function openDustDB(){
+  if(!window.indexedDB) return Promise.resolve(null);
+  return new Promise(resolve=>{
+    const req=indexedDB.open('airmaxDustCache',2);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(db.objectStoreNames.contains('monthlyReports')) db.deleteObjectStore('monthlyReports'); // 이전 버전(달 단위 원본 캐시) 정리
+      if(!db.objectStoreNames.contains('days')) db.createObjectStore('days',{keyPath:'key'});
+      if(!db.objectStoreNames.contains('coverage')) db.createObjectStore('coverage',{keyPath:'id'});
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>resolve(null);
+  });
 }
-function getDustRawMonthCache(id,ym){
+let _dustDBPromise=null;
+function getDustDB(){ if(!_dustDBPromise) _dustDBPromise=openDustDB(); return _dustDBPromise; }
+async function idbGetCoverage(id){
   try{
-    const raw=localStorage.getItem(dustRawCacheKey(id,ym));
-    return raw?JSON.parse(raw):null;
-  }catch{return null;}
+    const db=await getDustDB(); if(!db) return null;
+    return await new Promise(resolve=>{
+      const req=db.transaction('coverage','readonly').objectStore('coverage').get(id);
+      req.onsuccess=()=>resolve(req.result||null);
+      req.onerror=()=>resolve(null);
+    });
+  }catch{ return null; }
 }
-function setDustRawMonthCache(id,ym,items){
-  try{ localStorage.setItem(dustRawCacheKey(id,ym), JSON.stringify(items)); }catch{}
+async function idbSetCoverage(id,from,through){
+  try{
+    const db=await getDustDB(); if(!db) return;
+    await new Promise(resolve=>{
+      const tx=db.transaction('coverage','readwrite');
+      tx.objectStore('coverage').put({id,from,through});
+      tx.oncomplete=()=>resolve(); tx.onerror=()=>resolve();
+    });
+  }catch{}
 }
-// calcDust()에 필요한 필드만 남겨서 캐시 용량을 줄인다
+async function idbPutDustDays(id,dayEntries){
+  if(!dayEntries.length) return;
+  try{
+    const db=await getDustDB(); if(!db) return;
+    await new Promise(resolve=>{
+      const tx=db.transaction('days','readwrite');
+      const store=tx.objectStore('days');
+      dayEntries.forEach(d=>store.put({key:`${id}_${d.date}`,id,date:d.date,count:d.count,first:d.first,last:d.last,inc:d.inc}));
+      tx.oncomplete=()=>resolve(); tx.onerror=()=>resolve();
+    });
+  }catch{}
+}
+async function idbGetDustDaysInRange(id,fromDate,toDate){
+  try{
+    const db=await getDustDB(); if(!db) return [];
+    return await new Promise(resolve=>{
+      const range=IDBKeyRange.bound(`${id}_${fromDate}`,`${id}_${toDate}`);
+      const req=db.transaction('days','readonly').objectStore('days').getAll(range);
+      req.onsuccess=()=>resolve(req.result||[]);
+      req.onerror=()=>resolve([]);
+    });
+  }catch{ return []; }
+}
+// calcDust()에 필요한 필드만 남겨서 임시 조회 용량을 줄인다 (캐시엔 이 raw가 아니라 계산된 day만 저장됨)
 function slimDustItem(it){
   const rd=it.report_data||{};
   return{format_created_time:it.format_created_time, report_data:{dustTotal:rd.dustTotal, dustTotal1:rd.dustTotal1, readTime:rd.readTime}};
 }
-function dustMonthList(startYm,endYm){
-  const months=[];
-  let[y,m]=startYm.split('-').map(Number);
-  const[eY,eM]=endYm.split('-').map(Number);
-  while(y<eY||(y===eY&&m<=eM)){
-    months.push(`${y}-${String(m).padStart(2,'0')}`);
-    m++; if(m>12){m=1;y++;}
-  }
-  return months;
+function addDaysStr(dateStr,n){
+  const[y,m,d]=dateStr.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  dt.setDate(dt.getDate()+n);
+  return fmtDate(dt);
 }
-// id의 startYm~endYm 구간 원본 리포트를 달 단위로 모아서 반환 — 완료된 과거 달은 캐시에서,
-// 당월(또는 아직 캐시 없는 달)만 API로 조회
-async function fetchDustItemsByMonth(id,startYm,endYm,token){
-  const curYm=todayStr().slice(0,7);
-  const months=dustMonthList(startYm,endYm);
-  const all=[];
-  for(const ym of months){
-    if(ym<curYm){
-      const cached=getDustRawMonthCache(id,ym);
-      if(cached){ all.push(...cached); continue; }
+// 캐시 경계(gap의 시작/끝)에서 0/0 통신 오류 판정에 필요한 이전 맥락을 며칠치 함께 재조회해서
+// stripZeroGlitchRuns가 올바르게 판단할 수 있게 한다 (재조회 비용은 며칠치라 무시할 만한 수준)
+const DUST_GAP_OVERLAP_DAYS=7;
+// id의 startYm~endYm 구간 먼지 포집 결과를 반환한다. 이미 확인된(캐시된) 날짜는 API를 부르지 않고
+// 캐시에 없는 새 구간(gap)만 조회해서 채워 넣는다. 당일은 절대 캐싱하지 않고 항상 새로 조회한다.
+// 조회 구간 끝이 0/0 오류로 아직 회복되지 않은 채 끝나면(그 시점까지는 진짜 리셋인지 오류인지
+// 판단 불가) 그 부분은 캐싱을 보류하고 다음 조회 때 다시 포함시킨다 — 이번 조회 화면에는 표시는
+// 하되(freshDays), 캐시에는 반영하지 않는 식으로 정확성과 즉시성을 둘 다 챙긴다.
+async function fetchDustResult(id,startYm,endYm,token){
+  const today=todayStr();
+  const curYm=today.slice(0,7);
+  const reqStart=`${startYm}-01`;
+  const[eY,eM]=endYm.split('-').map(Number);
+  const lastDay=new Date(eY,eM,0).getDate();
+  const reqEndFull=endYm===curYm?today:`${endYm}-${String(lastDay).padStart(2,'0')}`;
+  const yesterday=addDaysStr(today,-1);
+  const closedEnd=reqEndFull<yesterday?reqEndFull:yesterday; // 요청 범위 중 "확정된"(당일 제외) 마지막 날짜
+
+  const daysMap=new Map(); // date -> {date,count,first,last,inc}
+  let scanCount=0;
+
+  if(closedEnd>=reqStart){
+    const coverage=await idbGetCoverage(id);
+    const gaps=[];
+    if(!coverage){
+      gaps.push({start:reqStart,end:closedEnd});
+    }else{
+      if(reqStart<coverage.from){
+        const leadEnd=addDaysStr(coverage.from,-1);
+        if(reqStart<=leadEnd) gaps.push({start:reqStart,end:leadEnd});
+      }
+      if(closedEnd>coverage.through){
+        const trailStart=addDaysStr(coverage.through,1);
+        if(trailStart<=closedEnd) gaps.push({start:trailStart,end:closedEnd});
+      }
     }
-    const[y,m]=ym.split('-').map(Number);
-    const lastDay=new Date(y,m,0).getDate();
-    const monthRange={started_at:`${ym}-01`,finished_at:ym===curYm?todayStr():`${ym}-${String(lastDay).padStart(2,'0')}`};
-    const rawItems=await fetchAllReports(id,monthRange,token,()=>{});
-    const slim=rawItems.map(slimDustItem);
-    setDustRawMonthCache(id,ym,slim);
-    all.push(...slim);
+
+    let curCoverage=coverage;
+    for(const gap of gaps){
+      const overlapStart=addDaysStr(gap.start,-DUST_GAP_OVERLAP_DAYS);
+      const fetchStart=overlapStart<reqStart?reqStart:overlapStart;
+      const rawItems=await fetchAllReports(id,{started_at:fetchStart,finished_at:gap.end},token,()=>{});
+      const slim=rawItems.map(slimDustItem);
+      const{days:gapDays}=calcDust(slim);
+
+      // 이번에 조회한 원본의 맨 끝이 0/0 오류 구간 도중(아직 회복 안 됨)인지 확인
+      let unresolvedFromDate=null;
+      const sortedRaw=[...slim].sort((a,b)=>{
+        const ta=new Date((a.report_data.readTime||a.format_created_time||'').replace(' ','T'));
+        const tb=new Date((b.report_data.readTime||b.format_created_time||'').replace(' ','T'));
+        return ta-tb;
+      });
+      if(sortedRaw.length){
+        const lastGrams=(Number(sortedRaw[sortedRaw.length-1].report_data.dustTotal)||0)*1000+(Number(sortedRaw[sortedRaw.length-1].report_data.dustTotal1)||0);
+        if(lastGrams===0){
+          let i=sortedRaw.length-1;
+          while(i>0){
+            const rd=sortedRaw[i-1].report_data;
+            const g=(Number(rd.dustTotal)||0)*1000+(Number(rd.dustTotal1)||0);
+            if(g!==0) break;
+            i--;
+          }
+          const t=sortedRaw[i].report_data.readTime||sortedRaw[i].format_created_time||'';
+          unresolvedFromDate=t.slice(0,10).replace(/\./g,'-');
+        }
+      }
+
+      // 화면 표시용 — 이번 조회분은 캐싱 여부와 무관하게 전부 반영
+      gapDays.forEach(d=>{
+        if(d.date>=gap.start&&d.date<=gap.end&&d.inc>0) daysMap.set(d.date,d);
+      });
+
+      // 캐시 반영용 — "확정된" 날짜만 (미해결 0/0 구간에 걸린 날짜는 제외)
+      const cacheable=gapDays.filter(d=>d.date>=gap.start&&d.date<=gap.end&&d.inc>0&&(!unresolvedFromDate||d.date<unresolvedFromDate));
+      await idbPutDustDays(id,cacheable);
+
+      const safeEnd=unresolvedFromDate?addDaysStr(unresolvedFromDate,-1):gap.end;
+      if(safeEnd>=gap.start){
+        const newFrom=curCoverage?(gap.start<curCoverage.from?gap.start:curCoverage.from):gap.start;
+        const newThrough=curCoverage?(safeEnd>curCoverage.through?safeEnd:curCoverage.through):safeEnd;
+        curCoverage={from:newFrom,through:newThrough};
+      }
+    }
+    if(curCoverage&&curCoverage!==coverage) await idbSetCoverage(id,curCoverage.from,curCoverage.through);
+
+    // 캐시에 남아있는(위에서 새로 채운 gap 포함) 날짜들도 합쳐서 최종 결과 구성
+    const cachedDays=await idbGetDustDaysInRange(id,reqStart,closedEnd);
+    cachedDays.forEach(d=>{ if(!daysMap.has(d.date)) daysMap.set(d.date,d); });
   }
-  return all;
+
+  // 당일은 절대 캐싱하지 않고 항상 새로 조회 — 어제 값과 이어서 정확한 증가량을 내기 위해 어제치도
+  // 함께 조회하되(캐시엔 손대지 않음), 오늘 항목만 취한다
+  if(reqEndFull>=today){
+    const rawToday=await fetchAllReports(id,{started_at:yesterday,finished_at:today},token,()=>{});
+    const slimToday=rawToday.map(slimDustItem);
+    const{days:todayDays}=calcDust(slimToday);
+    const todayEntry=todayDays.find(d=>d.date===today);
+    if(todayEntry&&todayEntry.inc>0) daysMap.set(today,todayEntry);
+  }
+
+  const days=[...daysMap.values()].sort((a,b)=>a.date<b.date?-1:1);
+  const total=days.reduce((s,d)=>s+d.inc,0);
+  scanCount=days.reduce((s,d)=>s+d.count,0);
+  return{total,days,scanCount};
+}
+// 모바일 일반 유저용 — 캐시/기간 선택 없이 당일 데이터만 가볍게 조회 (어제 값과 이어서 정확한
+// 증가량을 내기 위해 어제치도 함께 조회하되, 캐시에는 손대지 않고 오늘 항목만 취한다)
+async function fetchDustResultTodayOnly(id,token){
+  const today=todayStr();
+  const yesterday=addDaysStr(today,-1);
+  const rawItems=await fetchAllReports(id,{started_at:yesterday,finished_at:today},token,()=>{});
+  const slim=rawItems.map(slimDustItem);
+  const{days:todayDays}=calcDust(slim);
+  const todayEntry=todayDays.find(d=>d.date===today);
+  const days=(todayEntry&&todayEntry.inc>0)?[todayEntry]:[];
+  return{total:days.reduce((s,d)=>s+d.inc,0),days,scanCount:days.reduce((s,d)=>s+d.count,0)};
 }
 function initDustMonthPicker(){
   const startSel=document.getElementById('dustStartMonth');
@@ -1540,10 +1683,7 @@ function groupIdsByZone(ids){
 
 async function startDustSearch(){
   if(isGlobalLocked) return;
-  if(isMobile() && !adminAuthenticated){
-    document.getElementById('errorMsg').textContent='⚠ 모바일에서는 관리자 인증이 필요합니다.';
-    return;
-  }
+  const todayOnly=isDustTodayOnlyMode(); // 모바일 + 관리자 미인증 — 당일 데이터만 조회 가능
   if(dustZoneGridOpen) toggleDustZoneGrid();
   const errEl=document.getElementById('errorMsg');
   errEl.textContent='';
@@ -1556,13 +1696,10 @@ async function startDustSearch(){
   dustExtraIds.forEach(id=>{ if(!added.has(id)){added.add(id);ids.push(id);} });
   if(!ids.length){errEl.textContent='⚠ 조회할 영역을 선택해주세요.';return;}
 
-  const startYm=document.getElementById('dustStartMonth')?.value||'2026-04';
-  const endYm=document.getElementById('dustEndMonth')?.value||todayStr().slice(0,7);
-  if(startYm>endYm){errEl.textContent='⚠ 시작 월이 종료 월보다 클 수 없습니다.';return;}
   const curYm=todayStr().slice(0,7);
-  const [eY,eM]=endYm.split('-').map(Number);
-  const lastDay=new Date(eY,eM,0).getDate();
-  const dateRange={started_at:`${startYm}-01`,finished_at:endYm===curYm?todayStr():`${endYm}-${String(lastDay).padStart(2,'0')}`};
+  const startYm=todayOnly?curYm:(document.getElementById('dustStartMonth')?.value||'2026-04');
+  const endYm=todayOnly?curYm:(document.getElementById('dustEndMonth')?.value||curYm);
+  if(startYm>endYm){errEl.textContent='⚠ 시작 월이 종료 월보다 클 수 없습니다.';return;}
   const resultSection=document.getElementById('dustResultSection');
   const progressEl=document.getElementById('dustProgressRow');
   const gridEl=document.getElementById('dustCardsGrid');
@@ -1602,14 +1739,9 @@ async function startDustSearch(){
     const card=document.getElementById('dust-card-'+id);
     const loc=productLocations[id]?`<div class="dust-card-loc">${escHtml(productLocations[id])}</div>`:'';
     try{
-      // 완료된 과거 달은 캐시 재사용, 당월(또는 아직 캐시 없는 달)만 API 조회 — 조회 기간이 누적돼도
-      // 매번 전체 기간을 다시 긁지 않도록 함
-      const rawItems=await fetchDustItemsByMonth(id,startYm,endYm,token);
-      const items=rawItems.filter(it=>{
-        const t=(it.report_data?.readTime||it.format_created_time||'').slice(0,10);
-        return t>=dateRange.started_at;
-      });
-      const dustResult=calcDust(items);
+      // 이미 확인된 날짜는 캐시에서, 아직 확인 안 된 새 구간(gap)만 API 조회 — 조회 기간이 누적돼도
+      // 매번 전체 기간을 다시 긁지 않도록 함. 모바일 일반 유저는 당일 데이터만 조회
+      const dustResult=todayOnly?await fetchDustResultTodayOnly(id,token):await fetchDustResult(id,startYm,endYm,token);
       const{total,days,scanCount}=dustResult;
       const activeDays=days.filter(d=>d.inc>0);
       if(!card) return;
