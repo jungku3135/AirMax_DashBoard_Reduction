@@ -979,13 +979,10 @@ body.checklist-page-active { padding-bottom:46px; }
 .checklist-photo-modal-box { max-width:520px; }
 .checklist-photo-modal-msg { font-size:17px; font-weight:600; color:var(--text); margin-bottom:6px; }
 .checklist-photo-modal-hint { font-size:14px; color:var(--text2); line-height:1.5; margin-bottom:14px; }
-.checklist-photo-example-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.checklist-photo-example-grid { display:grid; grid-template-columns:1fr; gap:10px; }
 .checklist-photo-example { border:1.5px solid var(--border); border-radius:var(--radius); overflow:hidden; background:var(--input-bg); }
-.checklist-photo-example img { width:100%; display:block; max-height:60vh; object-fit:contain; background:var(--surface2); }
+.checklist-photo-example img { width:100%; display:block; max-height:38vh; object-fit:contain; background:var(--surface2); }
 .checklist-photo-example-label { font-size:12px; color:var(--text2); text-align:center; padding:7px 6px; }
-@media (max-width:480px) {
-  .checklist-photo-example-grid { grid-template-columns:1fr; }
-}
 
 /* ===== 점검 히스토리 그리드 ===== */
 .history-toolbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }

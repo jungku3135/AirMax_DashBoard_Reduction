@@ -1,5 +1,5 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.8.0';
+const APP_VERSION = 'v2.9.0';
 const APP_DATE    = '2026.09.22';
 
 /* ===== 설정 ===== */
@@ -2983,8 +2983,10 @@ function clSetToggle(groupId,value,btnEl,cls){
   group.querySelectorAll('.checklist-toggle-btn').forEach(b=>b.classList.remove('on-ok','on-bad','on-sel'));
   btnEl.classList.add(cls||((value==='정상'||value==='OK')?'on-ok':'on-bad'));
 }
+const CL_USAGE_RATE_IDS=['clBagRate','clHepaRate','clMotorRate'];
 // LED/LCD 제품 표시 방식 선택 — 헷갈리지 않도록 선택된 쪽의 점검 항목만 보여주고 다른 쪽은 숨김.
-// LCD 모뎀 통신상태도 LCD 전용 항목이라 LCD 선택 시에만 노출
+// LCD 모뎀 통신상태, 소모품 사용률(%)은 전부 LCD 화면에서 확인하는 값이라 LED 제품엔 애초에
+// 표시/입력할 방법이 없음 — 그래서 LCD 선택 시에만 노출·입력 가능하게 함
 function clSelectDisplayType(type,btnEl){
   clSetToggle('clDisplayType',type,btnEl,'on-sel');
   const ledSection=document.getElementById('clLedSection');
@@ -2993,21 +2995,34 @@ function clSelectDisplayType(type,btnEl){
   if(ledSection) ledSection.style.display=type==='LED'?'block':'none';
   if(lcdSection) lcdSection.style.display=type==='LCD'?'block':'none';
   if(commSection) commSection.style.display=type==='LCD'?'block':'none';
+  CL_USAGE_RATE_IDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.disabled=type!=='LCD';
+    if(type!=='LCD') el.value='';
+  });
+  clUpdateInputDoneAvailability();
 }
-// 사용률(clBagRate 등)은 교체 여부와 무관하게 항상 입력 가능 — 포집량 측정(무게)은 실제 교체를
-// 진행했을 때만 의미가 있으므로, "소모품 교체" 버튼을 누르기 전까진 이 두 필드만 비활성화해서
-// 교체하지 않은 방문에 실수로 값이 채워지는 걸 방지한다. 다시 누르면 꺼지면서 입력값도 초기화됨
-const CL_REPLACE_FIELD_IDS=['clBagWeight','clInputDone'];
+// 포집량 측정(저울로 무게 재는 것)은 LED/LCD와 무관하게 언제든 가능하므로 "소모품 교체"만 누르면
+// 입력 가능 — 다만 "집진기에 입력 완료"는 LCD 화면에 실제로 입력하는 행위라 LCD 제품일 때만 가능
 let clReplaceActive=false;
+function clUpdateInputDoneAvailability(){
+  const inputDone=document.getElementById('clInputDone');
+  if(!inputDone) return;
+  const displayType=document.getElementById('clDisplayType')?.dataset.value||'';
+  const enable=clReplaceActive&&displayType==='LCD';
+  inputDone.disabled=!enable;
+  if(!enable) inputDone.checked=false;
+}
 function clToggleConsumableReplace(){
   clReplaceActive=!clReplaceActive;
   const btn=document.getElementById('clReplaceToggleBtn');
-  CL_REPLACE_FIELD_IDS.forEach(id=>{
-    const el=document.getElementById(id);
-    if(!el) return;
-    el.disabled=!clReplaceActive;
-    if(!clReplaceActive){ if(el.type==='checkbox') el.checked=false; else el.value=''; }
-  });
+  const weightEl=document.getElementById('clBagWeight');
+  if(weightEl){
+    weightEl.disabled=!clReplaceActive;
+    if(!clReplaceActive) weightEl.value='';
+  }
+  clUpdateInputDoneAvailability();
   if(btn){
     btn.classList.toggle('on-sel',clReplaceActive);
     btn.textContent=clReplaceActive?'소모품 교체 (진행 중 — 다시 누르면 취소)':'소모품 교체';
@@ -3060,6 +3075,15 @@ function getChecklistMissingItems(){
   }
   return missing;
 }
+// 소모품 교체를 진행하고 포집량까지 측정해놓고 "집진기 입력 완료"를 안 누르면, 포집량을
+// 안 입력한 것으로 간주한다 — 절대 누락되면 안 되는 항목이라 일반 누락 목록과 별개로 전용 안내를 띄움.
+// "집진기 입력 완료"는 LCD 제품에서만 가능한 항목이라(LED는 체크박스 자체가 비활성화됨), LCD일 때만 검사
+function checklistHasUncheckedBagWeight(){
+  const weight=(document.getElementById('clBagWeight')?.value||'').trim();
+  const inputDone=document.getElementById('clInputDone')?.checked;
+  const displayType=document.getElementById('clDisplayType')?.dataset.value||'';
+  return clReplaceActive&&displayType==='LCD'&&!!weight&&!inputDone;
+}
 // 빈 값(입력 안 한 필드)은 전송 데이터에서 빼서 전송량을 줄인다 — GAS 쪽은 없는 키를 그대로 빈 값으로
 // 취급하므로(data.xxx || '') 동작에는 차이가 없음
 function compactChecklistData(data){
@@ -3077,6 +3101,10 @@ function setChecklistFormLocked(locked){
 }
 async function submitChecklist(){
   if(!GAS_URL){ alert('GAS_URL이 설정되지 않았습니다.'); return; }
+  if(checklistHasUncheckedBagWeight()){
+    alert('해당 항목은 특이 케이스로 집진기에 포집량 입력 완료 체크가 되어있지 않습니다.\n반드시 집진기에 포집량 입력을 진행해주시기 바랍니다.');
+    return;
+  }
   const missing=getChecklistMissingItems();
   if(missing.length){
     alert('다음 항목이 누락되었습니다:\n\n'+missing.map(m=>'· '+m).join('\n'));
@@ -3129,12 +3157,13 @@ function resetChecklistForm(){
   if(lcdSection) lcdSection.style.display='none';
   if(commSection) commSection.style.display='none';
   clReplaceActive=false;
-  CL_REPLACE_FIELD_IDS.forEach(id=>{
+  const weightEl=document.getElementById('clBagWeight');
+  if(weightEl){ weightEl.disabled=true; weightEl.value=''; }
+  CL_USAGE_RATE_IDS.forEach(id=>{
     const el=document.getElementById(id);
-    if(!el) return;
-    el.disabled=true;
-    if(el.type==='checkbox') el.checked=false; else el.value='';
+    if(el){ el.disabled=true; el.value=''; }
   });
+  clUpdateInputDoneAvailability();
   const replaceBtn=document.getElementById('clReplaceToggleBtn');
   if(replaceBtn) replaceBtn.textContent='소모품 교체';
   const btn=document.getElementById('clSubmitBtn');

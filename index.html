@@ -13,7 +13,7 @@
      한글 본문은 Pretendard 유지 (Geist엔 한글 글리프가 없음) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&display=swap"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"/>
-<link rel="stylesheet" href="style.css?v=2.8.0"/>
+<link rel="stylesheet" href="style.css?v=2.9.0"/>
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </head>
@@ -726,15 +726,15 @@
 
       <div class="checklist-section">
         <div class="checklist-section-title">3. 소모품</div>
-        <div class="checklist-section-desc">사용률은 교체 여부와 상관없이 현재 시점 확인용으로 기록하면 됩니다. 포집량 측정은 실제 교체를 진행했을 때만 아래 버튼을 눌러 입력해주세요.</div>
+        <div class="checklist-section-desc">사용률은 LCD 화면에서만 확인 가능해 LCD 제품 선택 시에만 입력할 수 있습니다. 포집량 측정은 실제 교체를 진행했을 때만 아래 버튼을 눌러 입력해주세요.</div>
 
         <div class="checklist-q" style="padding-top:0;border-top:none">
-          <div class="checklist-q-label">① 소모품 사용률 기록</div>
-          <div class="checklist-q-hint">교체 여부와 무관하게, 현재 시점의 소모품 사용률(%)을 확인하여 기록 — 기준치가 아닌 기록 목적</div>
+          <div class="checklist-q-label">① 소모품 사용률 기록 (LCD 제품만 해당)</div>
+          <div class="checklist-q-hint">교체 여부와 무관하게, 현재 시점의 소모품 사용률(%)을 확인하여 기록 — 기준치가 아닌 기록 목적. LCD 제품 선택 시에만 입력 가능</div>
           <div class="checklist-row3">
-            <div><label>먼지봉투 사용률 (%)</label><input type="text" inputmode="numeric" pattern="[0-9]*" class="checklist-input checklist-num-input" id="clBagRate" oninput="clSanitizeNumberInput(this,100)"/></div>
-            <div><label>HEPA 필터 사용률 (%)</label><input type="text" inputmode="numeric" pattern="[0-9]*" class="checklist-input checklist-num-input" id="clHepaRate" oninput="clSanitizeNumberInput(this,100)"/></div>
-            <div><label>모터 사용률 (%)</label><input type="text" inputmode="numeric" pattern="[0-9]*" class="checklist-input checklist-num-input" id="clMotorRate" oninput="clSanitizeNumberInput(this,100)"/></div>
+            <div><label>먼지봉투 사용률 (%)</label><input type="text" inputmode="numeric" pattern="[0-9]*" class="checklist-input checklist-num-input" id="clBagRate" oninput="clSanitizeNumberInput(this,100)" disabled/></div>
+            <div><label>HEPA 필터 사용률 (%)</label><input type="text" inputmode="numeric" pattern="[0-9]*" class="checklist-input checklist-num-input" id="clHepaRate" oninput="clSanitizeNumberInput(this,100)" disabled/></div>
+            <div><label>모터 사용률 (%)</label><input type="text" inputmode="numeric" pattern="[0-9]*" class="checklist-input checklist-num-input" id="clMotorRate" oninput="clSanitizeNumberInput(this,100)" disabled/></div>
           </div>
         </div>
 
@@ -745,7 +745,7 @@
           <input type="text" inputmode="numeric" pattern="[0-9]*" class="checklist-input" id="clBagWeight" placeholder="측정값 (g)" oninput="clSanitizeNumberInput(this)" disabled/>
           <label class="checklist-check-row" for="clInputDone" style="cursor:pointer">
             <input type="checkbox" id="clInputDone" disabled/>
-            <span>집진기에 포집량 입력 완료</span>
+            <span>집진기에 포집량 입력 완료 (LCD 제품만 해당)</span>
           </label>
         </div>
       </div>
@@ -783,8 +783,8 @@
       <div class="checklist-photo-modal-hint">LCD 제품은 점검 완료 이후 아래 사진과 같은 형식으로 촬영해주세요.</div>
       <div class="checklist-photo-example-grid">
         <div class="checklist-photo-example">
-          <img src="assets/checklist/lcd-photo-example.png" alt="LCD 표시 촬영 예시"/>
-          <div class="checklist-photo-example-label">LCD 표시 촬영 예시</div>
+          <img src="assets/checklist/lcd-photo-example.png" alt="LCD 표시 촬영 예시(메인화면)"/>
+          <div class="checklist-photo-example-label">LCD 표시 촬영 예시(메인화면)</div>
         </div>
         <div class="checklist-photo-example">
           <img src="assets/checklist/bag-weight-photo-example.png" alt="먼지봉투 포집량 측정 촬영 예시"/>
@@ -844,6 +844,6 @@
   <span class="footer-date" id="footerDate"></span>
 </div>
 
-<script defer src="script.js?v=2.8.0"></script>
+<script defer src="script.js?v=2.9.0"></script>
 </body>
 </html>
