@@ -1,6 +1,6 @@
 ﻿/* ===== 버전 ===== */
-const APP_VERSION = 'v2.6.4';
-const APP_DATE    = '2026.09.08';
+const APP_VERSION = 'v2.6.5';
+const APP_DATE    = '2026.09.22';
 
 /* ===== 설정 ===== */
 const ADMIN_PASSWORD       = 'airmax87';  /* 관리자 비밀번호 */
@@ -1429,39 +1429,75 @@ function updateDustZoneInfo(){
   _updateZoneInfo(selectedDustZones,document.getElementById('dustZoneSelectInfo'),(c,t)=>`${c}개 영역 · ${t}개 제품`);
 }
 
-/* ===== 먼지 포집 localStorage 캐시 ===== */
-// calcDust() 집계 로직이 바뀔 때마다 올릴 것 — 캐시 키에 버전이 섞여 들어가서
-// 예전 버전 로직으로 계산된(잘못됐을 수 있는) 캐시가 자동으로 무효화되고 새로 계산됨
-const DUST_CALC_VERSION = 2;
-function dustCacheKey(startYm,endYm){
-  const today=todayStr(), curYm=today.slice(0,7);
-  const range=`${startYm}_${endYm}`;
-  return endYm>=curYm?`dustCache_v${DUST_CALC_VERSION}_${range}_${today}`:`dustCache_v${DUST_CALC_VERSION}_${range}`;
-}
-function getDustCache(id,startYm,endYm){
-  try{
-    const raw=localStorage.getItem(dustCacheKey(startYm,endYm));
-    if(!raw) return null;
-    return JSON.parse(raw)[id]||null;
-  }catch{return null;}
-}
-function setDustCache(id,result,startYm,endYm){
-  try{
-    const key=dustCacheKey(startYm,endYm);
-    const cache=JSON.parse(localStorage.getItem(key)||'{}');
-    cache[id]=result;
-    localStorage.setItem(key,JSON.stringify(cache));
-  }catch{}
-}
+/* ===== 먼지 포집 localStorage 캐시 =====
+   계산 결과가 아니라 달별 원본 리포트를 캐싱하므로(아래 fetchDustItemsByMonth 참고),
+   calcDust() 로직이 바뀌어도 다음 조회 때 캐시된 원본으로 자동으로 새로 계산된다 —
+   버전별 무효화가 필요 없음 */
 function cleanOldDustCache(){
   const today=todayStr();
   for(let i=localStorage.length-1;i>=0;i--){
     const k=localStorage.key(i);
-    if(!k||!k.startsWith('dustCache_')) continue;
+    if(!k||(!k.startsWith('dustCache_')&&!k.startsWith('dustRaw_'))) continue;
     // 오늘 날짜 포함 캐시 중 날짜 다른 것 삭제
     const dateMatch=k.match(/_(\d{4}-\d{2}-\d{2})$/);
     if(dateMatch&&dateMatch[1]!==today) localStorage.removeItem(k);
   }
+}
+
+// ===== 먼지 포집 월별 원본 리포트 캐시 =====
+// 이전엔 (시작월~종료월) 범위 전체를 하나의 캐시 키로 묶어서, 종료월이 당월(계속 바뀜)이면
+// 매일 범위 전체(과거 달 포함)를 통째로 재조회했다 — 조회 기간이 누적될수록(달이 늘어날수록)
+// API 호출이 기하급수적으로 늘어나 느려지는 원인. 완료된 과거 달은 다시 바뀔 일이 없으므로
+// 달 단위로 쪼개서 캐싱하고, 당월(계속 데이터가 들어오는 중인 달)만 매일 새로 조회한다.
+const DUST_RAW_CACHE_VERSION=1;
+function dustRawCacheKey(id,ym){
+  const curYm=todayStr().slice(0,7);
+  return ym>=curYm?`dustRaw_v${DUST_RAW_CACHE_VERSION}_${id}_${ym}_${todayStr()}`:`dustRaw_v${DUST_RAW_CACHE_VERSION}_${id}_${ym}`;
+}
+function getDustRawMonthCache(id,ym){
+  try{
+    const raw=localStorage.getItem(dustRawCacheKey(id,ym));
+    return raw?JSON.parse(raw):null;
+  }catch{return null;}
+}
+function setDustRawMonthCache(id,ym,items){
+  try{ localStorage.setItem(dustRawCacheKey(id,ym), JSON.stringify(items)); }catch{}
+}
+// calcDust()에 필요한 필드만 남겨서 캐시 용량을 줄인다
+function slimDustItem(it){
+  const rd=it.report_data||{};
+  return{format_created_time:it.format_created_time, report_data:{dustTotal:rd.dustTotal, dustTotal1:rd.dustTotal1, readTime:rd.readTime}};
+}
+function dustMonthList(startYm,endYm){
+  const months=[];
+  let[y,m]=startYm.split('-').map(Number);
+  const[eY,eM]=endYm.split('-').map(Number);
+  while(y<eY||(y===eY&&m<=eM)){
+    months.push(`${y}-${String(m).padStart(2,'0')}`);
+    m++; if(m>12){m=1;y++;}
+  }
+  return months;
+}
+// id의 startYm~endYm 구간 원본 리포트를 달 단위로 모아서 반환 — 완료된 과거 달은 캐시에서,
+// 당월(또는 아직 캐시 없는 달)만 API로 조회
+async function fetchDustItemsByMonth(id,startYm,endYm,token){
+  const curYm=todayStr().slice(0,7);
+  const months=dustMonthList(startYm,endYm);
+  const all=[];
+  for(const ym of months){
+    if(ym<curYm){
+      const cached=getDustRawMonthCache(id,ym);
+      if(cached){ all.push(...cached); continue; }
+    }
+    const[y,m]=ym.split('-').map(Number);
+    const lastDay=new Date(y,m,0).getDate();
+    const monthRange={started_at:`${ym}-01`,finished_at:ym===curYm?todayStr():`${ym}-${String(lastDay).padStart(2,'0')}`};
+    const rawItems=await fetchAllReports(id,monthRange,token,()=>{});
+    const slim=rawItems.map(slimDustItem);
+    setDustRawMonthCache(id,ym,slim);
+    all.push(...slim);
+  }
+  return all;
 }
 function initDustMonthPicker(){
   const startSel=document.getElementById('dustStartMonth');
@@ -1566,16 +1602,14 @@ async function startDustSearch(){
     const card=document.getElementById('dust-card-'+id);
     const loc=productLocations[id]?`<div class="dust-card-loc">${escHtml(productLocations[id])}</div>`:'';
     try{
-      let dustResult=getDustCache(id,startYm,endYm);
-      if(!dustResult){
-        const rawItems=await fetchAllReports(id,dateRange,token,()=>{});
-        const items=rawItems.filter(it=>{
-          const t=(it.report_data?.readTime||it.format_created_time||'').slice(0,10);
-          return t>=dateRange.started_at;
-        });
-        dustResult=calcDust(items);
-        setDustCache(id,dustResult,startYm,endYm);
-      }
+      // 완료된 과거 달은 캐시 재사용, 당월(또는 아직 캐시 없는 달)만 API 조회 — 조회 기간이 누적돼도
+      // 매번 전체 기간을 다시 긁지 않도록 함
+      const rawItems=await fetchDustItemsByMonth(id,startYm,endYm,token);
+      const items=rawItems.filter(it=>{
+        const t=(it.report_data?.readTime||it.format_created_time||'').slice(0,10);
+        return t>=dateRange.started_at;
+      });
+      const dustResult=calcDust(items);
       const{total,days,scanCount}=dustResult;
       const activeDays=days.filter(d=>d.inc>0);
       if(!card) return;
@@ -1662,7 +1696,7 @@ function openDustModal(id){
     <div class="dust-stat"><span class="dust-stat-label">포집 발생 수</span>
       <span class="dust-stat-value">${activeDays.length}회</span></div>
     <div class="dust-stat"><span class="dust-stat-label">리포트 데이터 수</span>
-      <span class="dust-stat-value">${scanCount}건</span></div>`;
+      <span class="dust-stat-value">${scanCount.toLocaleString()}건</span></div>`;
 
   const headEl=document.getElementById('dustModalHead');
   const bodyEl=document.getElementById('dustModalBody');
